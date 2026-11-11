@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # The release workflow runs it first: a tag publishes nothing untested.
+  workflow_call:
+
+# Read-only: the build runs every dependency's build scripts and macros.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+# Actions are pinned to a commit (the tag in a comment): a moved tag can't
+# change what runs. Dependabot proposes the updates.
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  # THIRD-PARTY-LICENSES.txt must follow Cargo.lock, and every crate's licence
+  # be one about.toml accepts (all compatible with the GPLv3).
+  licences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+      - name: Install cargo-about 0.9.0
+        run: |
+          curl -sSfL -o cargo-about.tar.gz \
+            https://github.com/EmbarkStudios/cargo-about/releases/download/0.9.0/cargo-about-0.9.0-x86_64-unknown-linux-musl.tar.gz
+          echo "7a1a1bfb3ae3b6feabe9e1d6147a6b34b85bd0339bfd8b0ec11b312dee10d99a  cargo-about.tar.gz" \
+            | sha256sum --check
+          tar -xzf cargo-about.tar.gz --strip-components 1 -C "$HOME/.cargo/bin" \
+            cargo-about-0.9.0-x86_64-unknown-linux-musl/cargo-about
+          rm cargo-about.tar.gz
+      - run: cargo fetch --locked
+      - run: tools/third-party-licenses.sh
+      - name: Check the committed file is current
+        run: |
+          git diff --exit-code -- crates/wish-app/licenses/THIRD-PARTY-LICENSES.txt || {
+            echo "::error::THIRD-PARTY-LICENSES.txt is stale: run tools/third-party-licenses.sh and commit it"
+            exit 1
+          }
+
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install GPUI system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libx11-dev libx11-xcb-dev libxcb1-dev \
+            libvulkan-dev libfontconfig-dev libfreetype-dev
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+          components: clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # Compiler errors and test panics become annotations on the commit.
+      - run: echo "::add-matcher::.github/rust-problem-matchers.json"
+
+      # Without colour, so the problem matchers can read the messages.
+      # --locked: the versions in Cargo.lock, as the release builds them.
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+        env:
+          CARGO_TERM_COLOR: never
+      # Every test binary, so one failure doesn't hide the others.
+      - run: cargo test --workspace --locked --no-fail-fast
+        env:
+          CARGO_TERM_COLOR: never
+      - run: cargo build --workspace --release --locked

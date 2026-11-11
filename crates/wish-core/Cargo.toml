@@ -1,0 +1,23 @@
+[package]
+name = "wish-core"
+description = "Wish history storage, import and statistics. No UI dependencies."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+calamine = { version = "0.38.0", features = ["dates"] }
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock", "serde"] }
+directories = "6.0.0"
+rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
+rust_xlsxwriter = "0.102.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+ureq = "3.5.1"
+url = "2.5.8"
+
+[dev-dependencies]
+anyhow = "1.0.104"
+tempfile = "3.27.0"

@@ -1,0 +1,22 @@
+Third-party licences
+====================
+
+Genshin Companion is built with the open-source crates listed below, each
+under the licence that follows its name. The source of each one is on
+crates.io (https://crates.io/crates/<name>), under the name and version given.
+
+{{#each overview}}
+- {{{name}}}: {{count}} {{#if (eq count 1)}}crate{{else}}crates{{/if}}
+{{/each}}
+{{#each licenses}}
+
+--------------------------------------------------------------------------------
+{{{name}}}
+
+Used by:
+{{#each used_by}}
+- {{{crate.name}}} {{{crate.version}}}{{#if crate.repository}} ({{{crate.repository}}}){{/if}}
+{{/each}}
+
+{{{text}}}
+{{/each}}
