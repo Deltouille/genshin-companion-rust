@@ -1,0 +1,55 @@
+{
+  "server": "America",
+  "wish-uid": "600000001",
+  "wish-counter-character-event": {
+    "total": 15,
+    "legendary": 1,
+    "rare": 2,
+    "pulls": [
+      { "type": "character", "id": "navia", "time": "2023-12-19 18:00:00", "pity": 1, "code": "301", "rate": 1 },
+      { "type": "weapon", "id": "slingshot", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "cool_steel", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "character", "id": "sucrose", "time": "2023-12-25 10:00:00", "pity": 4, "code": "301", "rate": 1 },
+      { "type": "weapon", "id": "debate_club", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "slingshot", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "slingshot", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "cool_steel", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "harbinger_of_dawn", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "character", "id": "xiangling", "time": "2023-12-25 10:00:00", "pity": 6, "code": "301", "rate": 0 },
+      { "type": "weapon", "id": "slingshot", "time": "2023-12-25 10:00:00", "pity": 1, "code": "301" },
+      { "type": "character", "id": "kamisato_ayaka", "time": "2024-01-10 12:00:00", "pity": 11, "code": "400", "rate": 0 },
+      { "type": "character", "id": "bennett", "time": "2024-01-10 12:01:00", "pity": 3, "code": "301", "rate": 2 },
+      { "type": "character", "id": "raiden_shogun", "time": "2024-01-30 15:30:00", "pity": 2, "code": "301", "rate": 2 },
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-31 08:00:00", "pity": 1, "code": "301" }
+    ],
+    "guaranteed": { "legendary": false, "rare": false },
+    "rateoff": {
+      "legendary": { "win": 1, "lose": 1, "maxStreak": 1, "currentStreak": 0 },
+      "rare": { "win": 1, "lose": 1, "maxStreak": 1, "currentStreak": 0 }
+    }
+  },
+  "wish-counter-weapon-event": {
+    "total": 2,
+    "legendary": 1,
+    "rare": 0,
+    "pulls": [
+      { "type": "weapon", "id": "engulfing_lightning", "time": "2024-01-12 20:00:00", "pity": 1, "code": "302", "rate": 1 },
+      { "type": "weapon", "id": "favonius_sword", "time": "2024-01-12 20:01:00", "pity": 2, "code": "302", "rate": 1 }
+    ],
+    "guaranteed": { "legendary": false, "rare": false },
+    "rateoff": {
+      "legendary": { "win": 1, "lose": 0, "maxStreak": 1, "currentStreak": 1 },
+      "rare": { "win": 1, "lose": 0, "maxStreak": 1, "currentStreak": 1 }
+    }
+  },
+  "wish-counter-standard": {
+    "total": 3,
+    "legendary": 0,
+    "rare": 3,
+    "pulls": [
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-05 09:00:00", "pity": 1, "code": "200" },
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-05 09:01:00", "pity": 1, "code": "200" },
+      { "type": "character", "id": "diluc", "time": "2024-01-05 09:02:00", "pity": 3, "code": "200" }
+    ]
+  }
+}

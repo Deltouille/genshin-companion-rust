@@ -1,0 +1,33 @@
+# cargo-deny's settings (.github/workflows/audit.yml): known vulnerabilities in
+# the crates the app is built with (the RustSec database), and where those
+# crates come from. Their licences are cargo-about's job (about.toml).
+#
+#   nix shell nixpkgs#cargo-deny -c cargo-deny --locked check advisories sources
+
+[graph]
+# What the release builds, on every system; tests and examples left out.
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+]
+exclude-dev = true
+
+[advisories]
+# A vulnerability or an unsound crate fails the check, wherever it is. An
+# unmaintained crate fails it only when the app depends on it directly: those
+# deeper down come with GPUI Kit, which pins them (instant, paste, rustybuzz,
+# ttf-parser, zbus_names, zvariant, zvariant_derive in 2026-11), so the way out
+# is its next release, not a change here.
+unmaintained = "workspace"
+unsound = "all"
+yanked = "warn"
+# An advisory to live with goes here, with its reason:
+# { id = "RUSTSEC-YYYY-NNNN", reason = "…" }
+ignore = []
+
+[sources]
+# crates.io only: no git dependency, no other registry.
+unknown-registry = "deny"
+unknown-git = "deny"

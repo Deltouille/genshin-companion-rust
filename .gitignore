@@ -1,0 +1,12 @@
+/target
+
+# Local reference clone of https://github.com/MadeBaruna/paimon-moe (has its own .git)
+/reference/
+
+# Test fixtures built from real exports (they contain UIDs)
+/crates/wish-core/tests/fixtures/private/
+
+# Local clone of https://github.com/theBowja/genshin-db (planner data; has its own .git)
+/genshin-db/
+
+/documentation/

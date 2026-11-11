@@ -1,0 +1,2230 @@
+{
+ "source": {
+  "repo": "https://github.com/MadeBaruna/paimon-moe",
+  "commit": "4b873a6decad0384665084c69e9927a9fa266555"
+ },
+ "characters": [
+  {
+   "key": "aino",
+   "name": "Aino",
+   "rarity": 4,
+   "item_id": 10000121
+  },
+  {
+   "key": "albedo",
+   "name": "Albedo",
+   "rarity": 5,
+   "item_id": 10000038
+  },
+  {
+   "key": "alhaitham",
+   "name": "Alhaitham",
+   "rarity": 5,
+   "item_id": 10000078
+  },
+  {
+   "key": "aloy",
+   "name": "Aloy",
+   "rarity": 5,
+   "item_id": 10000062
+  },
+  {
+   "key": "alyosha",
+   "name": "Alyosha",
+   "rarity": 4,
+   "item_id": 10000148
+  },
+  {
+   "key": "amber",
+   "name": "Amber",
+   "rarity": 4,
+   "item_id": 10000021
+  },
+  {
+   "key": "arataki_itto",
+   "name": "Arataki Itto",
+   "rarity": 5,
+   "item_id": 10000057
+  },
+  {
+   "key": "arlecchino",
+   "name": "Arlecchino",
+   "rarity": 5,
+   "item_id": 10000096
+  },
+  {
+   "key": "baizhu",
+   "name": "Baizhu",
+   "rarity": 5,
+   "item_id": 10000082
+  },
+  {
+   "key": "barbara",
+   "name": "Barbara",
+   "rarity": 4,
+   "item_id": 10000014
+  },
+  {
+   "key": "beidou",
+   "name": "Beidou",
+   "rarity": 4,
+   "item_id": 10000024
+  },
+  {
+   "key": "bennett",
+   "name": "Bennett",
+   "rarity": 4,
+   "item_id": 10000032
+  },
+  {
+   "key": "candace",
+   "name": "Candace",
+   "rarity": 4,
+   "item_id": 10000072
+  },
+  {
+   "key": "charlotte",
+   "name": "Charlotte",
+   "rarity": 4,
+   "item_id": 10000088
+  },
+  {
+   "key": "chasca",
+   "name": "Chasca",
+   "rarity": 5,
+   "item_id": 10000104
+  },
+  {
+   "key": "chevreuse",
+   "name": "Chevreuse",
+   "rarity": 4,
+   "item_id": 10000090
+  },
+  {
+   "key": "chiori",
+   "name": "Chiori",
+   "rarity": 5,
+   "item_id": 10000094
+  },
+  {
+   "key": "chongyun",
+   "name": "Chongyun",
+   "rarity": 4,
+   "item_id": 10000036
+  },
+  {
+   "key": "citlali",
+   "name": "Citlali",
+   "rarity": 5,
+   "item_id": 10000107
+  },
+  {
+   "key": "clorinde",
+   "name": "Clorinde",
+   "rarity": 5,
+   "item_id": 10000098
+  },
+  {
+   "key": "collei",
+   "name": "Collei",
+   "rarity": 4,
+   "item_id": 10000067
+  },
+  {
+   "key": "columbina",
+   "name": "Columbina",
+   "rarity": 5,
+   "item_id": 10000125
+  },
+  {
+   "key": "cyno",
+   "name": "Cyno",
+   "rarity": 5,
+   "item_id": 10000071
+  },
+  {
+   "key": "dahlia",
+   "name": "Dahlia",
+   "rarity": 4,
+   "item_id": 10000115
+  },
+  {
+   "key": "dehya",
+   "name": "Dehya",
+   "rarity": 5,
+   "item_id": 10000079
+  },
+  {
+   "key": "diluc",
+   "name": "Diluc",
+   "rarity": 5,
+   "item_id": 10000016
+  },
+  {
+   "key": "diona",
+   "name": "Diona",
+   "rarity": 4,
+   "item_id": 10000039
+  },
+  {
+   "key": "dori",
+   "name": "Dori",
+   "rarity": 4,
+   "item_id": 10000068
+  },
+  {
+   "key": "durin",
+   "name": "Durin",
+   "rarity": 5,
+   "item_id": 10000123
+  },
+  {
+   "key": "emilie",
+   "name": "Emilie",
+   "rarity": 5,
+   "item_id": 10000099
+  },
+  {
+   "key": "escoffier",
+   "name": "Escoffier",
+   "rarity": 5,
+   "item_id": 10000112
+  },
+  {
+   "key": "eula",
+   "name": "Eula",
+   "rarity": 5,
+   "item_id": 10000051
+  },
+  {
+   "key": "faruzan",
+   "name": "Faruzan",
+   "rarity": 4,
+   "item_id": 10000076
+  },
+  {
+   "key": "fischl",
+   "name": "Fischl",
+   "rarity": 4,
+   "item_id": 10000031
+  },
+  {
+   "key": "flins",
+   "name": "Flins",
+   "rarity": 5,
+   "item_id": 10000120
+  },
+  {
+   "key": "freminet",
+   "name": "Freminet",
+   "rarity": 4,
+   "item_id": 10000085
+  },
+  {
+   "key": "furina",
+   "name": "Furina",
+   "rarity": 5,
+   "item_id": 10000089
+  },
+  {
+   "key": "gaming",
+   "name": "Gaming",
+   "rarity": 4,
+   "item_id": 10000092
+  },
+  {
+   "key": "ganyu",
+   "name": "Ganyu",
+   "rarity": 5,
+   "item_id": 10000037
+  },
+  {
+   "key": "gorou",
+   "name": "Gorou",
+   "rarity": 4,
+   "item_id": 10000055
+  },
+  {
+   "key": "hu_tao",
+   "name": "Hu Tao",
+   "rarity": 5,
+   "item_id": 10000046
+  },
+  {
+   "key": "iansan",
+   "name": "Iansan",
+   "rarity": 4,
+   "item_id": 10000110
+  },
+  {
+   "key": "ifa",
+   "name": "Ifa",
+   "rarity": 4,
+   "item_id": 10000113
+  },
+  {
+   "key": "illuga",
+   "name": "Illuga",
+   "rarity": 4,
+   "item_id": 10000127
+  },
+  {
+   "key": "ineffa",
+   "name": "Ineffa",
+   "rarity": 5,
+   "item_id": 10000116
+  },
+  {
+   "key": "jahoda",
+   "name": "Jahoda",
+   "rarity": 4,
+   "item_id": 10000124
+  },
+  {
+   "key": "jean",
+   "name": "Jean",
+   "rarity": 5,
+   "item_id": 10000003
+  },
+  {
+   "key": "kachina",
+   "name": "Kachina",
+   "rarity": 4,
+   "item_id": 10000100
+  },
+  {
+   "key": "kaedehara_kazuha",
+   "name": "Kaedehara Kazuha",
+   "rarity": 5,
+   "item_id": 10000047
+  },
+  {
+   "key": "kaeya",
+   "name": "Kaeya",
+   "rarity": 4,
+   "item_id": 10000015
+  },
+  {
+   "key": "kamisato_ayaka",
+   "name": "Kamisato Ayaka",
+   "rarity": 5,
+   "item_id": 10000002
+  },
+  {
+   "key": "kamisato_ayato",
+   "name": "Kamisato Ayato",
+   "rarity": 5,
+   "item_id": 10000066
+  },
+  {
+   "key": "kaveh",
+   "name": "Kaveh",
+   "rarity": 4,
+   "item_id": 10000081
+  },
+  {
+   "key": "keqing",
+   "name": "Keqing",
+   "rarity": 5,
+   "item_id": 10000042
+  },
+  {
+   "key": "kinich",
+   "name": "Kinich",
+   "rarity": 5,
+   "item_id": 10000101
+  },
+  {
+   "key": "kirara",
+   "name": "Kirara",
+   "rarity": 4,
+   "item_id": 10000061
+  },
+  {
+   "key": "klee",
+   "name": "Klee",
+   "rarity": 5,
+   "item_id": 10000029
+  },
+  {
+   "key": "kujou_sara",
+   "name": "Kujou Sara",
+   "rarity": 4,
+   "item_id": 10000056
+  },
+  {
+   "key": "kuki_shinobu",
+   "name": "Kuki Shinobu",
+   "rarity": 4,
+   "item_id": 10000065
+  },
+  {
+   "key": "lan_yan",
+   "name": "Lan Yan",
+   "rarity": 4,
+   "item_id": 10000108
+  },
+  {
+   "key": "lauma",
+   "name": "Lauma",
+   "rarity": 5,
+   "item_id": 10000119
+  },
+  {
+   "key": "layla",
+   "name": "Layla",
+   "rarity": 4,
+   "item_id": 10000074
+  },
+  {
+   "key": "linnea",
+   "name": "Linnea",
+   "rarity": 5,
+   "item_id": 10000130
+  },
+  {
+   "key": "lisa",
+   "name": "Lisa",
+   "rarity": 4,
+   "item_id": 10000006
+  },
+  {
+   "key": "lohen",
+   "name": "Lohen",
+   "rarity": 5,
+   "item_id": 10000129
+  },
+  {
+   "key": "lynette",
+   "name": "Lynette",
+   "rarity": 4,
+   "item_id": 10000083
+  },
+  {
+   "key": "lyney",
+   "name": "Lyney",
+   "rarity": 5,
+   "item_id": 10000084
+  },
+  {
+   "key": "mavuika",
+   "name": "Mavuika",
+   "rarity": 5,
+   "item_id": 10000106
+  },
+  {
+   "key": "mika",
+   "name": "Mika",
+   "rarity": 4,
+   "item_id": 10000080
+  },
+  {
+   "key": "mitya",
+   "name": "Mitya",
+   "rarity": 5,
+   "item_id": 10000136
+  },
+  {
+   "key": "mona",
+   "name": "Mona",
+   "rarity": 5,
+   "item_id": 10000041
+  },
+  {
+   "key": "mualani",
+   "name": "Mualani",
+   "rarity": 5,
+   "item_id": 10000102
+  },
+  {
+   "key": "nahida",
+   "name": "Nahida",
+   "rarity": 5,
+   "item_id": 10000073
+  },
+  {
+   "key": "navia",
+   "name": "Navia",
+   "rarity": 5,
+   "item_id": 10000091
+  },
+  {
+   "key": "nefer",
+   "name": "Nefer",
+   "rarity": 5,
+   "item_id": 10000122
+  },
+  {
+   "key": "neuvillette",
+   "name": "Neuvillette",
+   "rarity": 5,
+   "item_id": 10000087
+  },
+  {
+   "key": "nicole",
+   "name": "Nicole",
+   "rarity": 5,
+   "item_id": 10000131
+  },
+  {
+   "key": "nilou",
+   "name": "Nilou",
+   "rarity": 5,
+   "item_id": 10000070
+  },
+  {
+   "key": "ningguang",
+   "name": "Ningguang",
+   "rarity": 4,
+   "item_id": 10000027
+  },
+  {
+   "key": "noelle",
+   "name": "Noelle",
+   "rarity": 4,
+   "item_id": 10000034
+  },
+  {
+   "key": "odette",
+   "name": "Odette",
+   "rarity": 5,
+   "item_id": 10000150
+  },
+  {
+   "key": "ororon",
+   "name": "Ororon",
+   "rarity": 4,
+   "item_id": 10000105
+  },
+  {
+   "key": "prune",
+   "name": "Prune",
+   "rarity": 4,
+   "item_id": 10000132
+  },
+  {
+   "key": "qiqi",
+   "name": "Qiqi",
+   "rarity": 5,
+   "item_id": 10000035
+  },
+  {
+   "key": "raiden_shogun",
+   "name": "Raiden Shogun",
+   "rarity": 5,
+   "item_id": 10000052
+  },
+  {
+   "key": "razor",
+   "name": "Razor",
+   "rarity": 4,
+   "item_id": 10000020
+  },
+  {
+   "key": "rosaria",
+   "name": "Rosaria",
+   "rarity": 4,
+   "item_id": 10000045
+  },
+  {
+   "key": "sandrone",
+   "name": "Sandrone",
+   "rarity": 5,
+   "item_id": 10000133
+  },
+  {
+   "key": "sangonomiya_kokomi",
+   "name": "Sangonomiya Kokomi",
+   "rarity": 5,
+   "item_id": 10000054
+  },
+  {
+   "key": "sayu",
+   "name": "Sayu",
+   "rarity": 4,
+   "item_id": 10000053
+  },
+  {
+   "key": "sethos",
+   "name": "Sethos",
+   "rarity": 4,
+   "item_id": 10000097
+  },
+  {
+   "key": "shenhe",
+   "name": "Shenhe",
+   "rarity": 5,
+   "item_id": 10000063
+  },
+  {
+   "key": "shikanoin_heizou",
+   "name": "Shikanoin Heizou",
+   "rarity": 4,
+   "item_id": 10000059
+  },
+  {
+   "key": "sigewinne",
+   "name": "Sigewinne",
+   "rarity": 5,
+   "item_id": 10000095
+  },
+  {
+   "key": "skirk",
+   "name": "Skirk",
+   "rarity": 5,
+   "item_id": 10000114
+  },
+  {
+   "key": "sucrose",
+   "name": "Sucrose",
+   "rarity": 4,
+   "item_id": 10000043
+  },
+  {
+   "key": "tartaglia",
+   "name": "Tartaglia",
+   "rarity": 5,
+   "item_id": 10000033
+  },
+  {
+   "key": "thoma",
+   "name": "Thoma",
+   "rarity": 4,
+   "item_id": 10000050
+  },
+  {
+   "key": "tighnari",
+   "name": "Tighnari",
+   "rarity": 5,
+   "item_id": 10000069
+  },
+  {
+   "key": "traveler_anemo",
+   "name": "Traveler (Anemo)",
+   "rarity": 5
+  },
+  {
+   "key": "traveler_dendro",
+   "name": "Traveler (Dendro)",
+   "rarity": 5
+  },
+  {
+   "key": "traveler_electro",
+   "name": "Traveler (Electro)",
+   "rarity": 5
+  },
+  {
+   "key": "traveler_geo",
+   "name": "Traveler (Geo)",
+   "rarity": 5
+  },
+  {
+   "key": "traveler_hydro",
+   "name": "Traveler (Hydro)",
+   "rarity": 5
+  },
+  {
+   "key": "traveler_pyro",
+   "name": "Traveler (Pyro)",
+   "rarity": 5
+  },
+  {
+   "key": "valeriy",
+   "name": "Valeriy",
+   "rarity": 4,
+   "item_id": 10000137
+  },
+  {
+   "key": "varesa",
+   "name": "Varesa",
+   "rarity": 5,
+   "item_id": 10000111
+  },
+  {
+   "key": "varka",
+   "name": "Varka",
+   "rarity": 5,
+   "item_id": 10000128
+  },
+  {
+   "key": "venti",
+   "name": "Venti",
+   "rarity": 5,
+   "item_id": 10000022
+  },
+  {
+   "key": "vesna",
+   "name": "Vesna",
+   "rarity": 5,
+   "item_id": 10000143
+  },
+  {
+   "key": "vodyanitsa",
+   "name": "Vodyanitsa",
+   "rarity": 5,
+   "item_id": 10000140
+  },
+  {
+   "key": "wanderer",
+   "name": "Wanderer",
+   "rarity": 5,
+   "item_id": 10000075
+  },
+  {
+   "key": "wriothesley",
+   "name": "Wriothesley",
+   "rarity": 5,
+   "item_id": 10000086
+  },
+  {
+   "key": "xiangling",
+   "name": "Xiangling",
+   "rarity": 4,
+   "item_id": 10000023
+  },
+  {
+   "key": "xianyun",
+   "name": "Xianyun",
+   "rarity": 5,
+   "item_id": 10000093
+  },
+  {
+   "key": "xiao",
+   "name": "Xiao",
+   "rarity": 5,
+   "item_id": 10000026
+  },
+  {
+   "key": "xilonen",
+   "name": "Xilonen",
+   "rarity": 5,
+   "item_id": 10000103
+  },
+  {
+   "key": "xingqiu",
+   "name": "Xingqiu",
+   "rarity": 4,
+   "item_id": 10000025
+  },
+  {
+   "key": "xinyan",
+   "name": "Xinyan",
+   "rarity": 4,
+   "item_id": 10000044
+  },
+  {
+   "key": "yae_miko",
+   "name": "Yae Miko",
+   "rarity": 5,
+   "item_id": 10000058
+  },
+  {
+   "key": "yanfei",
+   "name": "Yanfei",
+   "rarity": 4,
+   "item_id": 10000048
+  },
+  {
+   "key": "yaoyao",
+   "name": "Yaoyao",
+   "rarity": 4,
+   "item_id": 10000077
+  },
+  {
+   "key": "yelan",
+   "name": "Yelan",
+   "rarity": 5,
+   "item_id": 10000060
+  },
+  {
+   "key": "yoimiya",
+   "name": "Yoimiya",
+   "rarity": 5,
+   "item_id": 10000049
+  },
+  {
+   "key": "yumemizuki_mizuki",
+   "name": "Yumemizuki Mizuki",
+   "rarity": 5,
+   "item_id": 10000109
+  },
+  {
+   "key": "yun_jin",
+   "name": "Yun Jin",
+   "rarity": 4,
+   "item_id": 10000064
+  },
+  {
+   "key": "zhongli",
+   "name": "Zhongli",
+   "rarity": 5,
+   "item_id": 10000030
+  },
+  {
+   "key": "zibai",
+   "name": "Zibai",
+   "rarity": 5,
+   "item_id": 10000126
+  }
+ ],
+ "weapons": [
+  {
+   "key": "a_teaspoon_of_transcendence",
+   "name": "A Teaspoon of Transcendence",
+   "rarity": 5,
+   "item_id": 12516
+  },
+  {
+   "key": "a_thousand_blazing_suns",
+   "name": "A Thousand Blazing Suns",
+   "rarity": 5,
+   "item_id": 12514
+  },
+  {
+   "key": "a_thousand_floating_dreams",
+   "name": "A Thousand Floating Dreams",
+   "rarity": 5,
+   "item_id": 14511
+  },
+  {
+   "key": "absolution",
+   "name": "Absolution",
+   "rarity": 5,
+   "item_id": 11515
+  },
+  {
+   "key": "akuoumaru",
+   "name": "Akuoumaru",
+   "rarity": 4,
+   "item_id": 12416
+  },
+  {
+   "key": "alley_hunter",
+   "name": "Alley Hunter",
+   "rarity": 4,
+   "item_id": 15410
+  },
+  {
+   "key": "amenoma_kageuchi",
+   "name": "Amenoma Kageuchi",
+   "rarity": 4,
+   "item_id": 11414
+  },
+  {
+   "key": "amos_bow",
+   "name": "Amos' Bow",
+   "rarity": 5,
+   "item_id": 15502
+  },
+  {
+   "key": "angelos_heptades",
+   "name": "Angelos' Heptades",
+   "rarity": 5,
+   "item_id": 14523
+  },
+  {
+   "key": "aqua_simulacra",
+   "name": "Aqua Simulacra",
+   "rarity": 5,
+   "item_id": 15508
+  },
+  {
+   "key": "aquila_favonia",
+   "name": "Aquila Favonia",
+   "rarity": 5,
+   "item_id": 11501
+  },
+  {
+   "key": "ash-graven_drinking_horn",
+   "name": "Ash-Graven Drinking Horn",
+   "rarity": 4,
+   "item_id": 14427
+  },
+  {
+   "key": "astral_vultures_crimson_plumage",
+   "name": "Astral Vulture's Crimson Plumage",
+   "rarity": 5,
+   "item_id": 15514
+  },
+  {
+   "key": "athame_artis",
+   "name": "Athame Artis",
+   "rarity": 5,
+   "item_id": 11518
+  },
+  {
+   "key": "azurelight",
+   "name": "Azurelight",
+   "rarity": 5,
+   "item_id": 11517
+  },
+  {
+   "key": "ballad_of_the_boundless_blue",
+   "name": "Ballad of the Boundless Blue",
+   "rarity": 4,
+   "item_id": 14426
+  },
+  {
+   "key": "ballad_of_the_fjords",
+   "name": "Ballad of the Fjords",
+   "rarity": 4,
+   "item_id": 13424
+  },
+  {
+   "key": "beacon_of_the_reed_sea",
+   "name": "Beacon of the Reed Sea",
+   "rarity": 5,
+   "item_id": 12511
+  },
+  {
+   "key": "beyond_the_chrysalis",
+   "name": "Beyond the Chrysalis",
+   "rarity": 5,
+   "item_id": 11522
+  },
+  {
+   "key": "black_tassel",
+   "name": "Black Tassel",
+   "rarity": 3,
+   "item_id": 13303
+  },
+  {
+   "key": "blackcliff_agate",
+   "name": "Blackcliff Agate",
+   "rarity": 4,
+   "item_id": 14408
+  },
+  {
+   "key": "blackcliff_longsword",
+   "name": "Blackcliff Longsword",
+   "rarity": 4,
+   "item_id": 11408
+  },
+  {
+   "key": "blackcliff_pole",
+   "name": "Blackcliff Pole",
+   "rarity": 4,
+   "item_id": 13404
+  },
+  {
+   "key": "blackcliff_slasher",
+   "name": "Blackcliff Slasher",
+   "rarity": 4,
+   "item_id": 12408
+  },
+  {
+   "key": "blackcliff_warbow",
+   "name": "Blackcliff Warbow",
+   "rarity": 4,
+   "item_id": 15408
+  },
+  {
+   "key": "blackmarrow_lantern",
+   "name": "Blackmarrow Lantern",
+   "rarity": 4,
+   "item_id": 14433
+  },
+  {
+   "key": "blade_of_atonement",
+   "name": "Blade of Atonement",
+   "rarity": 4,
+   "item_id": 12436
+  },
+  {
+   "key": "bloodsoaked_ruins",
+   "name": "Bloodsoaked Ruins",
+   "rarity": 5,
+   "item_id": 13516
+  },
+  {
+   "key": "bloodtainted_greatsword",
+   "name": "Bloodtainted Greatsword",
+   "rarity": 3,
+   "item_id": 12302
+  },
+  {
+   "key": "breezeborne_refrain",
+   "name": "Breezeborne Refrain",
+   "rarity": 4,
+   "item_id": 15437
+  },
+  {
+   "key": "calamity_of_eshu",
+   "name": "Calamity of Eshu",
+   "rarity": 4,
+   "item_id": 11432
+  },
+  {
+   "key": "calamity_queller",
+   "name": "Calamity Queller",
+   "rarity": 5,
+   "item_id": 13507
+  },
+  {
+   "key": "cashflow_supervision",
+   "name": "Cashflow Supervision",
+   "rarity": 5,
+   "item_id": 14513
+  },
+  {
+   "key": "chain_breaker",
+   "name": "Chain Breaker",
+   "rarity": 4,
+   "item_id": 15431
+  },
+  {
+   "key": "cinnabar_spindle",
+   "name": "Cinnabar Spindle",
+   "rarity": 4,
+   "item_id": 11415
+  },
+  {
+   "key": "clash_of_kings",
+   "name": "Clash of Kings",
+   "rarity": 4,
+   "item_id": 14435
+  },
+  {
+   "key": "cloudforged",
+   "name": "Cloudforged",
+   "rarity": 4,
+   "item_id": 15426
+  },
+  {
+   "key": "compound_bow",
+   "name": "Compound Bow",
+   "rarity": 4,
+   "item_id": 15407
+  },
+  {
+   "key": "cool_steel",
+   "name": "Cool Steel",
+   "rarity": 3,
+   "item_id": 11301
+  },
+  {
+   "key": "covenant_of_frost_and_snow",
+   "name": "Covenant of Frost and Snow",
+   "rarity": 4,
+   "item_id": 15436
+  },
+  {
+   "key": "cranes_echoing_call",
+   "name": "Crane's Echoing Call",
+   "rarity": 5,
+   "item_id": 14515
+  },
+  {
+   "key": "crescent_pike",
+   "name": "Crescent Pike",
+   "rarity": 4,
+   "item_id": 13403
+  },
+  {
+   "key": "crimson_moons_semblance",
+   "name": "Crimson Moon's Semblance",
+   "rarity": 5,
+   "item_id": 13512
+  },
+  {
+   "key": "dark_iron_sword",
+   "name": "Dark Iron Sword",
+   "rarity": 3,
+   "item_id": 11304
+  },
+  {
+   "key": "dawning_frost",
+   "name": "Dawning Frost",
+   "rarity": 4,
+   "item_id": 14434
+  },
+  {
+   "key": "deathmatch",
+   "name": "Deathmatch",
+   "rarity": 4,
+   "item_id": 13405
+  },
+  {
+   "key": "debate_club",
+   "name": "Debate Club",
+   "rarity": 3,
+   "item_id": 12305
+  },
+  {
+   "key": "dialogues_of_the_desert_sages",
+   "name": "Dialogues of the Desert Sages",
+   "rarity": 4,
+   "item_id": 13426
+  },
+  {
+   "key": "disaster_and_remorse",
+   "name": "Disaster and Remorse",
+   "rarity": 5,
+   "item_id": 13517
+  },
+  {
+   "key": "dodoco_tales",
+   "name": "Dodoco Tales",
+   "rarity": 4,
+   "item_id": 14413
+  },
+  {
+   "key": "dragons_bane",
+   "name": "Dragon's Bane",
+   "rarity": 4,
+   "item_id": 13401
+  },
+  {
+   "key": "dragonspine_spear",
+   "name": "Dragonspine Spear",
+   "rarity": 4,
+   "item_id": 13409
+  },
+  {
+   "key": "earth_shaker",
+   "name": "Earth Shaker",
+   "rarity": 4,
+   "item_id": 12431
+  },
+  {
+   "key": "echoes_of_the_heart",
+   "name": "Echoes of the Heart",
+   "rarity": 4,
+   "item_id": 14436
+  },
+  {
+   "key": "elegy_for_the_end",
+   "name": "Elegy for the End",
+   "rarity": 5,
+   "item_id": 15503
+  },
+  {
+   "key": "emberwell",
+   "name": "Emberwell",
+   "rarity": 4,
+   "item_id": 11436
+  },
+  {
+   "key": "emerald_orb",
+   "name": "Emerald Orb",
+   "rarity": 3,
+   "item_id": 14304
+  },
+  {
+   "key": "end_of_the_line",
+   "name": "End of the Line",
+   "rarity": 4,
+   "item_id": 15418
+  },
+  {
+   "key": "engulfing_lightning",
+   "name": "Engulfing Lightning",
+   "rarity": 5,
+   "item_id": 13509
+  },
+  {
+   "key": "etherlight_spindlelute",
+   "name": "Etherlight Spindlelute",
+   "rarity": 4,
+   "item_id": 14432
+  },
+  {
+   "key": "everlasting_moonglow",
+   "name": "Everlasting Moonglow",
+   "rarity": 5,
+   "item_id": 14506
+  },
+  {
+   "key": "exaiphanes_blade",
+   "name": "Exaiphanes Blade",
+   "rarity": 5,
+   "item_id": 11521
+  },
+  {
+   "key": "eye_of_perception",
+   "name": "Eye of Perception",
+   "rarity": 4,
+   "item_id": 14409
+  },
+  {
+   "key": "fading_twilight",
+   "name": "Fading Twilight",
+   "rarity": 4,
+   "item_id": 15411
+  },
+  {
+   "key": "fang_of_the_mountain_king",
+   "name": "Fang of the Mountain King",
+   "rarity": 5,
+   "item_id": 12513
+  },
+  {
+   "key": "favonius_codex",
+   "name": "Favonius Codex",
+   "rarity": 4,
+   "item_id": 14401
+  },
+  {
+   "key": "favonius_greatsword",
+   "name": "Favonius Greatsword",
+   "rarity": 4,
+   "item_id": 12401
+  },
+  {
+   "key": "favonius_lance",
+   "name": "Favonius Lance",
+   "rarity": 4,
+   "item_id": 13407
+  },
+  {
+   "key": "favonius_sword",
+   "name": "Favonius Sword",
+   "rarity": 4,
+   "item_id": 11401
+  },
+  {
+   "key": "favonius_warbow",
+   "name": "Favonius Warbow",
+   "rarity": 4,
+   "item_id": 15401
+  },
+  {
+   "key": "ferrous_shadow",
+   "name": "Ferrous Shadow",
+   "rarity": 3,
+   "item_id": 12301
+  },
+  {
+   "key": "festering_desire",
+   "name": "Festering Desire",
+   "rarity": 4,
+   "item_id": 11413
+  },
+  {
+   "key": "fillet_blade",
+   "name": "Fillet Blade",
+   "rarity": 3,
+   "item_id": 11305
+  },
+  {
+   "key": "finale_of_the_deep",
+   "name": "Finale of the Deep",
+   "rarity": 4,
+   "item_id": 11425
+  },
+  {
+   "key": "flame-forged_insight",
+   "name": "Flame-Forged Insight",
+   "rarity": 4,
+   "item_id": 12432
+  },
+  {
+   "key": "fleuve_cendre_ferryman",
+   "name": "Fleuve Cendre Ferryman",
+   "rarity": 4,
+   "item_id": 11426
+  },
+  {
+   "key": "flower-wreathed_feathers",
+   "name": "Flower-Wreathed Feathers",
+   "rarity": 4,
+   "item_id": 15430
+  },
+  {
+   "key": "flowing_purity",
+   "name": "Flowing Purity",
+   "rarity": 4,
+   "item_id": 14425
+  },
+  {
+   "key": "flute_of_ezpitzal",
+   "name": "Flute of Ezpitzal",
+   "rarity": 4,
+   "item_id": 11431
+  },
+  {
+   "key": "footprint_of_the_rainbow",
+   "name": "Footprint of the Rainbow",
+   "rarity": 4,
+   "item_id": 13431
+  },
+  {
+   "key": "forest_regalia",
+   "name": "Forest Regalia",
+   "rarity": 4,
+   "item_id": 12417
+  },
+  {
+   "key": "forged_by_the_golden_melody",
+   "name": "Forged by the Golden Melody",
+   "rarity": 4,
+   "item_id": 12435
+  },
+  {
+   "key": "fractured_halo",
+   "name": "Fractured Halo",
+   "rarity": 5,
+   "item_id": 13515
+  },
+  {
+   "key": "freedom-sworn",
+   "name": "Freedom-Sworn",
+   "rarity": 5,
+   "item_id": 11503
+  },
+  {
+   "key": "frostbearer",
+   "name": "Frostbearer",
+   "rarity": 4,
+   "item_id": 14412
+  },
+  {
+   "key": "frostbreath",
+   "name": "Frostbreath",
+   "rarity": 4,
+   "item_id": 13435
+  },
+  {
+   "key": "fruit_of_fulfillment",
+   "name": "Fruit of Fulfillment",
+   "rarity": 4,
+   "item_id": 14417
+  },
+  {
+   "key": "fruitful_hook",
+   "name": "Fruitful Hook",
+   "rarity": 4,
+   "item_id": 12430
+  },
+  {
+   "key": "gest_of_the_mighty_wolf",
+   "name": "Gest of the Mighty Wolf",
+   "rarity": 5,
+   "item_id": 12515
+  },
+  {
+   "key": "golden_frostbound_oath",
+   "name": "Golden Frostbound Oath",
+   "rarity": 5,
+   "item_id": 15516
+  },
+  {
+   "key": "hakushin_ring",
+   "name": "Hakushin Ring",
+   "rarity": 4,
+   "item_id": 14414
+  },
+  {
+   "key": "halberd",
+   "name": "Halberd",
+   "rarity": 3,
+   "item_id": 13302
+  },
+  {
+   "key": "hamayumi",
+   "name": "Hamayumi",
+   "rarity": 4,
+   "item_id": 15414
+  },
+  {
+   "key": "haran_geppaku_futsu",
+   "name": "Haran Geppaku Futsu",
+   "rarity": 5,
+   "item_id": 11510
+  },
+  {
+   "key": "harbinger_of_dawn",
+   "name": "Harbinger of Dawn",
+   "rarity": 3,
+   "item_id": 11302
+  },
+  {
+   "key": "heretics_molten_blade",
+   "name": "Heretic's Molten Blade",
+   "rarity": 4,
+   "item_id": 11435
+  },
+  {
+   "key": "hunters_path",
+   "name": "Hunter's Path",
+   "rarity": 5,
+   "item_id": 15511
+  },
+  {
+   "key": "hymn_of_the_maelstrom",
+   "name": "Hymn of the Maelstrom",
+   "rarity": 5,
+   "item_id": 14524
+  },
+  {
+   "key": "ibis_piercer",
+   "name": "Ibis Piercer",
+   "rarity": 4,
+   "item_id": 15419
+  },
+  {
+   "key": "iron_sting",
+   "name": "Iron Sting",
+   "rarity": 4,
+   "item_id": 11407
+  },
+  {
+   "key": "jade_vista",
+   "name": "Jade Vista",
+   "rarity": 4,
+   "item_id": 15435
+  },
+  {
+   "key": "jadefalls_splendor",
+   "name": "Jadefall's Splendor",
+   "rarity": 5,
+   "item_id": 14505
+  },
+  {
+   "key": "kagotsurube_isshin",
+   "name": "Kagotsurube Isshin",
+   "rarity": 4,
+   "item_id": 11416
+  },
+  {
+   "key": "kaguras_verity",
+   "name": "Kagura's Verity",
+   "rarity": 5,
+   "item_id": 14509
+  },
+  {
+   "key": "katsuragikiri_nagamasa",
+   "name": "Katsuragikiri Nagamasa",
+   "rarity": 4,
+   "item_id": 12414
+  },
+  {
+   "key": "key_of_khaj-nisut",
+   "name": "Key of Khaj-Nisut",
+   "rarity": 5,
+   "item_id": 11511
+  },
+  {
+   "key": "kings_squire",
+   "name": "King's Squire",
+   "rarity": 4,
+   "item_id": 15417
+  },
+  {
+   "key": "kitain_cross_spear",
+   "name": "Kitain Cross Spear",
+   "rarity": 4,
+   "item_id": 13414
+  },
+  {
+   "key": "light_of_foliar_incision",
+   "name": "Light of Foliar Incision",
+   "rarity": 5,
+   "item_id": 11512
+  },
+  {
+   "key": "lightbearing_moonshard",
+   "name": "Lightbearing Moonshard",
+   "rarity": 5,
+   "item_id": 11519
+  },
+  {
+   "key": "lions_roar",
+   "name": "Lion's Roar",
+   "rarity": 4,
+   "item_id": 11405
+  },
+  {
+   "key": "lithic_blade",
+   "name": "Lithic Blade",
+   "rarity": 4,
+   "item_id": 12410
+  },
+  {
+   "key": "lithic_spear",
+   "name": "Lithic Spear",
+   "rarity": 4,
+   "item_id": 13406
+  },
+  {
+   "key": "lost_prayer_to_the_sacred_winds",
+   "name": "Lost Prayer to the Sacred Winds",
+   "rarity": 5,
+   "item_id": 14502
+  },
+  {
+   "key": "lumidouce_elegy",
+   "name": "Lumidouce Elegy",
+   "rarity": 5,
+   "item_id": 13513
+  },
+  {
+   "key": "luxurious_sea-lord",
+   "name": "Luxurious Sea-Lord",
+   "rarity": 4,
+   "item_id": 12412
+  },
+  {
+   "key": "magic_guide",
+   "name": "Magic Guide",
+   "rarity": 3,
+   "item_id": 14301
+  },
+  {
+   "key": "mailed_flower",
+   "name": "Mailed Flower",
+   "rarity": 4,
+   "item_id": 12418
+  },
+  {
+   "key": "makhaira_aquamarine",
+   "name": "Makhaira Aquamarine",
+   "rarity": 4,
+   "item_id": 12415
+  },
+  {
+   "key": "mappa_mare",
+   "name": "Mappa Mare",
+   "rarity": 4,
+   "item_id": 14407
+  },
+  {
+   "key": "master_key",
+   "name": "Master Key",
+   "rarity": 4,
+   "item_id": 12433
+  },
+  {
+   "key": "memory_of_dust",
+   "name": "Memory of Dust",
+   "rarity": 5,
+   "item_id": 14504
+  },
+  {
+   "key": "messenger",
+   "name": "Messenger",
+   "rarity": 3,
+   "item_id": 15305
+  },
+  {
+   "key": "missive_windspear",
+   "name": "Missive Windspear",
+   "rarity": 4,
+   "item_id": 13419
+  },
+  {
+   "key": "mistsplitter_reforged",
+   "name": "Mistsplitter Reforged",
+   "rarity": 5,
+   "item_id": 11509
+  },
+  {
+   "key": "mitternachts_waltz",
+   "name": "Mitternachts Waltz",
+   "rarity": 4,
+   "item_id": 15412
+  },
+  {
+   "key": "moonpiercer",
+   "name": "Moonpiercer",
+   "rarity": 4,
+   "item_id": 13417
+  },
+  {
+   "key": "moonweavers_dawn",
+   "name": "Moonweaver's Dawn",
+   "rarity": 4,
+   "item_id": 11434
+  },
+  {
+   "key": "mountain-bracing_bolt",
+   "name": "Mountain-Bracing Bolt",
+   "rarity": 4,
+   "item_id": 13430
+  },
+  {
+   "key": "mouuns_moon",
+   "name": "Mouun's Moon",
+   "rarity": 4,
+   "item_id": 15416
+  },
+  {
+   "key": "new_bough",
+   "name": "New Bough",
+   "rarity": 4,
+   "item_id": 11437
+  },
+  {
+   "key": "nightweavers_looking_glass",
+   "name": "Nightweaver's Looking Glass",
+   "rarity": 5,
+   "item_id": 14520
+  },
+  {
+   "key": "nocturnes_curtain_call",
+   "name": "Nocturne's Curtain Call",
+   "rarity": 5,
+   "item_id": 14522
+  },
+  {
+   "key": "oathsworn_eye",
+   "name": "Oathsworn Eye",
+   "rarity": 4,
+   "item_id": 14415
+  },
+  {
+   "key": "otherworldly_story",
+   "name": "Otherworldly Story",
+   "rarity": 3,
+   "item_id": 14303
+  },
+  {
+   "key": "peak_patrol_song",
+   "name": "Peak Patrol Song",
+   "rarity": 5,
+   "item_id": 11516
+  },
+  {
+   "key": "polar_star",
+   "name": "Polar Star",
+   "rarity": 5,
+   "item_id": 15507
+  },
+  {
+   "key": "portable_power_saw",
+   "name": "Portable Power Saw",
+   "rarity": 4,
+   "item_id": 12427
+  },
+  {
+   "key": "predator",
+   "name": "Predator",
+   "rarity": 4,
+   "item_id": 15415
+  },
+  {
+   "key": "primordial_jade_cutter",
+   "name": "Primordial Jade Cutter",
+   "rarity": 5,
+   "item_id": 11505
+  },
+  {
+   "key": "primordial_jade_winged-spear",
+   "name": "Primordial Jade Winged-Spear",
+   "rarity": 5,
+   "item_id": 13505
+  },
+  {
+   "key": "prospectors_drill",
+   "name": "Prospector's Drill",
+   "rarity": 4,
+   "item_id": 13427
+  },
+  {
+   "key": "prospectors_shovel",
+   "name": "Prospector's Shovel",
+   "rarity": 4,
+   "item_id": 13433
+  },
+  {
+   "key": "prototype_amber",
+   "name": "Prototype Amber",
+   "rarity": 4,
+   "item_id": 14406
+  },
+  {
+   "key": "prototype_archaic",
+   "name": "Prototype Archaic",
+   "rarity": 4,
+   "item_id": 12406
+  },
+  {
+   "key": "prototype_crescent",
+   "name": "Prototype Crescent",
+   "rarity": 4,
+   "item_id": 15406
+  },
+  {
+   "key": "prototype_rancour",
+   "name": "Prototype Rancour",
+   "rarity": 4,
+   "item_id": 11406
+  },
+  {
+   "key": "prototype_starglitter",
+   "name": "Prototype Starglitter",
+   "rarity": 4,
+   "item_id": 13402
+  },
+  {
+   "key": "rainbow_serpents_rain_bow",
+   "name": "Rainbow Serpent's Rain Bow",
+   "rarity": 4,
+   "item_id": 15434
+  },
+  {
+   "key": "rainslasher",
+   "name": "Rainslasher",
+   "rarity": 4,
+   "item_id": 12405
+  },
+  {
+   "key": "range_gauge",
+   "name": "Range Gauge",
+   "rarity": 4,
+   "item_id": 15427
+  },
+  {
+   "key": "raven_bow",
+   "name": "Raven Bow",
+   "rarity": 3,
+   "item_id": 15301
+  },
+  {
+   "key": "recurve_bow",
+   "name": "Recurve Bow",
+   "rarity": 3,
+   "item_id": 15303
+  },
+  {
+   "key": "redhorn_stonethresher",
+   "name": "Redhorn Stonethresher",
+   "rarity": 5,
+   "item_id": 12510
+  },
+  {
+   "key": "reliquary_of_truth",
+   "name": "Reliquary of Truth",
+   "rarity": 5,
+   "item_id": 14521
+  },
+  {
+   "key": "rightful_reward",
+   "name": "Rightful Reward",
+   "rarity": 4,
+   "item_id": 13425
+  },
+  {
+   "key": "ring_of_yaxche",
+   "name": "Ring of Yaxche",
+   "rarity": 4,
+   "item_id": 14431
+  },
+  {
+   "key": "royal_bow",
+   "name": "Royal Bow",
+   "rarity": 4,
+   "item_id": 15404
+  },
+  {
+   "key": "royal_greatsword",
+   "name": "Royal Greatsword",
+   "rarity": 4,
+   "item_id": 12404
+  },
+  {
+   "key": "royal_grimoire",
+   "name": "Royal Grimoire",
+   "rarity": 4,
+   "item_id": 14404
+  },
+  {
+   "key": "royal_longsword",
+   "name": "Royal Longsword",
+   "rarity": 4,
+   "item_id": 11404
+  },
+  {
+   "key": "royal_spear",
+   "name": "Royal Spear",
+   "rarity": 4,
+   "item_id": 13408
+  },
+  {
+   "key": "rust",
+   "name": "Rust",
+   "rarity": 4,
+   "item_id": 15405
+  },
+  {
+   "key": "sacrificers_staff",
+   "name": "Sacrificer's Staff",
+   "rarity": 4,
+   "item_id": 13434
+  },
+  {
+   "key": "sacrificial_bow",
+   "name": "Sacrificial Bow",
+   "rarity": 4,
+   "item_id": 15403
+  },
+  {
+   "key": "sacrificial_fragments",
+   "name": "Sacrificial Fragments",
+   "rarity": 4,
+   "item_id": 14403
+  },
+  {
+   "key": "sacrificial_greatsword",
+   "name": "Sacrificial Greatsword",
+   "rarity": 4,
+   "item_id": 12403
+  },
+  {
+   "key": "sacrificial_jade",
+   "name": "Sacrificial Jade",
+   "rarity": 4,
+   "item_id": 14424
+  },
+  {
+   "key": "sacrificial_sword",
+   "name": "Sacrificial Sword",
+   "rarity": 4,
+   "item_id": 11403
+  },
+  {
+   "key": "sapwood_blade",
+   "name": "Sapwood Blade",
+   "rarity": 4,
+   "item_id": 11417
+  },
+  {
+   "key": "scion_of_the_blazing_sun",
+   "name": "Scion of the Blazing Sun",
+   "rarity": 4,
+   "item_id": 15424
+  },
+  {
+   "key": "sequence_of_solitude",
+   "name": "Sequence of Solitude",
+   "rarity": 4,
+   "item_id": 15432
+  },
+  {
+   "key": "serenitys_call",
+   "name": "Serenity's Call",
+   "rarity": 4,
+   "item_id": 11433
+  },
+  {
+   "key": "serpent_spine",
+   "name": "Serpent Spine",
+   "rarity": 4,
+   "item_id": 12409
+  },
+  {
+   "key": "sharpshooters_oath",
+   "name": "Sharpshooter's Oath",
+   "rarity": 3,
+   "item_id": 15302
+  },
+  {
+   "key": "silver_light",
+   "name": "Silver Light",
+   "rarity": 4,
+   "item_id": 11438
+  },
+  {
+   "key": "silvershower_heartstrings",
+   "name": "Silvershower Heartstrings",
+   "rarity": 5,
+   "item_id": 15513
+  },
+  {
+   "key": "skyrider_greatsword",
+   "name": "Skyrider Greatsword",
+   "rarity": 3,
+   "item_id": 12306
+  },
+  {
+   "key": "skyrider_sword",
+   "name": "Skyrider Sword",
+   "rarity": 3,
+   "item_id": 11306
+  },
+  {
+   "key": "skyward_atlas",
+   "name": "Skyward Atlas",
+   "rarity": 5,
+   "item_id": 14501
+  },
+  {
+   "key": "skyward_blade",
+   "name": "Skyward Blade",
+   "rarity": 5,
+   "item_id": 11502
+  },
+  {
+   "key": "skyward_harp",
+   "name": "Skyward Harp",
+   "rarity": 5,
+   "item_id": 15501
+  },
+  {
+   "key": "skyward_pride",
+   "name": "Skyward Pride",
+   "rarity": 5,
+   "item_id": 12501
+  },
+  {
+   "key": "skyward_spine",
+   "name": "Skyward Spine",
+   "rarity": 5,
+   "item_id": 13502
+  },
+  {
+   "key": "slingshot",
+   "name": "Slingshot",
+   "rarity": 3,
+   "item_id": 15304
+  },
+  {
+   "key": "snare_hook",
+   "name": "Snare Hook",
+   "rarity": 4,
+   "item_id": 15433
+  },
+  {
+   "key": "snow-tombed_starsilver",
+   "name": "Snow-Tombed Starsilver",
+   "rarity": 4,
+   "item_id": 12411
+  },
+  {
+   "key": "solar_pearl",
+   "name": "Solar Pearl",
+   "rarity": 4,
+   "item_id": 14405
+  },
+  {
+   "key": "song_of_broken_pines",
+   "name": "Song of Broken Pines",
+   "rarity": 5,
+   "item_id": 12503
+  },
+  {
+   "key": "song_of_stillness",
+   "name": "Song of Stillness",
+   "rarity": 4,
+   "item_id": 15425
+  },
+  {
+   "key": "song_of_the_vigil",
+   "name": "Song of the Vigil",
+   "rarity": 4,
+   "item_id": 13436
+  },
+  {
+   "key": "splendor_of_tranquil_waters",
+   "name": "Splendor of Tranquil Waters",
+   "rarity": 5,
+   "item_id": 11513
+  },
+  {
+   "key": "staff_of_homa",
+   "name": "Staff of Homa",
+   "rarity": 5,
+   "item_id": 13501
+  },
+  {
+   "key": "staff_of_the_scarlet_sands",
+   "name": "Staff of the Scarlet Sands",
+   "rarity": 5,
+   "item_id": 13511
+  },
+  {
+   "key": "starcallers_watch",
+   "name": "Starcaller's Watch",
+   "rarity": 5,
+   "item_id": 14517
+  },
+  {
+   "key": "starsealed_edict",
+   "name": "Starsealed Edict",
+   "rarity": 5,
+   "item_id": 14525
+  },
+  {
+   "key": "sturdy_bone",
+   "name": "Sturdy Bone",
+   "rarity": 4,
+   "item_id": 11430
+  },
+  {
+   "key": "summit_shaper",
+   "name": "Summit Shaper",
+   "rarity": 5,
+   "item_id": 11504
+  },
+  {
+   "key": "sunny_morning_sleep-in",
+   "name": "Sunny Morning Sleep-In",
+   "rarity": 5,
+   "item_id": 14518
+  },
+  {
+   "key": "surfs_up",
+   "name": "Surf's Up",
+   "rarity": 5,
+   "item_id": 14516
+  },
+  {
+   "key": "sword_of_descension",
+   "name": "Sword of Descension",
+   "rarity": 4,
+   "item_id": 11412
+  },
+  {
+   "key": "sword_of_narzissenkreuz",
+   "name": "Sword of Narzissenkreuz",
+   "rarity": 4,
+   "item_id": 11428
+  },
+  {
+   "key": "symphonist_of_scents",
+   "name": "Symphonist of Scents",
+   "rarity": 5,
+   "item_id": 13514
+  },
+  {
+   "key": "talking_stick",
+   "name": "Talking Stick",
+   "rarity": 4,
+   "item_id": 12424
+  },
+  {
+   "key": "tamayuratei_no_ohanashi",
+   "name": "Tamayuratei no Ohanashi",
+   "rarity": 4,
+   "item_id": 13432
+  },
+  {
+   "key": "the_alley_flash",
+   "name": "The Alley Flash",
+   "rarity": 4,
+   "item_id": 11410
+  },
+  {
+   "key": "the_bell",
+   "name": "The Bell",
+   "rarity": 4,
+   "item_id": 12402
+  },
+  {
+   "key": "the_black_sword",
+   "name": "The Black Sword",
+   "rarity": 4,
+   "item_id": 11409
+  },
+  {
+   "key": "the_catch",
+   "name": "\"The Catch\"",
+   "rarity": 4,
+   "item_id": 13415
+  },
+  {
+   "key": "the_daybreak_chronicles",
+   "name": "The Daybreak Chronicles",
+   "rarity": 5,
+   "item_id": 15515
+  },
+  {
+   "key": "the_dockhands_assistant",
+   "name": "The Dockhand's Assistant",
+   "rarity": 4,
+   "item_id": 11427
+  },
+  {
+   "key": "the_first_great_magic",
+   "name": "The First Great Magic",
+   "rarity": 5,
+   "item_id": 15512
+  },
+  {
+   "key": "the_flute",
+   "name": "The Flute",
+   "rarity": 4,
+   "item_id": 11402
+  },
+  {
+   "key": "the_stringless",
+   "name": "The Stringless",
+   "rarity": 4,
+   "item_id": 15402
+  },
+  {
+   "key": "the_unforged",
+   "name": "The Unforged",
+   "rarity": 5,
+   "item_id": 12504
+  },
+  {
+   "key": "the_viridescent_hunt",
+   "name": "The Viridescent Hunt",
+   "rarity": 4,
+   "item_id": 15409
+  },
+  {
+   "key": "the_widsith",
+   "name": "The Widsith",
+   "rarity": 4,
+   "item_id": 14402
+  },
+  {
+   "key": "thrilling_tales_of_dragon_slayers",
+   "name": "Thrilling Tales of Dragon Slayers",
+   "rarity": 3,
+   "item_id": 14302
+  },
+  {
+   "key": "thundering_pulse",
+   "name": "Thundering Pulse",
+   "rarity": 5,
+   "item_id": 15509
+  },
+  {
+   "key": "tidal_shadow",
+   "name": "Tidal Shadow",
+   "rarity": 4,
+   "item_id": 12425
+  },
+  {
+   "key": "tome_of_the_eternal_flow",
+   "name": "Tome of the Eternal Flow",
+   "rarity": 5,
+   "item_id": 14514
+  },
+  {
+   "key": "toukabou_shigure",
+   "name": "Toukabou Shigure",
+   "rarity": 4,
+   "item_id": 11422
+  },
+  {
+   "key": "travelers_handy_sword",
+   "name": "Traveler's Handy Sword",
+   "rarity": 3,
+   "item_id": 11303
+  },
+  {
+   "key": "tulaytullahs_remembrance",
+   "name": "Tulaytullah's Remembrance",
+   "rarity": 5,
+   "item_id": 14512
+  },
+  {
+   "key": "twin_nephrite",
+   "name": "Twin Nephrite",
+   "rarity": 3,
+   "item_id": 14305
+  },
+  {
+   "key": "ultimate_overlords_mega_magic_sword",
+   "name": "\"Ultimate Overlord's Mega Magic Sword\"",
+   "rarity": 4,
+   "item_id": 12426
+  },
+  {
+   "key": "uraku_misugiri",
+   "name": "Uraku Misugiri",
+   "rarity": 5,
+   "item_id": 11514
+  },
+  {
+   "key": "verdict",
+   "name": "Verdict",
+   "rarity": 5,
+   "item_id": 12512
+  },
+  {
+   "key": "vivid_notions",
+   "name": "Vivid Notions",
+   "rarity": 5,
+   "item_id": 14519
+  },
+  {
+   "key": "vortex_vanquisher",
+   "name": "Vortex Vanquisher",
+   "rarity": 5,
+   "item_id": 13504
+  },
+  {
+   "key": "wandering_evenstar",
+   "name": "Wandering Evenstar",
+   "rarity": 4,
+   "item_id": 14416
+  },
+  {
+   "key": "wavebreakers_fin",
+   "name": "Wavebreaker's Fin",
+   "rarity": 4,
+   "item_id": 13416
+  },
+  {
+   "key": "waveriding_whirl",
+   "name": "Waveriding Whirl",
+   "rarity": 4,
+   "item_id": 14430
+  },
+  {
+   "key": "white_iron_greatsword",
+   "name": "White Iron Greatsword",
+   "rarity": 3,
+   "item_id": 12303
+  },
+  {
+   "key": "white_tassel",
+   "name": "White Tassel",
+   "rarity": 3,
+   "item_id": 13301
+  },
+  {
+   "key": "whiteblind",
+   "name": "Whiteblind",
+   "rarity": 4,
+   "item_id": 12407
+  },
+  {
+   "key": "whitelake_frostfeather",
+   "name": "Whitelake Frostfeather",
+   "rarity": 5,
+   "item_id": 11520
+  },
+  {
+   "key": "windblume_ode",
+   "name": "Windblume Ode",
+   "rarity": 4,
+   "item_id": 15413
+  },
+  {
+   "key": "wine_and_song",
+   "name": "Wine and Song",
+   "rarity": 4,
+   "item_id": 14410
+  },
+  {
+   "key": "winters_heavy_heart",
+   "name": "Winter's Heavy Heart",
+   "rarity": 4,
+   "item_id": 14437
+  },
+  {
+   "key": "wolf-fang",
+   "name": "Wolf-Fang",
+   "rarity": 4,
+   "item_id": 11424
+  },
+  {
+   "key": "wolfs_gravestone",
+   "name": "Wolf's Gravestone",
+   "rarity": 5,
+   "item_id": 12502
+  },
+  {
+   "key": "xiphos_moonlight",
+   "name": "Xiphos' Moonlight",
+   "rarity": 4,
+   "item_id": 11418
+  }
+ ]
+}
