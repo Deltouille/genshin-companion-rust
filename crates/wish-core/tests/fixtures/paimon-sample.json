@@ -1,0 +1,54 @@
+{
+  "accounts": "account2",
+  "locale": "en",
+  "server": "Europe",
+  "wish-uid": "700000001",
+  "wish-counter-setting": { "firstTime": false, "manualInput": false },
+  "todos": [],
+  "wish-counter-character-event": {
+    "total": 13,
+    "legendary": 1,
+    "rare": 2,
+    "pulls": [
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-01 10:00:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "debate_club", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "debate_club", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "cool_steel", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "character", "id": "xiangling", "time": "2024-01-01 10:05:00", "pity": 5, "code": "301", "rate": 0 },
+      { "type": "weapon", "id": "harbinger_of_dawn", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "debate_club", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "cool_steel", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-01 10:05:00", "pity": 1, "code": "301" },
+      { "type": "character", "id": "bennett", "time": "2024-01-01 10:05:00", "pity": 6, "code": "301", "rate": 1 },
+      { "type": "character", "id": "venti", "time": "2024-01-02 09:00:00", "pity": 12, "code": "400", "rate": 0 },
+      { "type": "weapon", "id": "slingshot", "time": "2024-01-02 09:01:00", "pity": 1, "code": "301" }
+    ],
+    "guaranteed": { "legendary": true, "rare": false },
+    "rateoff": {
+      "legendary": { "win": 0, "lose": 1, "maxStreak": 0, "currentStreak": 0 },
+      "rare": { "win": 0, "lose": 2, "maxStreak": 0, "currentStreak": 0 }
+    }
+  },
+  "wish-counter-weapon-event": {
+    "total": 1,
+    "legendary": 0,
+    "rare": 1,
+    "pulls": [
+      { "type": "weapon", "id": "wolfs_gravestone", "time": "2024-02-01 12:00:00", "pity": 1, "code": "302" }
+    ]
+  },
+  "wish-counter-standard": { "total": 0, "legendary": 0, "rare": 0, "pulls": [] },
+  "account2-server": "Asia",
+  "account2-wish-counter-setting": { "firstTime": false, "manualInput": true },
+  "account2-wish-counter-standard": {
+    "total": 80,
+    "legendary": 3,
+    "rare": 5,
+    "pulls": [
+      { "type": "unknown_3_star", "id": "unknown_3_star", "time": "2024-03-01 08:00:00", "pity": 1, "manualInput": true },
+      { "type": "unknown_3_star", "id": "unknown_3_star", "time": "2024-03-01 08:00:00", "pity": 1, "manualInput": true },
+      { "type": "character", "id": "diluc", "time": "2024-03-02 20:00:00", "pity": 76, "manualInput": true }
+    ]
+  }
+}

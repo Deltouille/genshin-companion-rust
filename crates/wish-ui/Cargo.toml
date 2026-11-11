@@ -1,0 +1,17 @@
+[package]
+name = "wish-ui"
+description = "Genshin Companion's design system: theme, typeface, icons and shared components."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+wish-core.workspace = true
+gpui-kit.workspace = true
+
+[dev-dependencies]
+# `test-support` enables headless rendering for the gallery example.
+gpui-kit = { workspace = true, features = ["test-support"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+anyhow = { version = "1.0.104", default-features = false, features = ["std"] }

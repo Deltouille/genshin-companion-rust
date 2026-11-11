@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["crates/wish-core", "crates/wish-ui", "crates/wish-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+# The app, not libraries for crates.io.
+publish = false
+
+[workspace.dependencies]
+wish-core = { path = "crates/wish-core" }
+wish-ui = { path = "crates/wish-ui" }
+
+# gpui-kit pins a matching GPUI snapshot and re-exports it (gpui_kit::*),
+# plus gpui-component (gpui_kit::component) and the Lucide icons (gpui_kit::assets).
+# Never add `gpui` directly: two GPUI versions in one build do not interoperate.
+# Upgrade deliberately; GPUI's API breaks between releases.
+gpui-kit = "=0.9.1"
+
+[profile.dev.package."*"]
+# Dependencies (GPUI especially) are much faster at runtime with optimizations,
+# and they are only rebuilt when versions change.
+opt-level = 2

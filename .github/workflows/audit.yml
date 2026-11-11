@@ -1,0 +1,38 @@
+name: Audit
+
+# Known vulnerabilities in the crates the app is built with (RustSec), and
+# where those crates come from (deny.toml): on every push and pull request,
+# every Monday since advisories appear while the code stays the same, and
+# before each release.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_call:
+
+permissions:
+  contents: read
+
+# Actions are pinned to a commit (the tag in a comment), as in ci.yml.
+jobs:
+  cargo-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
+        with:
+          toolchain: stable
+      - name: Install cargo-deny 0.20.2
+        run: |
+          curl -sSfL -o cargo-deny.tar.gz \
+            https://github.com/EmbarkStudios/cargo-deny/releases/download/0.20.2/cargo-deny-0.20.2-x86_64-unknown-linux-musl.tar.gz
+          echo "9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f  cargo-deny.tar.gz" \
+            | sha256sum --check
+          tar -xzf cargo-deny.tar.gz --strip-components 1 -C "$HOME/.cargo/bin" \
+            cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
+          rm cargo-deny.tar.gz
+      - run: cargo-deny --locked check advisories sources
