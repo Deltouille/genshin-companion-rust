@@ -84,17 +84,29 @@ jobs:
     permissions:
       contents: write
     steps:
+      # Only for the release notes, docs/releases/<tag>.md; nothing runs from it.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          sparse-checkout: docs/releases
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: dist
           merge-multiple: true
+      # The tag's notes file when there is one, then GitHub's list of changes.
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          notes=()
+          file="$GITHUB_WORKSPACE/docs/releases/$GITHUB_REF_NAME.md"
+          if [ -f "$file" ]; then
+            notes=(--notes-file "$file")
+          fi
           cd dist
           sha256sum -- * > SHA256SUMS.txt
           gh release create "$GITHUB_REF_NAME" ./* \
             --repo "$GITHUB_REPOSITORY" \
             --title "Genshin Companion $GITHUB_REF_NAME" \
+            "${notes[@]}" \
             --generate-notes
