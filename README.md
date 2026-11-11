@@ -216,7 +216,8 @@ CI runs fmt, clippy, the tests and a release build on Linux, Windows and macOS, 
 push and every week.
 [`PLAN.md`](PLAN.md) holds the roadmap and the engine's rules, and [`CLAUDE.md`](CLAUDE.md) the conventions.
 
-To publish a release, set the version in the workspace's `Cargo.toml`, then push a tag of that version:
+To publish a release, set the version in the workspace's `Cargo.toml`, write the release notes in
+`docs/releases/v<version>.md`, commit, then push a tag of that version:
 
 ```sh
 git tag v0.1.0
@@ -224,8 +225,8 @@ git push origin v0.1.0
 ```
 
 `release.yml` then runs the CI and the audit again, builds each system's archive from `Cargo.lock` without a cache
-(`tools/package-release.sh`), and publishes them on the Releases page with `SHA256SUMS.txt`. A tag that doesn't
-match the version publishes nothing.
+(`tools/package-release.sh`), and publishes them on the Releases page with `SHA256SUMS.txt`, the notes and GitHub's
+list of changes. A tag that doesn't match the version publishes nothing.
 
 ## Credits
 

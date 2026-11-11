@@ -64,8 +64,11 @@ The point of the project is that the player's data, wish history first, is never
 - `cargo fmt --all`
 - `bacon`: continuous check.
 - CI (`.github/workflows/ci.yml`): fmt, clippy, test and release build on Linux, Windows and macOS, all `--locked`.
-  Releases (`release.yml`, on a `v*` tag): run `ci.yml` first, then build each target without a cache and package
-  it (`tools/package-release.sh`); only the last job, which compiles nothing, may write to the repository. Every
+  Releases (`release.yml`, on a `v*` tag matching the workspace version): run `ci.yml` first, then build each target
+  without a cache and package it (`tools/package-release.sh`); only the last job, which compiles nothing, may write
+  to the repository. It publishes the release with `docs/releases/<tag>.md` as its notes (write it before tagging;
+  there is no GitHub login here to edit a release afterwards), then GitHub's generated list of changes.
+  The README's Download section names the archives and the first launch of unsigned builds: keep it in step. Every
   action is pinned to a commit with its tag in a comment (Dependabot proposes updates); checkouts don't keep the
   token (`persist-credentials: false`). Keep it that way when adding a step.
   `audit.yml` runs cargo-deny (`deny.toml`: known vulnerabilities from RustSec, crates.io as the only source) on
