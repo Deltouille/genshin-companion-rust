@@ -9,6 +9,8 @@ difference is where the data lives. paimon.moe keeps your history in the browser
 erases it. HoYoverse's API only returns the last six months, so wishes older than that exist nowhere else.
 Here they live in a database on your disk, with backups.
 
+[Download it](#download) for Windows, macOS or Linux, or [build it yourself](#building-from-source).
+
 ![The wish counter's overview](docs/screenshots/overview.png)
 
 ## Features
@@ -81,6 +83,23 @@ Like [genshin-center](https://genshin-center.com/planner)'s planner.
   <img src="docs/screenshots/planner.png" width="49%" alt="The ascension planner">
 </p>
 
+## Download
+
+The builds are on the [Releases](https://github.com/Deltouille/genshin-companion-rust/releases) page. Unpack the
+archive for your system and start the app: there is nothing to install.
+
+- **Windows** (`…-windows-x86_64.zip`): `genshin-companion.exe`. The build isn't signed, so SmartScreen may warn
+  before the first launch: choose *More info*, then *Run anyway*.
+- **macOS 11 or later** (`…-macos-apple-silicon.zip`, or `…-macos-intel.zip` for an Intel Mac):
+  `Genshin Companion.app`. It is signed ad hoc, not by a developer account, so macOS refuses to open it the first
+  time: open System Settings → Privacy & Security and choose *Open Anyway*.
+- **Linux** (`…-linux-x86_64.tar.gz`): `genshin-companion`, built on Ubuntu 22.04, so it needs glibc 2.35 or later.
+  It also needs fontconfig, freetype, libxkbcommon, Wayland, libX11, libxcb and the Vulkan loader, which desktop
+  systems usually have.
+
+`SHA256SUMS.txt`, beside the archives, holds their checksums (`sha256sum -c SHA256SUMS.txt --ignore-missing`).
+To update, replace the app with the newer one: your data lives in its own folder (below), not beside the app.
+
 ## Your data
 
 Everything stays in one folder:
@@ -126,7 +145,7 @@ HoYoverse's API what the game's own history page shows, but using it is your cho
 
 ## Building from source
 
-There are no release builds yet. To build it yourself, you need stable Rust (edition 2024).
+You need stable Rust (edition 2024).
 
 - **Windows and macOS:** run `cargo run --release -p wish-app`.
 - **Linux:** GPUI loads its window and GPU libraries when it starts. You need fontconfig, freetype, libxkbcommon,
@@ -196,6 +215,17 @@ CI runs fmt, clippy, the tests and a release build on Linux, Windows and macOS, 
 `THIRD-PARTY-LICENSES.txt` is current, and audits the dependencies for known vulnerabilities (cargo-deny) on every
 push and every week.
 [`PLAN.md`](PLAN.md) holds the roadmap and the engine's rules, and [`CLAUDE.md`](CLAUDE.md) the conventions.
+
+To publish a release, set the version in the workspace's `Cargo.toml`, then push a tag of that version:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+`release.yml` then runs the CI and the audit again, builds each system's archive from `Cargo.lock` without a cache
+(`tools/package-release.sh`), and publishes them on the Releases page with `SHA256SUMS.txt`. A tag that doesn't
+match the version publishes nothing.
 
 ## Credits
 
