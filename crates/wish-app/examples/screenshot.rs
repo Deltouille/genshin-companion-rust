@@ -15,7 +15,9 @@ use anyhow::{Context as _, Result, bail};
 use gpui_kit::component::{Theme, ThemeMode, WindowExt as _};
 use gpui_kit::{AppContext as _, HeadlessAppContext};
 use wish_app::app::{Notice, notify};
-use wish_app::{ArchivePage, ImageDownloads, ImportFromGame, Library, Page, Shell, WishPage};
+use wish_app::{
+    ArchivePage, ImageDownloads, ImportFromGame, Library, OverviewTab, Page, Shell, WishPage,
+};
 use wish_core::AppPaths;
 use wish_core::collection::OwnedCharacter;
 use wish_core::model::Pool;
@@ -67,7 +69,12 @@ fn main() -> Result<()> {
     cx.run_until_parked();
 
     let pages = [
-        ("overview", Page::Wishes(WishPage::Overview)),
+        ("overview", Page::Overview(OverviewTab::Wishes)),
+        (
+            "overview-characters",
+            Page::Overview(OverviewTab::Characters),
+        ),
+        ("overview-weapons", Page::Overview(OverviewTab::Weapons)),
         (
             "history-character",
             Page::Wishes(WishPage::History(Pool::CharacterEvent)),
@@ -120,6 +127,38 @@ fn main() -> Result<()> {
         println!("{}", path.display());
         Ok(())
     };
+
+    // A few characters the account owns (added once to a data folder that
+    // has none), Ganyu among them, a favourite: the archive and the
+    // overview's Characters tab show them.
+    let account = cx.update(|cx| shell.read(cx).session().read(cx).account());
+    if cx.update(|cx| library.read(cx).owned(account).characters.is_empty()) {
+        let owned = [
+            ("ganyu", (80, 6), 2, [6, 9, 9], true),
+            ("furina", (90, 6), 0, [1, 9, 9], true),
+            ("bennett", (80, 5), 6, [1, 8, 9], false),
+            ("xiangling", (70, 4), 6, [1, 6, 8], false),
+            ("amber", (20, 0), 1, [1, 1, 1], false),
+        ];
+        for (key, (level, phase), constellation, talents, favourite) in owned {
+            let character = OwnedCharacter {
+                level: Level::new(level, phase).expect("a level of its phase"),
+                constellation,
+                talents,
+                favourite,
+                ..OwnedCharacter::new(key)
+            };
+            cx.update(|cx| {
+                library.update(cx, |l, cx| {
+                    l.save_owned_character(account, character, cx).detach()
+                })
+            });
+        }
+        for _ in 0..40 {
+            cx.run_until_parked();
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    }
 
     for (mode_name, mode) in [("light", ThemeMode::Light), ("dark", ThemeMode::Dark)] {
         cx.update(|cx| Theme::change(mode, None, cx));
@@ -323,36 +362,6 @@ fn main() -> Result<()> {
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
 
-        // A few characters the account owns (added once to a data folder
-        // that has none), Ganyu among them, a favourite.
-        if cx.update(|cx| library.read(cx).owned(account).characters.is_empty()) {
-            let owned = [
-                ("ganyu", (80, 6), 2, [6, 9, 9], true),
-                ("furina", (90, 6), 0, [1, 9, 9], true),
-                ("bennett", (80, 5), 6, [1, 8, 9], false),
-                ("xiangling", (70, 4), 6, [1, 6, 8], false),
-                ("amber", (20, 0), 1, [1, 1, 1], false),
-            ];
-            for (key, (level, phase), constellation, talents, favourite) in owned {
-                let character = OwnedCharacter {
-                    level: Level::new(level, phase).expect("a level of its phase"),
-                    constellation,
-                    talents,
-                    favourite,
-                    ..OwnedCharacter::new(key)
-                };
-                cx.update(|cx| {
-                    library.update(cx, |l, cx| {
-                        l.save_owned_character(account, character, cx).detach()
-                    })
-                });
-            }
-            for _ in 0..40 {
-                cx.run_until_parked();
-                std::thread::sleep(Duration::from_millis(50));
-            }
-        }
-
         // The character archive: the list, then one character's three tabs.
         cx.update(|cx| {
             shell.update(cx, |shell, cx| {
@@ -440,7 +449,7 @@ fn main() -> Result<()> {
         // The "Import from the game" dialog, opened as the menu would.
         cx.update(|cx| {
             shell.update(cx, |shell, cx| {
-                shell.navigate(Page::Wishes(WishPage::Overview), cx)
+                shell.navigate(Page::Overview(OverviewTab::Wishes), cx)
             })
         });
         cx.update_window(window, |_, window, cx| {

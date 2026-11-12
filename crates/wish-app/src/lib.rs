@@ -6,7 +6,8 @@
 //!   in progress), the item images, the embedded assets, the notices
 //!   (messages about work done in the background, [`app::notify`]);
 //! - [`shell`]: the window, its sidebar and the routing between pages;
-//! - `features`: one folder per feature (`wishes`: overview, history, import)
+//! - `features`: the overview (the app's home), one folder per feature (`wishes`:
+//!   history, import; `archive`, `planner`)
 //!   and the app's own pages (settings, credits).
 //!
 //! A library so that examples (such as the offscreen `screenshot` tool) can
@@ -68,7 +69,9 @@ use gpui_kit::{
 };
 
 pub use app::{AppAssets, ImageDownloads, Library, Session};
-pub use shell::{ArchivePage, Feature, ImportFile, ImportFromGame, Page, Quit, Shell, WishPage};
+pub use shell::{
+    ArchivePage, Feature, ImportFile, ImportFromGame, OverviewTab, Page, Quit, Shell, WishPage,
+};
 pub use startup_error::{record_error, record_panics, show_startup_error};
 
 pub const APP_ID: &str = "genshin-companion";
