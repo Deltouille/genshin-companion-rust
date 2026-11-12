@@ -22,7 +22,8 @@ The point of the project is that the player's data, wish history first, is never
 - `README.md` is the user-facing doc (features, data folder, building, updating the data, credits). Keep it in step
   when a feature, a command or a data source changes. Its screenshots (`docs/screenshots/`) come from the
   screenshot tool on a synthetic save (`tools/sample-save.mjs`).
-`PLAN.md` is the roadmap: read it before starting a milestone, and tick its checkboxes when a step is done.
+`PLAN.md` is the roadmap, kept local (git-ignored, like `documentation/`, and out of the history): read it before
+starting a milestone, and tick its checkboxes when a step is done.
 
 ## Environment and commands
 
