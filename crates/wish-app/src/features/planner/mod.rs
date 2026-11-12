@@ -35,8 +35,9 @@ use wish_core::planner::{
     PlanTarget, PlanTotals, PlannerData, WeaponGoal,
 };
 
-use crate::app::Library;
 use crate::app::images::Images;
+use crate::app::{Library, Session};
+use wish_core::model::AccountId;
 use wish_ui::{
     MaterialTile, PageFrame, badge, button, card, card_title, dialog_footer, format, icon_button,
     select, theme,
@@ -46,6 +47,7 @@ use wish_ui::{
 const TALENTS: [&str; 3] = ["Normal Attack", "Elemental Skill", "Elemental Burst"];
 
 pub struct PlannerView {
+    session: Entity<Session>,
     library: Entity<Library>,
     /// The pickers that add a character and a weapon.
     add_character: Entity<SelectState<Vec<EntryOption>>>,
@@ -88,7 +90,8 @@ impl SearchableListItem for EntryOption {
 }
 
 impl PlannerView {
-    pub fn new(library: Entity<Library>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(session: Entity<Session>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let library = session.read(cx).library().clone();
         let planner = library.read(cx).planner().clone();
         let picker = |options, window: &mut Window, cx: &mut Context<Self>| {
             cx.new(|cx| SelectState::new(options, None, window, cx).searchable(true))
@@ -97,6 +100,11 @@ impl PlannerView {
         let add_weapon = picker(weapon_options(&planner), window, cx);
         let subscriptions = vec![
             cx.observe_in(&library, window, |this, _, window, cx| {
+                this.sync_controls(window, cx);
+                cx.notify();
+            }),
+            // Another account: its plan.
+            cx.observe_in(&session, window, |this, _, window, cx| {
                 this.sync_controls(window, cx);
                 cx.notify();
             }),
@@ -123,6 +131,7 @@ impl PlannerView {
             ),
         ];
         let mut view = Self {
+            session,
             library,
             add_character,
             add_weapon,
@@ -134,14 +143,20 @@ impl PlannerView {
         view
     }
 
+    /// The account whose plan is shown: the sidebar's.
+    fn account(&self, cx: &App) -> Option<AccountId> {
+        self.session.read(cx).account()
+    }
+
     fn add_character(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
         let target = PlanTarget::Character {
             key,
             goal: CharacterGoal::FULL,
         };
-        let task = self
-            .library
-            .update(cx, |library, cx| library.add_plan_entry(target, cx));
+        let account = self.account(cx);
+        let task = self.library.update(cx, |library, cx| {
+            library.add_plan_entry(account, target, cx)
+        });
         report_errors(task, window, cx);
     }
 
@@ -153,9 +168,10 @@ impl PlannerView {
             key,
             goal: WeaponGoal::full(rarity),
         };
-        let task = self
-            .library
-            .update(cx, |library, cx| library.add_plan_entry(target, cx));
+        let account = self.account(cx);
+        let task = self.library.update(cx, |library, cx| {
+            library.add_plan_entry(account, target, cx)
+        });
         report_errors(task, window, cx);
     }
 
@@ -166,8 +182,9 @@ impl PlannerView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let account = self.account(cx);
         let entry = id.and_then(|id| {
-            let plan = self.library.read(cx).plan();
+            let plan = self.library.read(cx).plan(account);
             plan.iter().find(|entry| entry.id == id).cloned()
         });
         self.open_custom(entry, window, cx);
@@ -190,9 +207,10 @@ impl PlannerView {
         if id == onto {
             return;
         }
-        let task = self
-            .library
-            .update(cx, |library, cx| library.move_plan_entry(id, onto, cx));
+        let account = self.account(cx);
+        let task = self.library.update(cx, |library, cx| {
+            library.move_plan_entry(account, id, onto, cx)
+        });
         report_errors(task, window, cx);
     }
 
@@ -227,8 +245,9 @@ impl PlannerView {
     /// removed ones. Existing sliders keep their values: the plan they would
     /// be set from is what they saved.
     fn sync_controls(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let account = self.account(cx);
         let library = self.library.read(cx);
-        let (plan, planner) = (library.plan().to_vec(), library.planner().clone());
+        let (plan, planner) = (library.plan(account).to_vec(), library.planner().clone());
         self.controls
             .retain(|id, _| plan.iter().any(|entry| entry.id == *id));
         for entry in plan {
@@ -356,10 +375,11 @@ impl PlannerView {
 
     /// Saves an entry's goal from its sliders.
     fn save(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
+        let account = self.account(cx);
         let Some(mut entry) = self
             .library
             .read(cx)
-            .plan()
+            .plan(account)
             .iter()
             .find(|entry| entry.id == id)
             .cloned()
@@ -378,15 +398,16 @@ impl PlannerView {
             _ => false,
         };
         if changed {
-            let task =
-                (self.library).update(cx, |library, cx| library.update_plan_entry(entry, cx));
+            let task = (self.library).update(cx, |library, cx| {
+                library.update_plan_entry(account, entry, cx)
+            });
             report_errors(task, window, cx);
         }
     }
 
     /// The plan with each entry's goal as its sliders show it.
     fn live_plan(&self, cx: &App) -> Vec<PlanEntry> {
-        let mut plan = self.library.read(cx).plan().to_vec();
+        let mut plan = self.library.read(cx).plan(self.account(cx)).to_vec();
         for entry in &mut plan {
             if let Some(goal) = entry.target.goal_mut()
                 && let Some(live) = self.goal(entry.id, cx)
@@ -419,9 +440,10 @@ const MAX_COLUMNS: u16 = 4;
 
 impl Render for PlannerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let account = self.account(cx);
         let library = self.library.read(cx);
         let (planner, images) = (library.planner().clone(), library.images().clone());
-        let inventory = library.inventory().clone();
+        let inventory = library.inventory(account).clone();
         let plan = self.live_plan(cx);
         let allocation = planner.allocate(&plan, &inventory);
         // As many cards a row as fit, a rem apart.

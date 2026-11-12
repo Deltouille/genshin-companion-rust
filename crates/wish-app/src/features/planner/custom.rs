@@ -504,13 +504,17 @@ impl PlannerView {
                         },
                     };
                     view.update(cx, |view, cx| {
+                        let account = view.account(cx);
                         let task = view.library.update(cx, |library, cx| match edited {
                             Some((id, _, _)) => {
-                                let update =
-                                    library.update_plan_entry(PlanEntry { id, target }, cx);
+                                let update = library.update_plan_entry(
+                                    account,
+                                    PlanEntry { id, target },
+                                    cx,
+                                );
                                 cx.background_spawn(async move { update.await.map(|()| id) })
                             }
-                            None => library.add_plan_entry(target, cx),
+                            None => library.add_plan_entry(account, target, cx),
                         });
                         report_errors(task, window, cx);
                     })

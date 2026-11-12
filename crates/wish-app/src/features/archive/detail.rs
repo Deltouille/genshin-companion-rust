@@ -34,6 +34,8 @@ impl CharactersView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        self.sync_controls(key, window, cx);
+        let owned = self.owned_character(key, cx);
         let library = self.library.read(cx);
         let (planner, archive, images) = (
             library.planner().clone(),
@@ -80,6 +82,9 @@ impl CharactersView {
             CharacterTab::Constellations => constellations(page, &images, cx),
         };
         let width = crate::shell::content_width(window);
+        let mine = owned
+            .as_ref()
+            .map(|owned| self.my_character(owned, &character.name, cx));
 
         let body = div()
             .id("character-page")
@@ -93,6 +98,7 @@ impl CharactersView {
                     .pt_2()
                     .pb_6()
                     .child(hero(character, page, &images, width, window, cx))
+                    .children(mine)
                     .child(div().h_flex().child(tabs))
                     .child(content),
             );
@@ -104,9 +110,19 @@ impl CharactersView {
                 let (key, name) = (character.key.clone(), character.name.clone());
                 move |this, _, window, cx| this.add_to_plan(key.clone(), name.clone(), window, cx)
             }));
-        let mut frame = PageFrame::new(character.name.clone(), body)
-            .action(plan)
-            .action(back);
+        let mut frame = PageFrame::new(character.name.clone(), body).action(plan);
+        if owned.is_none() {
+            frame = frame.action(
+                button("own-character")
+                    .icon(IconName::Plus)
+                    .label("Add to my characters")
+                    .on_click(cx.listener({
+                        let (key, name) = (character.key.clone(), character.name.clone());
+                        move |this, _, window, cx| this.own(key.clone(), name.clone(), window, cx)
+                    })),
+            );
+        }
+        let mut frame = frame.action(back);
         if let Some(title) = &page.title {
             frame = frame.subtitle(title.clone());
         }
@@ -593,8 +609,8 @@ fn constellations(page: &CharacterPage, images: &Images, cx: &App) -> AnyElement
 }
 
 impl CharactersView {
-    /// Adds the character to the ascension planner, from level 1 to 90 with
-    /// talents to 10, and says so.
+    /// Adds the character to the ascension planner, from where the player
+    /// has it (or level 1) to 90 with talents to 10, and says so.
     fn add_to_plan(
         &mut self,
         key: String,
@@ -602,17 +618,25 @@ impl CharactersView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let target = wish_core::planner::PlanTarget::Character {
-            key,
-            goal: CharacterGoal::FULL,
+        let account = self.session.read(cx).account();
+        let goal = match self.owned_character(&key, cx) {
+            Some(owned) => CharacterGoal {
+                from: owned.level,
+                to: Level::MAX,
+                talents: owned.talents.map(|t| (t, t.max(10))),
+            },
+            None => CharacterGoal::FULL,
         };
-        let task = self
-            .library
-            .update(cx, |library, cx| library.add_plan_entry(target, cx));
+        let target = wish_core::planner::PlanTarget::Character { key, goal };
+        let task = self.library.update(cx, |library, cx| {
+            library.add_plan_entry(account, target, cx)
+        });
+        let from = goal.from;
         cx.spawn_in(window, async move |_, cx| {
             let message = match task.await {
                 Ok(_) => crate::app::notices::Notice::done(format!(
-                    "{name} is in the planner, from level 1 to 90 with talents to 10."
+                    "{name} is in the planner, from level {} to 90 with talents to 10.",
+                    from.level
                 )),
                 Err(err) => crate::app::notices::Notice::failed(format!(
                     "{name} was not added to the planner: {err:#}"

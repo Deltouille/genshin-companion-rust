@@ -6,6 +6,7 @@
 //! See `PLAN.md` at the repository root for the roadmap.
 
 pub mod archive;
+pub mod collection;
 pub mod data;
 pub mod engine;
 pub mod error;

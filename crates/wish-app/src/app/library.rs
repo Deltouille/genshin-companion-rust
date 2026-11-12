@@ -4,6 +4,7 @@
 //! `Library` owns this state; views observe it. Database work runs on the
 //! background executor, behind a mutex, one write at a time.
 
+use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
@@ -21,6 +22,7 @@ use wish_core::data::GameData;
 use wish_core::images::{self, Collection, Remote};
 
 use super::images::{Fetched, Job};
+use wish_core::collection::{Collection as Owned, OwnedCharacter, OwnedWeapon};
 use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
 
 use super::images::Images;
@@ -31,7 +33,7 @@ use wish_core::import::game_cache::{self, FoundLink};
 use wish_core::import::{
     self, ImportBatch, ImportRecord, ImportReport, PreparedImport, UndoReport,
 };
-use wish_core::model::{Account, AccountId, WishId};
+use wish_core::model::{Account, AccountId, Server, WishId};
 use wish_core::settings::Settings;
 use wish_core::snapshot;
 use wish_core::store::{BackupFile, BackupReason};
@@ -100,6 +102,23 @@ pub struct AccountSummary {
     pub analysis: Arc<Analysis>,
 }
 
+/// What one account owns and plans, as the player entered it.
+#[derive(Clone, Debug, Default)]
+pub struct Holdings {
+    /// The ascension plan, in order.
+    pub plan: Vec<PlanEntry>,
+    /// The materials it has.
+    pub inventory: Inventory,
+    /// The characters and weapons it has.
+    pub owned: Owned,
+}
+
+impl Holdings {
+    pub fn is_empty(&self) -> bool {
+        self.plan.is_empty() && self.inventory == Inventory::default() && self.owned.is_empty()
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct BackupStatus {
     pub count: usize,
@@ -160,10 +179,10 @@ pub struct Library {
     image_download: Option<ImageDownload>,
     accounts: Vec<AccountSummary>,
     imports: Vec<ImportRecord>,
-    /// The ascension plan, as the player entered it.
-    plan: Vec<PlanEntry>,
-    /// What the player has, as they entered it.
-    inventory: Inventory,
+    /// What each account owns and plans.
+    holdings: HashMap<AccountId, Holdings>,
+    /// What no account holds: shown before any account exists.
+    no_holdings: Holdings,
     settings: Settings,
     backups: BackupStatus,
     mirror: Option<MirrorStatus>,
@@ -248,8 +267,8 @@ impl Library {
             image_download: None,
             accounts: Vec::new(),
             imports: Vec::new(),
-            plan: Vec::new(),
-            inventory: Inventory::default(),
+            holdings: HashMap::new(),
+            no_holdings: Holdings::default(),
             settings: Settings::default(),
             backups: BackupStatus::default(),
             mirror: None,
@@ -482,21 +501,47 @@ impl Library {
         &self.archive
     }
 
-    /// The ascension plan, in order.
-    pub fn plan(&self) -> &[PlanEntry] {
-        &self.plan
+    /// What `account` owns and plans; nothing for no account.
+    ///
+    /// Every method below takes the account the page shows (the session's).
+    /// A write with no account goes to the first one, or, when there is
+    /// none yet, to a new account named "Main": a player can plan before
+    /// importing any wishes.
+    pub fn holdings(&self, account: Option<AccountId>) -> &Holdings {
+        account
+            .and_then(|account| self.holdings.get(&account))
+            .unwrap_or(&self.no_holdings)
     }
 
-    /// Adds an entry at the end of the plan.
+    /// `account`'s ascension plan, in order.
+    pub fn plan(&self, account: Option<AccountId>) -> &[PlanEntry] {
+        &self.holdings(account).plan
+    }
+
+    /// The materials `account` has, as the player entered them.
+    pub fn inventory(&self, account: Option<AccountId>) -> &Inventory {
+        &self.holdings(account).inventory
+    }
+
+    /// The characters and weapons `account` has.
+    pub fn owned(&self, account: Option<AccountId>) -> &Owned {
+        &self.holdings(account).owned
+    }
+
+    /// Adds an entry at the end of `account`'s plan.
     pub fn add_plan_entry(
         &mut self,
+        account: Option<AccountId>,
         target: PlanTarget,
         cx: &mut Context<Self>,
     ) -> Task<Result<i64>> {
         self.write(
             cx,
             false,
-            move |store, _| Ok(store.add_plan_entry(&target)?),
+            move |store, _| {
+                let account = account_for_writing(store, account)?;
+                Ok(store.add_plan_entry(account, &target)?)
+            },
             |_, id| id,
         )
     }
@@ -504,11 +549,14 @@ impl Library {
     /// Saves an entry's new goal, or a custom entry's new name and costs.
     pub fn update_plan_entry(
         &mut self,
+        account: Option<AccountId>,
         entry: PlanEntry,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
         // Shown at once; the reload after the write confirms it.
-        if let Some(stored) = self.plan.iter_mut().find(|e| e.id == entry.id) {
+        if let Some(holdings) = account.and_then(|a| self.holdings.get_mut(&a))
+            && let Some(stored) = holdings.plan.iter_mut().find(|e| e.id == entry.id)
+        {
             *stored = entry.clone();
         }
         self.write(
@@ -519,16 +567,24 @@ impl Library {
         )
     }
 
-    /// Moves entry `id` to where entry `onto` is, the entries between
-    /// shifting along: the order the inventory is shared out in.
+    /// Moves entry `id` of `account`'s plan to where entry `onto` is, the
+    /// entries between shifting along: the order the inventory is shared out
+    /// in.
     pub fn move_plan_entry(
         &mut self,
+        account: Option<AccountId>,
         id: i64,
         onto: i64,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
-        let from = self.plan.iter().position(|entry| entry.id == id);
-        let to = self.plan.iter().position(|entry| entry.id == onto);
+        let Some((account, holdings)) =
+            account.and_then(|a| Some(a).zip(self.holdings.get_mut(&a)))
+        else {
+            return Task::ready(Ok(()));
+        };
+        let plan = &mut holdings.plan;
+        let from = plan.iter().position(|entry| entry.id == id);
+        let to = plan.iter().position(|entry| entry.id == onto);
         let (Some(from), Some(to)) = (from, to) else {
             return Task::ready(Ok(()));
         };
@@ -536,14 +592,14 @@ impl Library {
             return Task::ready(Ok(()));
         }
         // Shown at once; the reload after the write confirms it.
-        let entry = self.plan.remove(from);
-        self.plan.insert(to, entry);
+        let entry = plan.remove(from);
+        plan.insert(to, entry);
+        let ids: Vec<i64> = plan.iter().map(|entry| entry.id).collect();
         cx.notify();
-        let ids: Vec<i64> = self.plan.iter().map(|entry| entry.id).collect();
         self.write(
             cx,
             false,
-            move |store, _| Ok(store.reorder_plan(&ids)?),
+            move |store, _| Ok(store.reorder_plan(account, &ids)?),
             |_, ()| (),
         )
     }
@@ -557,36 +613,179 @@ impl Library {
         )
     }
 
-    /// What the player has, as they entered it.
-    pub fn inventory(&self) -> &Inventory {
-        &self.inventory
-    }
-
-    /// Records how many of `item` the player has.
+    /// Records how many of `item` `account` has.
     pub fn set_owned(
         &mut self,
+        account: Option<AccountId>,
         item: CustomItem,
         count: u64,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
-        self.set_owned_many(vec![(item, count)], cx)
+        self.set_owned_many(account, vec![(item, count)], cx)
     }
 
     /// Records several counts at once (the tiers of a series), in one write.
     pub fn set_owned_many(
         &mut self,
+        account: Option<AccountId>,
         counts: Vec<(CustomItem, u64)>,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
         // Shown at once; the reload after the write confirms it.
-        for (item, count) in &counts {
-            self.inventory.set(item, *count);
+        if let Some(holdings) = account.and_then(|a| self.holdings.get_mut(&a)) {
+            for (item, count) in &counts {
+                holdings.inventory.set(item, *count);
+            }
+            cx.notify();
         }
-        cx.notify();
         self.write(
             cx,
             false,
-            move |store, _| Ok(store.set_owned_many(&counts)?),
+            move |store, _| {
+                let account = account_for_writing(store, account)?;
+                Ok(store.set_owned_many(account, &counts)?)
+            },
+            |_, ()| (),
+        )
+    }
+
+    /// Adds `character` to what `account` owns, or saves what changed.
+    pub fn save_owned_character(
+        &mut self,
+        account: Option<AccountId>,
+        character: OwnedCharacter,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        let character = character.clamped();
+        // Shown at once; the reload after the write confirms it.
+        if let Some(holdings) = account.and_then(|a| self.holdings.get_mut(&a)) {
+            let characters = &mut holdings.owned.characters;
+            match characters.iter_mut().find(|c| c.key == character.key) {
+                Some(stored) => *stored = character.clone(),
+                None => {
+                    characters.push(character.clone());
+                    characters.sort_by(|a, b| a.key.cmp(&b.key));
+                }
+            }
+            cx.notify();
+        }
+        self.write(
+            cx,
+            false,
+            move |store, _| {
+                let account = account_for_writing(store, account)?;
+                Ok(store.save_owned_character(account, &character)?)
+            },
+            |_, ()| (),
+        )
+    }
+
+    /// Forgets that `account` owns character `key` (its weapon stays).
+    pub fn remove_owned_character(
+        &mut self,
+        account: AccountId,
+        key: String,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.write(
+            cx,
+            false,
+            move |store, _| Ok(store.remove_owned_character(account, &key)?),
+            |_, ()| (),
+        )
+    }
+
+    /// Adds a copy of a weapon to `account`.
+    pub fn add_owned_weapon(
+        &mut self,
+        account: Option<AccountId>,
+        weapon: OwnedWeapon,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<i64>> {
+        let weapon = weapon.clamped();
+        self.write(
+            cx,
+            false,
+            move |store, _| {
+                let account = account_for_writing(store, account)?;
+                Ok(store.add_owned_weapon(account, &weapon)?)
+            },
+            |_, id| id,
+        )
+    }
+
+    /// Saves what changed on a copy of a weapon.
+    pub fn update_owned_weapon(
+        &mut self,
+        account: AccountId,
+        weapon: OwnedWeapon,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        let weapon = weapon.clamped();
+        // Shown at once; the reload after the write confirms it.
+        if let Some(holdings) = self.holdings.get_mut(&account) {
+            let weapons = &mut holdings.owned.weapons;
+            if weapon.holder.is_some() {
+                for other in weapons.iter_mut().filter(|w| w.holder == weapon.holder) {
+                    other.holder = None;
+                }
+            }
+            if let Some(stored) = weapons.iter_mut().find(|w| w.id == weapon.id) {
+                *stored = weapon.clone();
+            }
+            cx.notify();
+        }
+        self.write(
+            cx,
+            false,
+            move |store, _| Ok(store.update_owned_weapon(account, &weapon)?),
+            |_, ()| (),
+        )
+    }
+
+    /// Forgets the copy `id` of a weapon.
+    pub fn remove_owned_weapon(
+        &mut self,
+        account: AccountId,
+        id: i64,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.write(
+            cx,
+            false,
+            move |store, _| Ok(store.remove_owned_weapon(account, id)?),
+            |_, ()| (),
+        )
+    }
+
+    /// Adds an account by hand: a name, and optionally its UID and server.
+    pub fn add_account(
+        &mut self,
+        label: String,
+        uid: Option<String>,
+        server: Option<Server>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Account>> {
+        // The mirror's snapshot lists the accounts.
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.add_account(&label, uid.as_deref(), server)?),
+            |_, account| account,
+        )
+    }
+
+    /// Gives an account another name.
+    pub fn rename_account(
+        &mut self,
+        account: AccountId,
+        label: String,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.rename_account(account, &label)?),
             |_, ()| (),
         )
     }
@@ -892,8 +1091,7 @@ impl Library {
     fn set_loaded(&mut self, loaded: Loaded) {
         self.accounts = loaded.accounts;
         self.imports = loaded.imports;
-        self.plan = loaded.plan;
-        self.inventory = loaded.inventory;
+        self.holdings = loaded.holdings;
         self.backups = loaded.backups;
     }
 
@@ -1025,8 +1223,7 @@ struct Opened {
 struct Loaded {
     accounts: Vec<AccountSummary>,
     imports: Vec<ImportRecord>,
-    plan: Vec<PlanEntry>,
-    inventory: Inventory,
+    holdings: HashMap<AccountId, Holdings>,
     backups: BackupStatus,
 }
 
@@ -1069,6 +1266,7 @@ fn open(paths: AppPaths, image_requests: Option<UnboundedSender<Job>>) -> Result
 
 fn load(store: &Store, data: &GameData) -> Result<Loaded> {
     let mut accounts = Vec::new();
+    let mut all_holdings = HashMap::new();
     for account in store.accounts()? {
         let analysis = engine::analyze(
             store.wishes(account.id)?,
@@ -1076,10 +1274,17 @@ fn load(store: &Store, data: &GameData) -> Result<Loaded> {
             &store.manual_counters(account.id)?,
             data,
         );
-        // An account left empty by undoing its imports is not shown.
-        if analysis.pools.is_empty() {
+        let holdings = Holdings {
+            plan: store.plan(account.id)?,
+            inventory: store.inventory(account.id)?,
+            owned: store.collection(account.id)?,
+        };
+        // An account an import made and its undo left empty is not shown;
+        // one added by hand is, even before it holds anything.
+        if analysis.pools.is_empty() && holdings.is_empty() && store.has_imports(account.id)? {
             continue;
         }
+        all_holdings.insert(account.id, holdings);
         accounts.push(AccountSummary {
             account,
             analysis: Arc::new(analysis),
@@ -1089,14 +1294,26 @@ fn load(store: &Store, data: &GameData) -> Result<Loaded> {
     Ok(Loaded {
         accounts,
         imports: store.recent_imports(RECENT_IMPORTS)?,
-        plan: store.plan()?,
-        inventory: store.inventory()?,
+        holdings: all_holdings,
         backups: BackupStatus {
             count: backups.len(),
             newest: backups.first().map(|b| b.taken_at),
             files: backups,
         },
     })
+}
+
+/// The account a write of the plan or the collection goes to: the one the
+/// page shows, else the first, else a new account named "Main" (a player who
+/// plans before importing any wishes).
+fn account_for_writing(store: &mut Store, account: Option<AccountId>) -> Result<AccountId> {
+    if let Some(account) = account {
+        return Ok(account);
+    }
+    match store.accounts()?.first() {
+        Some(first) => Ok(first.id),
+        None => Ok(store.add_account("Main", None, None)?.id),
+    }
 }
 
 fn write_mirror(store: &Store, folder: &Path) -> MirrorStatus {

@@ -11,7 +11,7 @@ use gpui_kit::{AppContext as _, Entity, HeadlessAppContext, NoopTextSystem, Task
 use wish_app::app::library::{LoadState, MirrorStatus};
 use wish_app::{ArchivePage, Feature, ImageDownloads, Library, Page, Shell, WishPage};
 use wish_core::AppPaths;
-use wish_core::model::Pool;
+use wish_core::model::{AccountId, Pool};
 
 const SAMPLE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
@@ -90,6 +90,19 @@ impl App {
             .update(|cx| shell.update(cx, |shell, cx| shell.navigate(page, cx)));
         self.cx.run_until_parked();
         self.cx.update(|cx| shell.read(cx).page())
+    }
+
+    /// The account the pages show: the sidebar's.
+    fn account(&mut self) -> Option<AccountId> {
+        let shell = self.shell.clone();
+        self.cx
+            .update(|cx| shell.read(cx).session().read(cx).account())
+    }
+
+    /// The plan of the account shown.
+    fn plan(&mut self) -> Vec<wish_core::planner::PlanEntry> {
+        let (library, account) = (self.library.clone(), self.account());
+        self.cx.update(|cx| library.read(cx).plan(account).to_vec())
     }
 }
 
@@ -339,11 +352,14 @@ fn a_weapon_opens_in_the_archive_and_joins_the_plan() {
         key: "amosbow".to_owned(),
         goal: WeaponGoal::full(5),
     };
-    let task = app
-        .cx
-        .update(|cx| library.update(cx, |library, cx| library.add_plan_entry(target.clone(), cx)));
+    let account = app.account();
+    let task = app.cx.update(|cx| {
+        library.update(cx, |library, cx| {
+            library.add_plan_entry(account, target.clone(), cx)
+        })
+    });
     app.finish(task).expect("the weapon is added");
-    let plan = app.cx.update(|cx| library.read(cx).plan().to_vec());
+    let plan = app.plan();
     assert_eq!(plan.len(), 1);
     assert_eq!(plan[0].target, target);
     // The planner page draws it.
@@ -357,36 +373,52 @@ fn plan_entries_move_and_keep_their_order() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = App::open(dir.path());
     let library = app.library.clone();
+    // No account yet: the first entry makes one, "Main", which the
+    // sidebar then shows.
+    assert_eq!(app.account(), None);
     for key in ["ganyu", "albedo", "furina"] {
         let target = PlanTarget::Character {
             key: key.to_owned(),
             goal: CharacterGoal::FULL,
         };
-        let task = app
-            .cx
-            .update(|cx| library.update(cx, |library, cx| library.add_plan_entry(target, cx)));
+        let account = app.account();
+        let task = app.cx.update(|cx| {
+            library.update(cx, |library, cx| {
+                library.add_plan_entry(account, target, cx)
+            })
+        });
         app.finish(task).expect("the entry is added");
     }
-    let order = |app: &mut App| -> Vec<i64> {
-        let library = app.library.clone();
-        app.cx
-            .update(|cx| library.read(cx).plan().iter().map(|e| e.id).collect())
-    };
+    let accounts = app.cx.update(|cx| {
+        let library = library.read(cx);
+        let accounts = library.accounts().iter();
+        accounts
+            .map(|a| a.account.label.clone())
+            .collect::<Vec<_>>()
+    });
+    assert_eq!(accounts, ["Main"], "one account, made by the first entry");
+    assert!(app.account().is_some());
+    let order = |app: &mut App| -> Vec<i64> { app.plan().iter().map(|e| e.id).collect() };
     let [ganyu, albedo, furina] = order(&mut app)[..] else {
         panic!("three entries");
     };
 
     // Furina dropped on Ganyu takes her place: first to get the inventory.
-    let task = app
-        .cx
-        .update(|cx| library.update(cx, |library, cx| library.move_plan_entry(furina, ganyu, cx)));
+    let account = app.account();
+    let task = app.cx.update(|cx| {
+        library.update(cx, |library, cx| {
+            library.move_plan_entry(account, furina, ganyu, cx)
+        })
+    });
     app.finish(task).expect("the order is saved");
     assert_eq!(order(&mut app), [furina, ganyu, albedo]);
 
     // Ganyu dropped on Albedo, further down, goes after her.
-    let task = app
-        .cx
-        .update(|cx| library.update(cx, |library, cx| library.move_plan_entry(ganyu, albedo, cx)));
+    let task = app.cx.update(|cx| {
+        library.update(cx, |library, cx| {
+            library.move_plan_entry(account, ganyu, albedo, cx)
+        })
+    });
     app.finish(task).expect("the order is saved");
     assert_eq!(order(&mut app), [furina, albedo, ganyu]);
 

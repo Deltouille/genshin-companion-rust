@@ -272,7 +272,7 @@ impl PlannerView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let inventory = self.library.read(cx).inventory();
+        let inventory = self.library.read(cx).inventory(self.account(cx));
         let materials: Vec<(Material, u64)> = materials
             .into_iter()
             .map(|material| {
@@ -304,9 +304,10 @@ impl PlannerView {
                         return true;
                     }
                     view.update(cx, |view, cx| {
-                        let task = view
-                            .library
-                            .update(cx, |library, cx| library.set_owned_many(changed, cx));
+                        let account = view.account(cx);
+                        let task = view.library.update(cx, |library, cx| {
+                            library.set_owned_many(account, changed, cx)
+                        });
                         report_errors(task, window, cx);
                     })
                     .ok();
