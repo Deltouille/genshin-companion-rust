@@ -3,7 +3,6 @@
 //! costs.
 //!
 //! This crate must never depend on GPUI so it stays unit-testable and reusable.
-//! See `PLAN.md` at the repository root for the roadmap.
 
 pub mod archive;
 pub mod collection;

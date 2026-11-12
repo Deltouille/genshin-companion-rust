@@ -10,3 +10,6 @@
 /genshin-db/
 
 /documentation/
+
+# The roadmap stays local
+/PLAN.md

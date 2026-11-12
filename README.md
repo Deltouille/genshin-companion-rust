@@ -214,7 +214,7 @@ tools/third-party-licenses.sh
 CI runs fmt, clippy, the tests and a release build on Linux, Windows and macOS, checks that
 `THIRD-PARTY-LICENSES.txt` is current, and audits the dependencies for known vulnerabilities (cargo-deny) on every
 push and every week.
-[`PLAN.md`](PLAN.md) holds the roadmap and the engine's rules, and [`CLAUDE.md`](CLAUDE.md) the conventions.
+[`CLAUDE.md`](CLAUDE.md) holds the conventions.
 
 To publish a release, set the version in the workspace's `Cargo.toml`, write the release notes in
 `docs/releases/v<version>.md`, commit, then push a tag of that version:
