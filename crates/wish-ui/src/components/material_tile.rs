@@ -62,6 +62,10 @@ impl RenderOnce for MaterialTile {
                 .child("?")
                 .into_any_element(),
         };
+        // The game's item card: the picture on its rarity tile, whose bottom
+        // right corner rounds wide into the parchment strip under it, where
+        // the count is written in ink.
+        let (ink, parchment) = theme::tile_label(cx);
         div()
             .relative()
             .v_flex()
@@ -69,15 +73,17 @@ impl RenderOnce for MaterialTile {
             .flex_shrink_0()
             .rounded(colors.radius)
             .overflow_hidden()
-            .bg(colors.muted)
+            .when(self.label.is_some(), |this| this.bg(parchment))
             .child(
                 div()
                     .size(rems(3.5))
                     // Clipping is rectangular: the tile rounds its own corners.
-                    .map(|tile| match self.label {
-                        Some(_) => tile.rounded_t(colors.radius),
-                        None => tile.rounded(colors.radius),
+                    .rounded_t(colors.radius)
+                    .rounded_bl(match self.label {
+                        Some(_) => rems(0.),
+                        None => rems(0.5),
                     })
+                    .rounded_br(rems(1.))
                     .bg(theme::stars_tile(self.stars, cx))
                     .child(picture),
             )
@@ -88,8 +94,8 @@ impl RenderOnce for MaterialTile {
                         .py_0p5()
                         .text_center()
                         .text_xs()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(colors.foreground)
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(ink)
                         .child(label),
                 )
             })

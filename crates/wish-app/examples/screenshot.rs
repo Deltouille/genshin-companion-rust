@@ -15,9 +15,7 @@ use anyhow::{Context as _, Result, bail};
 use gpui_kit::component::{Theme, ThemeMode, WindowExt as _};
 use gpui_kit::{AppContext as _, HeadlessAppContext};
 use wish_app::app::{Notice, notify};
-use wish_app::{
-    ArchivePage, CharacterTab, ImageDownloads, ImportFromGame, Library, Page, Shell, WishPage,
-};
+use wish_app::{ArchivePage, ImageDownloads, ImportFromGame, Library, Page, Shell, WishPage};
 use wish_core::AppPaths;
 use wish_core::collection::OwnedCharacter;
 use wish_core::model::Pool;
@@ -363,20 +361,24 @@ fn main() -> Result<()> {
         });
         settle(&mut cx)?;
         shoot(&mut cx, format!("characters-{mode_name}"))?;
-        for (name, tab) in [
-            ("profile", CharacterTab::Profile),
-            ("talents", CharacterTab::Talents),
-            ("constellations", CharacterTab::Constellations),
-        ] {
-            cx.update(|cx| {
-                shell.update(cx, |shell, cx| {
-                    shell.open_character("ganyu", cx);
-                    shell.show_character_tab(tab, cx);
-                })
-            });
-            settle(&mut cx)?;
-            shoot(&mut cx, format!("character-{name}-{mode_name}"))?;
+        // The filters, in their sheet.
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_character_filters(window, cx))
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
         }
+        shoot(&mut cx, format!("characters-filters-{mode_name}"))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
+
+        // One character's page (its sections stack: a tall window shows more).
+        cx.update(|cx| shell.update(cx, |shell, cx| shell.open_character("ganyu", cx)));
+        settle(&mut cx)?;
+        shoot(&mut cx, format!("character-{mode_name}"))?;
 
         // Messages (snackbars), over the character's page: work done, then
         // work that failed.

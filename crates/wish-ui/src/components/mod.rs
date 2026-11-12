@@ -11,6 +11,7 @@ mod nav_group;
 mod nav_item;
 mod page_frame;
 mod pager;
+mod picker;
 mod pity_chart;
 mod rich_text;
 mod segmented;
@@ -21,7 +22,7 @@ pub use badge::{badge, outcome_badge};
 pub use card::{card, card_title};
 pub use controls::{
     ButtonExt, button, button_style, dialog_close_footer, dialog_footer, filter_chip, icon_button,
-    input, select,
+    input,
 };
 pub use item_tile::item_tile;
 pub use legend::legend;
@@ -30,6 +31,7 @@ pub use nav_group::NavGroup;
 pub use nav_item::NavItem;
 pub use page_frame::PageFrame;
 pub use pager::Pager;
+pub use picker::{Picker, PickerEvent, PickerItem, PickerState, picker};
 pub use pity_chart::{PityPoint, pity_chart};
 pub use rich_text::rich_text;
 pub use segmented::Segmented;

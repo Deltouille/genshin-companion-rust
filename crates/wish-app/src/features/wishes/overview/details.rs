@@ -202,7 +202,7 @@ fn pity_pill(
         .gap_1p5()
         .px_2p5()
         .py_0p5()
-        .rounded(colors.radius)
+        .rounded_full()
         .border_1()
         .border_color(ring)
         .text_sm()

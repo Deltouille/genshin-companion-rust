@@ -5,7 +5,7 @@
 //! and rarity; a click opens the character's page (what the player has,
 //! profile with stats at any level, talents, constellations).
 //!
-//! An entity: the filters, the open character, its tab and the level sliders
+//! An entity: the filters, the open character and the level sliders
 //! are its own state, kept while the user goes elsewhere. What the account
 //! owns is the [`Library`]'s, per account, followed through the [`Session`].
 //! The shell opens the list from the sidebar and a character with
@@ -13,6 +13,7 @@
 
 mod collection;
 mod detail;
+mod filters;
 mod list;
 mod weapons;
 
@@ -21,26 +22,17 @@ pub use weapons::WeaponsView;
 use std::collections::BTreeSet;
 
 use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::searchable_list::SearchableListItem;
-use gpui_kit::component::select::{SelectEvent, SelectState};
 use gpui_kit::component::slider::{SliderEvent, SliderState};
 use gpui_kit::{
-    AppContext as _, Context, Entity, IntoElement, Render, SharedString, Subscription, Window,
+    AppContext as _, Context, Entity, FocusHandle, IntoElement, Render, SharedString, Subscription,
+    Window,
 };
 use wish_core::planner::Level;
 
 use crate::app::{Library, Session};
+use wish_ui::{PickerEvent, PickerItem, PickerState};
 
-/// What a character's page shows.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum CharacterTab {
-    #[default]
-    Profile,
-    Talents,
-    Constellations,
-}
-
-/// The order of the list.
+/// The order of the list (the sort pill's options; `reversed` turns it round).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum Sort {
     /// The latest release first, as Project Amber lists them.
@@ -50,35 +42,12 @@ enum Sort {
     Rarity,
 }
 
-/// A level in a picker: its index into the levels it picks from, and its
-/// label ("80/90").
-#[derive(Clone, PartialEq)]
-struct LevelOption {
-    index: usize,
-    label: SharedString,
-}
-
-impl SearchableListItem for LevelOption {
-    type Value = usize;
-
-    fn title(&self) -> SharedString {
-        self.label.clone()
-    }
-
-    fn value(&self) -> &usize {
-        &self.index
-    }
-}
-
-/// `levels` as picker options.
-fn level_options(levels: &[Level]) -> Vec<LevelOption> {
+/// `levels` as picker options ("80/90"), standing for their index.
+fn level_options(levels: &[Level]) -> Vec<PickerItem<usize>> {
     levels
         .iter()
         .enumerate()
-        .map(|(index, level)| LevelOption {
-            index,
-            label: format!("{}/{}", level.level, level.cap()).into(),
-        })
+        .map(|(index, level)| PickerItem::new(format!("{}/{}", level.level, level.cap()), index))
         .collect()
 }
 
@@ -93,15 +62,21 @@ pub struct CharactersView {
     /// Only the characters marked as favourites.
     favourites: bool,
     sort: Sort,
+    /// The sort pill.
+    sort_select: Entity<PickerState<Sort>>,
+    /// The order turned round.
+    reversed: bool,
+    /// The filter drawer, and what has the keyboard while it is open.
+    drawer: filters::Drawer,
+    drawer_focus: FocusHandle,
     /// The character whose page is open (a genshin-db key).
     open: Option<String>,
-    tab: CharacterTab,
     /// An index into [`Level::steps`]: the level the stats are shown at.
     level: Entity<SliderState>,
     /// The talent level the values are shown at, 1 to 15.
     talent_level: Entity<SliderState>,
     /// The owned character's level, on its page.
-    owned_level: Entity<SelectState<Vec<LevelOption>>>,
+    owned_level: Entity<PickerState<usize>>,
     /// What the page's controls were last set from: the character and its
     /// owned level. The sliders open at the level the player has.
     synced: Option<(String, Option<Level>)>,
@@ -130,8 +105,8 @@ impl CharactersView {
                 .step(1.0)
                 .default_value(DEFAULT_TALENT_LEVEL)
         });
-        let owned_level =
-            cx.new(|cx| SelectState::new(level_options(&Level::steps()), None, window, cx));
+        let sort_select = cx.new(|cx| PickerState::new(filters::sort_options(), Some(0), cx));
+        let owned_level = cx.new(|cx| PickerState::new(level_options(&Level::steps()), None, cx));
         let subscriptions = vec![
             cx.observe(&library, |_, _, cx| cx.notify()),
             cx.observe(&session, |_, _, cx| cx.notify()),
@@ -141,14 +116,18 @@ impl CharactersView {
                 }
             }),
             cx.subscribe(&level, |_, _, _: &SliderEvent, cx| cx.notify()),
+            cx.subscribe(&sort_select, |this, _, event: &PickerEvent<Sort>, cx| {
+                let PickerEvent::Confirm(sort) = event;
+                this.sort = *sort;
+                cx.notify();
+            }),
             cx.subscribe(&talent_level, |_, _, _: &SliderEvent, cx| cx.notify()),
             cx.subscribe_in(
                 &owned_level,
                 window,
-                |this, _, event: &SelectEvent<Vec<LevelOption>>, window, cx| {
-                    if let SelectEvent::Confirm(Some(index)) = event
-                        && let Some(level) = Level::steps().get(*index)
-                    {
+                |this, _, event: &PickerEvent<usize>, window, cx| {
+                    let PickerEvent::Confirm(index) = event;
+                    if let Some(level) = Level::steps().get(*index) {
                         this.set_owned_level(*level, window, cx);
                     }
                 },
@@ -163,8 +142,11 @@ impl CharactersView {
             stars: BTreeSet::new(),
             favourites: false,
             sort: Sort::default(),
+            sort_select,
+            reversed: false,
+            drawer: filters::Drawer::default(),
+            drawer_focus: cx.focus_handle(),
             open: None,
-            tab: CharacterTab::default(),
             level,
             talent_level,
             owned_level,
@@ -179,18 +161,13 @@ impl CharactersView {
         cx.notify();
     }
 
-    /// Opens `key`'s page on its profile.
+    /// Opens `key`'s page.
     pub fn show_character(&mut self, key: &str, cx: &mut Context<Self>) {
         self.open = Some(key.to_owned());
-        self.tab = CharacterTab::Profile;
         self.synced = None;
         cx.notify();
     }
 
-    pub fn set_tab(&mut self, tab: CharacterTab, cx: &mut Context<Self>) {
-        self.tab = tab;
-        cx.notify();
-    }
     /// The level the stats are shown at.
     fn level(&self, cx: &Context<Self>) -> Level {
         let levels = Level::steps();

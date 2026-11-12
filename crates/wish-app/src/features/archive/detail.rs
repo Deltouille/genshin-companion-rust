@@ -1,16 +1,18 @@
-//! A character's page: the wish art and the facts, then three tabs as on
-//! Project Amber. Profile: the stats at the level on the slider, and what it
-//! costs to get there. Talents: each one with its values at the talent level
-//! on the slider, and what a level costs. Constellations: the six.
+//! A character's page: the wish art and the facts, what the player has (when
+//! they own it), then one section after another, as genshinlist.vercel.app
+//! lays a character out: the stats at the level on the slider and what it
+//! costs to get there, the stats at each ascension, the talents with their
+//! values at the talent level on the slider (and what a level costs), the
+//! constellations.
 
 use std::collections::BTreeMap;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::slider::Slider;
+use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, ImageSource, InteractiveElement as _, IntoElement,
@@ -21,11 +23,9 @@ use wish_core::archive::{ArchiveData, CharacterPage, Talent};
 use wish_core::model::Rarity;
 use wish_core::planner::{Character, CharacterGoal, Level, MaterialId, PlannerData};
 
-use super::{CharacterTab, CharactersView};
+use super::CharactersView;
 use crate::app::images::Images;
-use wish_ui::{
-    MaterialTile, PageFrame, Segmented, badge, button, card, card_title, format, rich_text, theme,
-};
+use wish_ui::{MaterialTile, PageFrame, badge, button, card, card_title, format, rich_text, theme};
 
 impl CharactersView {
     pub(super) fn render_character(
@@ -58,33 +58,17 @@ impl CharactersView {
             .into_any_element();
         };
 
-        let tab = self.tab;
-        let tabs = Segmented::new("character-tab")
-            .option("Profile")
-            .option("Talents")
-            .option("Constellations")
-            .selected(match tab {
-                CharacterTab::Profile => 0,
-                CharacterTab::Talents => 1,
-                CharacterTab::Constellations => 2,
-            })
-            .on_select(cx.listener(|this, ix: &usize, _, cx| {
-                let tab = match ix {
-                    1 => CharacterTab::Talents,
-                    2 => CharacterTab::Constellations,
-                    _ => CharacterTab::Profile,
-                };
-                this.set_tab(tab, cx);
-            }));
-        let content = match tab {
-            CharacterTab::Profile => self.profile(character, page, &planner, &archive, &images, cx),
-            CharacterTab::Talents => self.talents(character, page, &planner, &images, cx),
-            CharacterTab::Constellations => constellations(page, &images, cx),
-        };
+        // One page of sections, as genshinlist.vercel.app lays a character
+        // out: what the player has, the stats at a level and their cost, the
+        // stats at each ascension, the talents, the constellations.
         let width = crate::shell::content_width(window);
         let mine = owned
             .as_ref()
             .map(|owned| self.my_character(owned, &character.name, cx));
+        let stats = self.profile(character, page, &planner, &archive, &images, cx);
+        let ascension = ascension_table(page, &archive, cx);
+        let talents = self.talents(character, page, &planner, &images, cx);
+        let constellations = constellations(page, &images, cx);
 
         let body = div()
             .id("character-page")
@@ -93,14 +77,16 @@ impl CharactersView {
             .child(
                 div()
                     .v_flex()
-                    .gap_4()
+                    .gap_6()
                     .px_6()
                     .pt_2()
-                    .pb_6()
+                    .pb_8()
                     .child(hero(character, page, &images, width, window, cx))
                     .children(mine)
-                    .child(div().h_flex().child(tabs))
-                    .child(content),
+                    .child(section("Stats", stats, cx))
+                    .child(section("Ascension", ascension, cx))
+                    .child(section("Talents", talents, cx))
+                    .child(section("Constellations", constellations, cx)),
             );
         let plan = button("plan-character")
             .primary()
@@ -156,7 +142,7 @@ impl CharactersView {
         let stats_card = card(cx)
             .p_4()
             .gap_3()
-            .child(card_title("Stats", cx).child(level_badge(&level_label, cx)))
+            .child(card_title("Base stats", cx).child(level_badge(&level_label, cx)))
             .child(
                 Slider::new(&self.level)
                     .cursor_pointer()
@@ -250,6 +236,113 @@ impl CharactersView {
             )
             .into_any_element()
     }
+}
+
+/// A section of a character's page: its title after a gold diamond, then
+/// its content.
+fn section(title: &str, content: AnyElement, cx: &App) -> Div {
+    let gold = theme::palette(cx).gold;
+    div()
+        .v_flex()
+        .gap_3()
+        .child(
+            div()
+                .h_flex()
+                .gap_2()
+                .child(Icon::new(IconName::Diamond).size_4().text_color(gold))
+                .child(
+                    div()
+                        .text_xl()
+                        .font_weight(FontWeight::BOLD)
+                        .child(title.to_owned()),
+                ),
+        )
+        .child(content)
+}
+
+/// The stats at each bound of each ascension phase, as the game writes the
+/// level: "20/20" before ascending, "20/40" after.
+fn ascension_table(page: &CharacterPage, archive: &ArchiveData, cx: &App) -> AnyElement {
+    let theme = cx.theme();
+    let bounds = [
+        (1, 0),
+        (20, 0),
+        (20, 1),
+        (40, 1),
+        (40, 2),
+        (50, 2),
+        (50, 3),
+        (60, 3),
+        (60, 4),
+        (70, 4),
+        (70, 5),
+        (80, 5),
+        (80, 6),
+        (90, 6),
+    ];
+    let special_name = page.stats.special.clone();
+    let percent = special_name != "Elemental Mastery";
+    let row = |cells: [String; 5], head: bool, even: bool| {
+        div()
+            .h_flex()
+            .px_4()
+            .py_2()
+            .when(even, |this| this.bg(theme.table_even))
+            .when(head, |this| {
+                this.text_sm()
+                    .text_color(theme.muted_foreground)
+                    .border_b_1()
+                    .border_color(theme.table_row_border)
+            })
+            .children(cells.into_iter().enumerate().map(|(ix, cell)| {
+                let cell = div().child(cell);
+                if ix == 0 {
+                    cell.w(rems(6.)).font_weight(FontWeight::SEMIBOLD)
+                } else {
+                    cell.flex_1().text_right()
+                }
+            }))
+    };
+    let header = row(
+        [
+            "Level".to_owned(),
+            "Base HP".to_owned(),
+            "Base ATK".to_owned(),
+            "Base DEF".to_owned(),
+            special_name,
+        ],
+        true,
+        false,
+    );
+    let rows = bounds
+        .iter()
+        .enumerate()
+        .filter_map(|(ix, (level, phase))| {
+            let level = Level::new(*level, *phase)?;
+            let stats = archive.stats(page, level);
+            let special = if percent {
+                format!("{:.1}%", stats.special * 100.0)
+            } else {
+                format::count(stats.special.round() as u64)
+            };
+            Some(row(
+                [
+                    format!("{}/{}", level.level, level.cap()),
+                    format::count(stats.hp.round() as u64),
+                    format::count(stats.attack.round() as u64),
+                    format::count(stats.defense.round() as u64),
+                    special,
+                ],
+                false,
+                ix % 2 == 1,
+            ))
+        });
+    card(cx)
+        .py_2()
+        .overflow_hidden()
+        .child(header)
+        .children(rows)
+        .into_any_element()
 }
 
 /// The hero's height, in rems.

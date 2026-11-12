@@ -46,7 +46,7 @@ impl RenderOnce for Credits {
         let license = |text: &str| {
             div()
                 .p_4()
-                .rounded(theme.radius)
+                .rounded(theme.radius_lg)
                 .bg(theme.muted)
                 .text_xs()
                 .font_family(theme.mono_font_family.clone())
@@ -231,7 +231,7 @@ pub(crate) fn open_licenses(window: &mut Window, cx: &mut App) {
                     .relative()
                     .h(rem * 32.)
                     .p_3()
-                    .rounded(theme.radius)
+                    .rounded(theme.radius_lg)
                     .bg(theme.muted)
                     .child(lines)
                     .vertical_scrollbar(&scroll),

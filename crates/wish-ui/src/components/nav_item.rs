@@ -77,14 +77,26 @@ impl RenderOnce for NavItem {
             self.label.to_string()
         };
         let nested = self.icon.is_none();
-        // Material 3's navigation drawer: a pill, the current page on the
-        // secondary container (the active indicator) drawn behind a ghost
-        // button, so hovering lays the state layer over it.
+        let gold = crate::theme::palette(cx).gold;
+        // The current page on a lighter panel, drawn behind a ghost button so
+        // hovering lays the state layer over it. The pages of a group lead
+        // with a diamond, gold for the current one.
         let (fill, text) = if self.active {
             (theme.sidebar_primary, theme.sidebar_primary_foreground)
         } else {
             (theme.transparent, theme.sidebar_foreground)
         };
+        let icon = self.icon.or_else(|| {
+            Some(
+                Icon::new(gpui_kit::assets::IconName::Diamond)
+                    .size_3()
+                    .text_color(if self.active {
+                        gold
+                    } else {
+                        theme.sidebar_foreground.opacity(0.6)
+                    }),
+            )
+        });
         let button = Button::new(self.id)
             .ghost()
             .text_color(text)
@@ -97,7 +109,7 @@ impl RenderOnce for NavItem {
                 }
             })
             .px_4()
-            .rounded(theme.radius_lg)
+            .rounded_full()
             .cursor_pointer()
             .accessibility_label(label)
             .child(
@@ -105,7 +117,13 @@ impl RenderOnce for NavItem {
                     .w_full()
                     .h_flex()
                     .gap_3()
-                    .children(self.icon.map(|icon| icon.size_6().flex_shrink_0()))
+                    .children(icon.map(|icon| {
+                        if nested {
+                            icon.flex_shrink_0()
+                        } else {
+                            icon.size_6().flex_shrink_0()
+                        }
+                    }))
                     .child(
                         div()
                             .map(|this| {
@@ -127,10 +145,6 @@ impl RenderOnce for NavItem {
             .when_some(self.on_click, |this, on_click| {
                 this.on_click(move |event, window, cx| on_click(event, window, cx))
             });
-        div()
-            .w_full()
-            .rounded(theme.radius_lg)
-            .bg(fill)
-            .child(button)
+        div().w_full().rounded_full().bg(fill).child(button)
     }
 }

@@ -1,5 +1,5 @@
-//! The weapon archive, like the characters': every weapon as a card,
-//! filtered by type and rarity; a click opens its page (the wish art, ATK and
+//! The weapon archive, like the characters': every weapon as a card, under
+//! the same filter bar (type and rarity in its sheet); a click opens its page (the wish art, ATK and
 //! the secondary stat at any level and what reaching it costs, the passive at
 //! each refinement).
 //!
@@ -17,18 +17,20 @@ use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, AppContext as _, Context, Entity, FontWeight, InteractiveElement as _, IntoElement,
-    ObjectFit, ParentElement as _, Render, SharedString, Styled as _, StyledImage as _,
-    Subscription, Window, div, img, rems,
+    AnyElement, AppContext as _, Context, Entity, FocusHandle, FontWeight, InteractiveElement as _,
+    IntoElement, ObjectFit, ParentElement as _, Render, SharedString, Styled as _,
+    StyledImage as _, Subscription, WeakEntity, Window, div, img, rems,
 };
 use wish_core::planner::{Level, PlanTarget, Weapon, WeaponGoal};
 
+use std::rc::Rc;
+
 use super::Sort;
 use super::detail::{facts_grid, hero_banner, level_badge, materials, table};
+use super::filters::{self, FilterGroup, FilterOption};
 use crate::app::{Library, Session};
-use wish_ui::{
-    PageFrame, Segmented, badge, button, card, card_title, filter_chip, format, input, theme,
-};
+use wish_ui::{PageFrame, Segmented, badge, button, card, card_title, format, theme};
+use wish_ui::{PickerEvent, PickerState};
 
 const TYPES: [&str; 5] = ["Sword", "Claymore", "Polearm", "Bow", "Catalyst"];
 
@@ -40,6 +42,13 @@ pub struct WeaponsView {
     types: BTreeSet<SharedString>,
     stars: BTreeSet<u8>,
     sort: Sort,
+    /// The sort pill.
+    sort_select: Entity<PickerState<Sort>>,
+    /// The order turned round.
+    reversed: bool,
+    /// The filter drawer, and what has the keyboard while it is open.
+    drawer: filters::Drawer,
+    drawer_focus: FocusHandle,
     /// The weapon whose page is open (a genshin-db key).
     open: Option<String>,
     /// An index into the open weapon's levels ([`Level::weapon_steps`]).
@@ -55,9 +64,15 @@ impl WeaponsView {
         let library = session.read(cx).library().clone();
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search a weapon"));
         let (level, level_subscription) = Self::level_slider(5, cx);
+        let sort_select = cx.new(|cx| PickerState::new(filters::sort_options(), Some(0), cx));
         let subscriptions = vec![
             cx.observe(&library, |_, _, cx| cx.notify()),
             cx.observe(&session, |_, _, cx| cx.notify()),
+            cx.subscribe(&sort_select, |this, _, event: &PickerEvent<Sort>, cx| {
+                let PickerEvent::Confirm(sort) = event;
+                this.sort = *sort;
+                cx.notify();
+            }),
             cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     cx.notify();
@@ -71,6 +86,10 @@ impl WeaponsView {
             types: BTreeSet::new(),
             stars: BTreeSet::new(),
             sort: Sort::default(),
+            sort_select,
+            reversed: false,
+            drawer: filters::Drawer::default(),
+            drawer_focus: cx.focus_handle(),
             open: None,
             level,
             refinement: 1,
@@ -123,6 +142,92 @@ impl WeaponsView {
         }
     }
 
+    /// The list's filters, grouped as the sheet shows them: types, rarities.
+    fn filter_groups(&self, view: WeakEntity<Self>) -> Vec<FilterGroup> {
+        let this = self;
+        let weak = view;
+        let toggle = |change: Rc<dyn Fn(&mut Self)>| -> filters::Handler {
+            let weak = weak.clone();
+            Rc::new(move |_, cx| {
+                weak.update(cx, |this, cx| {
+                    change(this);
+                    cx.notify();
+                })
+                .ok();
+            })
+        };
+        let types = TYPES
+            .iter()
+            .map(|kind| FilterOption {
+                label: (*kind).into(),
+                icon: None,
+                on: this.types.contains(*kind),
+                toggle: toggle(Rc::new(move |this| {
+                    Self::toggle(&mut this.types, (*kind).into())
+                })),
+            })
+            .collect();
+        let stars = [5u8, 4, 3, 2, 1]
+            .into_iter()
+            .map(|stars| FilterOption {
+                label: format!("{stars}★").into(),
+                icon: None,
+                on: this.stars.contains(&stars),
+                toggle: toggle(Rc::new(move |this| Self::toggle(&mut this.stars, stars))),
+            })
+            .collect();
+        vec![
+            FilterGroup {
+                title: "Type",
+                options: types,
+            },
+            FilterGroup {
+                title: "Rarity",
+                options: stars,
+            },
+        ]
+    }
+
+    /// Turns every filter off.
+    fn clear_filters(view: &Entity<Self>) -> filters::Handler {
+        let weak = view.downgrade();
+        Rc::new(move |_, cx| {
+            weak.update(cx, |this, cx| {
+                this.types.clear();
+                this.stars.clear();
+                cx.notify();
+            })
+            .ok();
+        })
+    }
+
+    /// Opens the filter drawer, with the keyboard in it (Escape closes it).
+    fn open_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.drawer = filters::Drawer::Open;
+        self.drawer_focus.focus(window, cx);
+        cx.notify();
+    }
+
+    /// Slides the filter drawer out, then forgets it.
+    fn close_filters(&mut self, cx: &mut Context<Self>) {
+        if self.drawer != filters::Drawer::Open {
+            return;
+        }
+        self.drawer = filters::Drawer::Closing;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(filters::DRAWER_SLIDE).await;
+            this.update(cx, |this, cx| {
+                if this.drawer == filters::Drawer::Closing {
+                    this.drawer = filters::Drawer::Closed;
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
     fn render_list(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let library = self.library.read(cx);
         let (planner, archive, images) = (
@@ -159,16 +264,21 @@ impl WeaponsView {
                 shown.sort_by(|a, b| b.rarity.cmp(&a.rarity).then_with(|| a.name.cmp(&b.name)))
             }
         }
+        if self.reversed {
+            shown.reverse();
+        }
 
         let theme = cx.theme();
+        let (ink, parchment) = theme::tile_label(cx);
         let cards = shown.iter().map(|weapon| {
             let key = weapon.key.clone();
             let new = latest.is_some() && Some(version(&weapon.key)) == latest;
             let picture = div()
                 .relative()
                 .w_full()
-                .h(rems(7.5))
+                .h(rems(8.25))
                 .rounded_t(theme.radius_lg)
+                .rounded_br(rems(2.))
                 .bg(theme::stars_tile(weapon.rarity, cx))
                 .children(
                     images
@@ -185,7 +295,7 @@ impl WeaponsView {
             Button::new(SharedString::from(format!("weapon-{}", weapon.key)))
                 .ghost()
                 .p_0()
-                .w(rems(7.5))
+                .w(rems(8.25))
                 .h_auto()
                 .rounded(theme.radius_lg)
                 .cursor_pointer()
@@ -198,7 +308,7 @@ impl WeaponsView {
                         .v_flex()
                         .w_full()
                         .rounded(theme.radius_lg)
-                        .bg(theme.group_box)
+                        .bg(parchment)
                         .child(picture)
                         .child(
                             div()
@@ -206,81 +316,31 @@ impl WeaponsView {
                                 .px_2()
                                 .py_1p5()
                                 .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
+                                .font_weight(FontWeight::BOLD)
                                 .text_center()
                                 .truncate()
-                                .text_color(theme.foreground)
+                                .text_color(ink)
                                 .child(weapon.name.clone()),
                         ),
                 )
                 .on_click(cx.listener(move |this, _, _, cx| this.show_weapon(&key, cx)))
         });
 
-        let type_filters = TYPES.map(|kind| {
-            let on = self.types.contains(kind);
-            filter_chip(
-                SharedString::from(format!("weapon-type-{kind}")),
-                kind,
-                theme.primary,
-                on,
-                cx,
-            )
-            .on_click(cx.listener(move |this, _, _, cx| {
-                Self::toggle(&mut this.types, kind.into());
+        let view = cx.entity();
+        let groups = self.filter_groups(view.downgrade());
+        let toolbar = filters::filter_bar(
+            &self.search,
+            &self.sort_select,
+            self.reversed,
+            &groups,
+            cx.listener(|this, _, window, cx| this.open_filters(window, cx)),
+            cx.listener(|this, _, _, cx| {
+                this.reversed = !this.reversed;
                 cx.notify();
-            }))
-        });
-        let star_filters = [5u8, 4, 3, 2, 1].map(|stars| {
-            let on = self.stars.contains(&stars);
-            filter_chip(
-                SharedString::from(format!("weapon-stars-{stars}")),
-                format!("{stars}★"),
-                theme::stars_color(stars, cx),
-                on,
-                cx,
-            )
-            .on_click(cx.listener(move |this, _, _, cx| {
-                Self::toggle(&mut this.stars, stars);
-                cx.notify();
-            }))
-        });
-        let sort = Segmented::new("weapon-sort")
-            .option("Newest")
-            .option("Name")
-            .option("Rarity")
-            .selected(match self.sort {
-                Sort::Newest => 0,
-                Sort::Name => 1,
-                Sort::Rarity => 2,
-            })
-            .on_select(cx.listener(|this, ix: &usize, _, cx| {
-                this.sort = match ix {
-                    1 => Sort::Name,
-                    2 => Sort::Rarity,
-                    _ => Sort::Newest,
-                };
-                cx.notify();
-            }));
-        let toolbar = div()
-            .v_flex()
-            .gap_3()
-            .child(
-                div()
-                    .h_flex()
-                    .flex_wrap()
-                    .gap_4()
-                    .child(div().w(rems(18.)).child(input(&self.search, cx)))
-                    .child(sort),
-            )
-            .child(
-                div()
-                    .h_flex()
-                    .flex_wrap()
-                    .gap_x_4()
-                    .gap_y_2()
-                    .child(div().h_flex().gap_2().children(type_filters))
-                    .child(div().h_flex().gap_2().children(star_filters)),
-            );
+            }),
+            Self::clear_filters(&view),
+            cx,
+        );
 
         let count = shown.len();
         let body = div()
@@ -294,7 +354,7 @@ impl WeaponsView {
                     .px_6()
                     .pt_2()
                     .pb_6()
-                    .child(div().h_flex().flex_wrap().gap_3().children(cards))
+                    .child(div().h_flex().flex_wrap().gap_5().children(cards))
                     .when(count == 0, |this| {
                         this.child(
                             div()
@@ -303,10 +363,29 @@ impl WeaponsView {
                         )
                     }),
             );
-        PageFrame::new("Weapons", body)
+        let page = PageFrame::new("Weapons", body)
             .subtitle(format!("{count} of {} weapons", planner.weapons().len()))
             .toolbar(toolbar)
-            .body_scrolls()
+            .body_scrolls();
+        let drawer = (self.drawer != filters::Drawer::Closed).then(|| {
+            let weak = view.downgrade();
+            let close: filters::Handler = Rc::new(move |_, cx| {
+                weak.update(cx, |this, cx| this.close_filters(cx)).ok();
+            });
+            filters::filter_drawer(
+                self.drawer,
+                &self.drawer_focus,
+                self.filter_groups(view.downgrade()),
+                close,
+                Self::clear_filters(&view),
+                cx,
+            )
+        });
+        div()
+            .relative()
+            .size_full()
+            .child(page)
+            .children(drawer)
             .into_any_element()
     }
 

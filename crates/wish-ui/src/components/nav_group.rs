@@ -15,11 +15,11 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
 /// A feature in the sidebar (the wish counter, a planner…): a header as large
 /// as a [`NavItem`], with a chevron, and when unfolded the feature's pages
-/// ([`NavItem::nested`]) under it, along a guide line, like DaisyUI's nested
-/// menus.
+/// ([`NavItem::nested`]) under it, each led by a diamond, as the game lists
+/// a menu's sections.
 ///
 /// The header is not filled when one of its pages is shown (the page is);
-/// its icon turns to the primary colour and its text to full contrast.
+/// its icon turns gold and its text to full contrast.
 #[derive(IntoElement)]
 pub struct NavGroup {
     id: ElementId,
@@ -83,14 +83,14 @@ impl RenderOnce for NavGroup {
         let header = Button::new(self.id)
             .ghost()
             .text_color(if current {
-                theme.foreground
+                theme.sidebar_primary_foreground
             } else {
                 theme.sidebar_foreground
             })
             .w_full()
             .h(rems(3.5))
             .px_4()
-            .rounded(theme.radius_lg)
+            .rounded_full()
             .cursor_pointer()
             .accessibility_label(format!("{}, {state}", self.label))
             .child(
@@ -98,12 +98,9 @@ impl RenderOnce for NavGroup {
                     .w_full()
                     .h_flex()
                     .gap_3()
-                    .child(
-                        self.icon
-                            .size_6()
-                            .flex_shrink_0()
-                            .when(current, |icon| icon.text_color(theme.primary)),
-                    )
+                    .child(self.icon.size_6().flex_shrink_0().when(current, |icon| {
+                        icon.text_color(crate::theme::palette(cx).gold)
+                    }))
                     .child(
                         div()
                             .flex_1()
@@ -132,18 +129,8 @@ impl RenderOnce for NavGroup {
             .gap_1()
             .child(header)
             .when(expanded && !self.items.is_empty(), |this| {
-                // The guide line runs under the header's icon (16 px inset
-                // plus half of 24 px).
-                this.child(
-                    div()
-                        .v_flex()
-                        .gap_1()
-                        .ml_7()
-                        .pl_2()
-                        .border_l_1()
-                        .border_color(theme.border)
-                        .children(self.items),
-                )
+                // Its pages, indented under the header, each led by a diamond.
+                this.child(div().v_flex().gap_1().ml_4().children(self.items))
             })
     }
 }

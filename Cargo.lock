@@ -8872,6 +8872,7 @@ dependencies = [
  "anyhow",
  "gpui-kit",
  "image",
+ "serde_json",
  "wish-core",
 ]
 

@@ -15,10 +15,10 @@ pub mod theme;
 
 pub use assets::{UiAssets, pool_icon};
 pub use components::{
-    ButtonExt, MaterialTile, NavGroup, NavItem, PageFrame, Pager, PityPoint, Segmented, badge,
-    big_number, button, button_style, card, card_title, dialog_close_footer, dialog_footer,
-    filter_chip, icon_button, input, item_tile, legend, outcome_badge, pity_chart, rich_text,
-    select, snackbar, stat, stat_label, stat_tile,
+    ButtonExt, MaterialTile, NavGroup, NavItem, PageFrame, Pager, Picker, PickerEvent, PickerItem,
+    PickerState, PityPoint, Segmented, badge, big_number, button, button_style, card, card_title,
+    dialog_close_footer, dialog_footer, filter_chip, icon_button, input, item_tile, legend,
+    outcome_badge, picker, pity_chart, rich_text, snackbar, stat, stat_label, stat_tile,
 };
 
 use gpui_kit::App;

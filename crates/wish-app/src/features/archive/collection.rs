@@ -20,7 +20,7 @@ use super::CharactersView;
 use crate::app::notices::{Notice, notify};
 use gpui_kit::prelude::FluentBuilder as _;
 use wish_ui::{
-    ButtonExt as _, Segmented, button, card, card_title, dialog_footer, icon_button, select,
+    ButtonExt as _, Segmented, button, card, card_title, dialog_footer, icon_button, picker,
 };
 
 /// The talents' names, in the order they are stored.
@@ -147,7 +147,7 @@ impl CharactersView {
         let levels = Level::steps();
         let index = levels.iter().position(|l| *l == owned.level).unwrap_or(0);
         self.owned_level.update(cx, |select, cx| {
-            select.set_selected_value(&index, window, cx);
+            select.set_selected_value(&index, cx);
         });
         if first_time {
             self.level
@@ -262,9 +262,11 @@ impl CharactersView {
                     .gap_y_4()
                     .child(field(
                         "Level",
-                        div()
-                            .w(rems(9.))
-                            .child(select(&self.owned_level, cx).accessibility_label("Level")),
+                        div().w(rems(9.)).child(
+                            picker("owned-level", &self.owned_level)
+                                .accessibility_label("Level")
+                                .menu_width(rems(9.)),
+                        ),
                         cx,
                     ))
                     .child(field("Constellation", constellation, cx))

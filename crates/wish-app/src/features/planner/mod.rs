@@ -19,8 +19,6 @@ use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::searchable_list::SearchableListItem;
-use gpui_kit::component::select::{SelectEvent, SelectState};
 use gpui_kit::component::slider::{Slider, SliderEvent, SliderState, SliderValue};
 use gpui_kit::component::{Icon, WindowExt as _};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -39,8 +37,8 @@ use crate::app::images::Images;
 use crate::app::{Library, Session};
 use wish_core::model::AccountId;
 use wish_ui::{
-    MaterialTile, PageFrame, badge, button, card, card_title, dialog_footer, format, icon_button,
-    select, theme,
+    MaterialTile, PageFrame, PickerEvent, PickerItem, PickerState, badge, button, card, card_title,
+    dialog_footer, format, icon_button, picker, theme,
 };
 
 /// The talent rows' names, in the order of the goal's talents.
@@ -50,8 +48,8 @@ pub struct PlannerView {
     session: Entity<Session>,
     library: Entity<Library>,
     /// The pickers that add a character and a weapon.
-    add_character: Entity<SelectState<Vec<EntryOption>>>,
-    add_weapon: Entity<SelectState<Vec<EntryOption>>>,
+    add_character: Entity<PickerState<SharedString>>,
+    add_weapon: Entity<PickerState<SharedString>>,
     /// The sliders of each character and weapon entry, by entry id.
     controls: HashMap<i64, Controls>,
     /// The entry whose card is being dragged, dimmed meanwhile.
@@ -70,31 +68,12 @@ struct Controls {
     _subscriptions: Vec<Subscription>,
 }
 
-/// An entry of a picker.
-#[derive(Clone, PartialEq)]
-struct EntryOption {
-    key: SharedString,
-    name: SharedString,
-}
-
-impl SearchableListItem for EntryOption {
-    type Value = SharedString;
-
-    fn title(&self) -> SharedString {
-        self.name.clone()
-    }
-
-    fn value(&self) -> &SharedString {
-        &self.key
-    }
-}
-
 impl PlannerView {
     pub fn new(session: Entity<Session>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let library = session.read(cx).library().clone();
         let planner = library.read(cx).planner().clone();
         let picker = |options, window: &mut Window, cx: &mut Context<Self>| {
-            cx.new(|cx| SelectState::new(options, None, window, cx).searchable(true))
+            cx.new(|cx| PickerState::searchable(options, None, window, cx))
         };
         let add_character = picker(character_options(&planner), window, cx);
         let add_weapon = picker(weapon_options(&planner), window, cx);
@@ -111,22 +90,20 @@ impl PlannerView {
             cx.subscribe_in(
                 &add_character,
                 window,
-                |this, picker, event: &SelectEvent<Vec<EntryOption>>, window, cx| {
-                    if let SelectEvent::Confirm(Some(key)) = event {
-                        this.add_character(key.to_string(), window, cx);
-                        // Ready for the next one.
-                        picker.update(cx, |picker, cx| picker.set_selected_index(None, window, cx));
-                    }
+                |this, picker, event: &PickerEvent<SharedString>, window, cx| {
+                    let PickerEvent::Confirm(key) = event;
+                    this.add_character(key.to_string(), window, cx);
+                    // Ready for the next one.
+                    picker.update(cx, |picker, cx| picker.set_selected_index(None, cx));
                 },
             ),
             cx.subscribe_in(
                 &add_weapon,
                 window,
-                |this, picker, event: &SelectEvent<Vec<EntryOption>>, window, cx| {
-                    if let SelectEvent::Confirm(Some(key)) = event {
-                        this.add_weapon(key.to_string(), window, cx);
-                        picker.update(cx, |picker, cx| picker.set_selected_index(None, window, cx));
-                    }
+                |this, picker, event: &PickerEvent<SharedString>, window, cx| {
+                    let PickerEvent::Confirm(key) = event;
+                    this.add_weapon(key.to_string(), window, cx);
+                    picker.update(cx, |picker, cx| picker.set_selected_index(None, cx));
                 },
             ),
         ];
@@ -547,16 +524,18 @@ impl Render for PlannerView {
             .gap_3()
             .child(
                 div().w(rems(18.)).child(
-                    select(&self.add_character, cx)
+                    picker("add-character", &self.add_character)
                         .placeholder("Add a character…")
-                        .accessibility_label("Add a character"),
+                        .accessibility_label("Add a character")
+                        .menu_width(rems(18.)),
                 ),
             )
             .child(
                 div().w(rems(18.)).child(
-                    select(&self.add_weapon, cx)
+                    picker("add-weapon", &self.add_weapon)
                         .placeholder("Add a weapon…")
-                        .accessibility_label("Add a weapon"),
+                        .accessibility_label("Add a weapon")
+                        .menu_width(rems(18.)),
                 ),
             )
             .child(
@@ -1383,29 +1362,23 @@ fn clickable(
         })
 }
 
-fn character_options(planner: &PlannerData) -> Vec<EntryOption> {
-    let mut options: Vec<EntryOption> = planner
+fn character_options(planner: &PlannerData) -> Vec<PickerItem<SharedString>> {
+    let mut options: Vec<PickerItem<SharedString>> = planner
         .characters()
         .iter()
-        .map(|c| EntryOption {
-            key: c.key.clone().into(),
-            name: c.name.clone().into(),
-        })
+        .map(|c| PickerItem::new(c.name.clone(), SharedString::from(c.key.clone())))
         .collect();
-    options.sort_by(|a, b| a.name.cmp(&b.name));
+    options.sort_by(|a, b| a.title.cmp(&b.title));
     options
 }
 
-fn weapon_options(planner: &PlannerData) -> Vec<EntryOption> {
-    let mut options: Vec<EntryOption> = planner
+fn weapon_options(planner: &PlannerData) -> Vec<PickerItem<SharedString>> {
+    let mut options: Vec<PickerItem<SharedString>> = planner
         .weapons()
         .iter()
-        .map(|w| EntryOption {
-            key: w.key.clone().into(),
-            name: w.name.clone().into(),
-        })
+        .map(|w| PickerItem::new(w.name.clone(), SharedString::from(w.key.clone())))
         .collect();
-    options.sort_by(|a, b| a.name.cmp(&b.name));
+    options.sort_by(|a, b| a.title.cmp(&b.title));
     options
 }
 

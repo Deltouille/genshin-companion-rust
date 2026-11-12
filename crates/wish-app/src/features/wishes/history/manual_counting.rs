@@ -12,18 +12,16 @@ use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::form::{field, v_form};
 use gpui_kit::component::input::InputState;
-use gpui_kit::component::searchable_list::SearchableListItem;
-use gpui_kit::component::select::SelectState;
 use gpui_kit::component::{ActiveTheme as _, WindowExt as _};
 use gpui_kit::{
     AppContext as _, Context, Entity, Focusable as _, IntoElement, ParentElement as _, Render,
-    SharedString, Styled as _, Window, div, prelude::FluentBuilder as _,
+    SharedString, Styled as _, Window, div, prelude::FluentBuilder as _, rems,
 };
 use wish_core::data::{GameData, Item};
 use wish_core::engine::DEFAULT_SERVER;
 use wish_core::import::{ImportBatch, manual};
 use wish_core::model::{Account, AccountId, ItemType, Pool, Rarity, Wish, WishId, WishTime};
-use wish_ui::{button, dialog_footer, input, select};
+use wish_ui::{PickerItem, PickerState, button, dialog_footer, input, picker};
 
 use super::{HistoryView, ManualAction};
 
@@ -182,7 +180,7 @@ fn now_for(account: Option<&Account>) -> WishTime {
 struct AddItemForm {
     pool: Pool,
     data: Arc<GameData>,
-    item: Entity<SelectState<Vec<ItemOption>>>,
+    item: Entity<PickerState<String>>,
     pity: Entity<InputState>,
     error: Option<SharedString>,
 }
@@ -195,10 +193,10 @@ impl AddItemForm {
             .filter(|item| item.rarity != Rarity::Three)
             .collect();
         items.sort_by(|a, b| b.rarity.cmp(&a.rarity).then_with(|| a.name.cmp(&b.name)));
-        let options: Vec<ItemOption> = items.into_iter().map(ItemOption::new).collect();
+        let options: Vec<PickerItem<String>> = items.into_iter().map(item_option).collect();
         Self {
             pool,
-            item: cx.new(|cx| SelectState::new(options, None, window, cx).searchable(true)),
+            item: cx.new(|cx| PickerState::searchable(options, None, window, cx)),
             pity: cx
                 .new(|cx| InputState::new(window, cx).placeholder("Counted from earlier wishes")),
             data,
@@ -252,10 +250,10 @@ impl Render for AddItemForm {
                 v_form()
                     .child(
                         field().label("Item").child(
-                            select(&self.item, cx)
+                            picker("add-item", &self.item)
                                 .placeholder("Choose an item")
-                                .search_placeholder("Search by name")
-                                .accessibility_label("Item"),
+                                .accessibility_label("Item")
+                                .menu_width(rems(24.)),
                         ),
                     )
                     .child(
@@ -271,42 +269,19 @@ impl Render for AddItemForm {
     }
 }
 
-/// An entry of the item picker.
-#[derive(Clone, PartialEq)]
-struct ItemOption {
-    key: String,
-    rarity: Rarity,
-    title: SharedString,
-}
-
-impl ItemOption {
-    fn new(item: &Item) -> Self {
-        Self {
-            key: item.key.clone(),
-            rarity: item.rarity,
-            title: format!(
-                "{} · {}★ {}",
-                item.name,
-                item.rarity.stars(),
-                match item.item_type {
-                    ItemType::Character => "character",
-                    ItemType::Weapon => "weapon",
-                    ItemType::Unknown => "item",
-                }
-            )
-            .into(),
-        }
-    }
-}
-
-impl SearchableListItem for ItemOption {
-    type Value = String;
-
-    fn title(&self) -> SharedString {
-        self.title.clone()
-    }
-
-    fn value(&self) -> &String {
-        &self.key
-    }
+/// An entry of the item picker: "Name · 5★ character", standing for its key.
+fn item_option(item: &Item) -> PickerItem<String> {
+    PickerItem::new(
+        format!(
+            "{} · {}★ {}",
+            item.name,
+            item.rarity.stars(),
+            match item.item_type {
+                ItemType::Character => "character",
+                ItemType::Weapon => "weapon",
+                ItemType::Unknown => "item",
+            }
+        ),
+        item.key.clone(),
+    )
 }

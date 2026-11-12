@@ -1,5 +1,5 @@
-//! The list of characters: a search field, filters by element, weapon and
-//! rarity (and favourites), the order, then two grids, as genshin-tracker
+//! The list of characters: the filter bar ([`super::filters`]: search, the
+//! filters in a sheet, the order), then two grids, as genshin-tracker
 //! lists them: the characters the account owns ("Owned": level and
 //! constellation on the card, a star for favourites, × to remove), then the
 //! others, dimmed, with + to add them. A card's picture is the icon on its
@@ -12,17 +12,20 @@ use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Context, Div, FontWeight, ImageSource, InteractiveElement as _, IntoElement,
-    ObjectFit, ParentElement as _, SharedString, Styled as _, StyledImage as _, Window, div, img,
-    rems,
+    AnyElement, App, Context, Div, Entity, FontWeight, ImageSource, InteractiveElement as _,
+    IntoElement, ObjectFit, ParentElement as _, SharedString, Styled as _, StyledImage as _,
+    WeakEntity, Window, div, img, rems,
 };
 use wish_core::collection::OwnedCharacter;
 use wish_core::model::Rarity;
 use wish_core::planner::Character;
 
+use std::rc::Rc;
+
+use super::filters::{self, FilterGroup, FilterOption};
 use super::{CharactersView, Sort};
 use crate::app::images::Images;
-use wish_ui::{PageFrame, Segmented, badge, filter_chip, input, theme};
+use wish_ui::{PageFrame, badge, theme};
 
 /// The elements in the game's order, as the filters show them.
 const ELEMENTS: [&str; 7] = ["Pyro", "Hydro", "Anemo", "Electro", "Dendro", "Cryo", "Geo"];
@@ -69,6 +72,9 @@ impl CharactersView {
                 shown.sort_by(|a, b| b.rarity.cmp(&a.rarity).then_with(|| a.name.cmp(&b.name)))
             }
         }
+        if self.reversed {
+            shown.reverse();
+        }
         // What the account owns first, its favourites leading; the others
         // after, each part in the chosen order.
         let (mut mine, others): (Vec<_>, Vec<_>) = shown
@@ -88,113 +94,22 @@ impl CharactersView {
             .collect();
 
         let theme = cx.theme();
-        // Filters: the elements as their icons, the weapons and rarities as
-        // chips; each one on or off, none on meaning all.
-        let element_filters = ELEMENTS.map(|element| {
-            let on = self.elements.contains(element);
-            Button::new(SharedString::from(format!("element-{element}")))
-                .ghost()
-                .size_11()
-                .p_1p5()
-                .rounded(theme.radius)
-                .cursor_pointer()
-                .when(on, |this| this.bg(theme.secondary))
-                .toggled(on)
-                .tooltip(element)
-                .accessibility_label(format!("{element} characters"))
-                .children(images.element(element).map(|icon| img(icon).size_full()))
-                .when(!on && !self.elements.is_empty(), |this| this.opacity(0.4))
-                .on_click(cx.listener(move |this, _, _, cx| {
-                    Self::toggle(&mut this.elements, element.into());
-                    cx.notify();
-                }))
-        });
-        let weapon_filters = WEAPONS.map(|weapon| {
-            let on = self.weapons.contains(weapon);
-            filter_chip(
-                SharedString::from(format!("weapon-{weapon}")),
-                weapon,
-                theme.primary,
-                on,
-                cx,
-            )
-            .on_click(cx.listener(move |this, _, _, cx| {
-                Self::toggle(&mut this.weapons, weapon.into());
+        let view = cx.entity();
+        let groups = self.filter_groups(view.downgrade(), cx);
+        let clear = Self::clear_filters(&view);
+        let toolbar = filters::filter_bar(
+            &self.search,
+            &self.sort_select,
+            self.reversed,
+            &groups,
+            cx.listener(|this, _, window, cx| this.open_filters(window, cx)),
+            cx.listener(|this, _, _, cx| {
+                this.reversed = !this.reversed;
                 cx.notify();
-            }))
-        });
-        let star_filters = [5u8, 4].map(|stars| {
-            let on = self.stars.contains(&stars);
-            filter_chip(
-                SharedString::from(format!("stars-{stars}")),
-                format!("{stars}★"),
-                // The text colours of the rarities (readable on both themes).
-                theme::rarity(
-                    if stars == 5 {
-                        Rarity::Five
-                    } else {
-                        Rarity::Four
-                    },
-                    cx,
-                ),
-                on,
-                cx,
-            )
-            .on_click(cx.listener(move |this, _, _, cx| {
-                Self::toggle(&mut this.stars, stars);
-                cx.notify();
-            }))
-        });
-        let favourites = filter_chip(
-            "favourites",
-            "☆ Favourites",
-            theme.primary,
-            self.favourites,
+            }),
+            clear,
             cx,
-        )
-        .on_click(cx.listener(|this, _, _, cx| {
-            this.favourites = !this.favourites;
-            cx.notify();
-        }));
-        let sort = Segmented::new("character-sort")
-            .option("Newest")
-            .option("Name")
-            .option("Rarity")
-            .selected(match self.sort {
-                Sort::Newest => 0,
-                Sort::Name => 1,
-                Sort::Rarity => 2,
-            })
-            .on_select(cx.listener(|this, ix: &usize, _, cx| {
-                this.sort = match ix {
-                    1 => Sort::Name,
-                    2 => Sort::Rarity,
-                    _ => Sort::Newest,
-                };
-                cx.notify();
-            }));
-        let toolbar = div()
-            .v_flex()
-            .gap_3()
-            .child(
-                div()
-                    .h_flex()
-                    .flex_wrap()
-                    .gap_4()
-                    .child(div().w(rems(18.)).child(input(&self.search, cx)))
-                    .child(sort),
-            )
-            .child(
-                div()
-                    .h_flex()
-                    .flex_wrap()
-                    .gap_x_4()
-                    .gap_y_2()
-                    .child(favourites)
-                    .child(div().h_flex().gap_1().children(element_filters))
-                    .child(div().h_flex().gap_2().children(weapon_filters))
-                    .child(div().h_flex().gap_2().children(star_filters)),
-            );
+        );
 
         let (mine_count, other_count) = (mine_cards.len(), other_cards.len());
         let filtered = !query.is_empty()
@@ -229,7 +144,7 @@ impl CharactersView {
                              constellation. Add them with + on their card."
                         }))
                     })
-                    .child(div().h_flex().flex_wrap().gap_3().children(mine_cards))
+                    .child(div().h_flex().flex_wrap().gap_5().children(mine_cards))
                     .when(other_count > 0 || mine_count == 0, |this| {
                         this.child(
                             div()
@@ -237,7 +152,7 @@ impl CharactersView {
                                 .child(section_title("Not owned", other_count, cx)),
                         )
                     })
-                    .child(div().h_flex().flex_wrap().gap_3().children(other_cards))
+                    .child(div().h_flex().flex_wrap().gap_5().children(other_cards))
                     .when(mine_count + other_count == 0, |this| {
                         this.child(
                             div()
@@ -246,15 +161,149 @@ impl CharactersView {
                         )
                     }),
             );
-        PageFrame::new("Characters", body)
+        let page = PageFrame::new("Characters", body)
             .subtitle(format!(
                 "{} owned · {} characters",
                 owned.characters.len(),
                 planner.characters().len()
             ))
             .toolbar(toolbar)
-            .body_scrolls()
+            .body_scrolls();
+        let drawer = (self.drawer != filters::Drawer::Closed).then(|| {
+            let weak = view.downgrade();
+            let close: filters::Handler = Rc::new(move |_, cx| {
+                weak.update(cx, |this, cx| this.close_filters(cx)).ok();
+            });
+            filters::filter_drawer(
+                self.drawer,
+                &self.drawer_focus,
+                self.filter_groups(view.downgrade(), cx),
+                close,
+                Self::clear_filters(&view),
+                cx,
+            )
+        });
+        div()
+            .relative()
+            .size_full()
+            .child(page)
+            .children(drawer)
             .into_any_element()
+    }
+
+    /// The list's filters, grouped as the sheet shows them: elements (with
+    /// their icons), weapons, rarities, favourites.
+    fn filter_groups(&self, view: WeakEntity<Self>, cx: &App) -> Vec<FilterGroup> {
+        let this = self;
+        let images = this.library.read(cx).images().clone();
+        let weak = view;
+        let toggle = |change: Rc<dyn Fn(&mut Self)>| -> filters::Handler {
+            let weak = weak.clone();
+            Rc::new(move |_, cx| {
+                weak.update(cx, |this, cx| {
+                    change(this);
+                    cx.notify();
+                })
+                .ok();
+            })
+        };
+        let elements = ELEMENTS
+            .iter()
+            .map(|element| FilterOption {
+                label: (*element).into(),
+                icon: images.element(element),
+                on: this.elements.contains(*element),
+                toggle: toggle(Rc::new(move |this| {
+                    Self::toggle(&mut this.elements, (*element).into())
+                })),
+            })
+            .collect();
+        let weapons = WEAPONS
+            .iter()
+            .map(|weapon| FilterOption {
+                label: (*weapon).into(),
+                icon: None,
+                on: this.weapons.contains(*weapon),
+                toggle: toggle(Rc::new(move |this| {
+                    Self::toggle(&mut this.weapons, (*weapon).into())
+                })),
+            })
+            .collect();
+        let stars = [5u8, 4]
+            .into_iter()
+            .map(|stars| FilterOption {
+                label: format!("{stars}★").into(),
+                icon: None,
+                on: this.stars.contains(&stars),
+                toggle: toggle(Rc::new(move |this| Self::toggle(&mut this.stars, stars))),
+            })
+            .collect();
+        let collection = vec![FilterOption {
+            label: "Favourites".into(),
+            icon: None,
+            on: this.favourites,
+            toggle: toggle(Rc::new(|this| this.favourites = !this.favourites)),
+        }];
+        vec![
+            FilterGroup {
+                title: "Element",
+                options: elements,
+            },
+            FilterGroup {
+                title: "Weapon",
+                options: weapons,
+            },
+            FilterGroup {
+                title: "Rarity",
+                options: stars,
+            },
+            FilterGroup {
+                title: "Collection",
+                options: collection,
+            },
+        ]
+    }
+
+    /// Turns every filter off.
+    fn clear_filters(view: &Entity<Self>) -> filters::Handler {
+        let weak = view.downgrade();
+        Rc::new(move |_, cx| {
+            weak.update(cx, |this, cx| {
+                this.elements.clear();
+                this.weapons.clear();
+                this.stars.clear();
+                this.favourites = false;
+                cx.notify();
+            })
+            .ok();
+        })
+    }
+
+    /// Opens the filter drawer, with the keyboard in it (Escape closes it).
+    pub(crate) fn open_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.drawer = filters::Drawer::Open;
+        self.drawer_focus.focus(window, cx);
+        cx.notify();
+    }
+
+    /// Slides the filter drawer out, then forgets it.
+    fn close_filters(&mut self, cx: &mut Context<Self>) {
+        if self.drawer != filters::Drawer::Open {
+            return;
+        }
+        self.drawer = filters::Drawer::Closing;
+        cx.notify();
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(filters::DRAWER_SLIDE).await;
+            this.update(cx, |this, cx| {
+                if this.drawer == filters::Drawer::Closing {
+                    this.drawer = filters::Drawer::Closed;
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// A character's card: its picture with what the account has on it, its
@@ -268,6 +317,7 @@ impl CharactersView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
+        let (ink, parchment) = theme::tile_label(cx);
         let (key, name) = (character.key.clone(), character.name.clone());
         let corner = match owned {
             Some(owned) => {
@@ -324,8 +374,9 @@ impl CharactersView {
         let picture = div()
             .relative()
             .w_full()
-            .h(rems(7.5))
+            .h(rems(8.25))
             .rounded_t(theme.radius_lg)
+            .rounded_br(rems(2.))
             .bg(match owned {
                 Some(_) => theme::stars_tile(character.rarity, cx),
                 // Faded with its picture: the card reads as one not in the collection.
@@ -364,7 +415,7 @@ impl CharactersView {
         Button::new(SharedString::from(format!("character-{key}")))
             .ghost()
             .p_0()
-            .w(rems(7.5))
+            .w(rems(8.25))
             .h_auto()
             .rounded(theme.radius_lg)
             .cursor_pointer()
@@ -381,19 +432,24 @@ impl CharactersView {
                     .v_flex()
                     .w_full()
                     .rounded(theme.radius_lg)
-                    .bg(theme.group_box)
+                    .bg(if owned.is_some() {
+                        parchment
+                    } else {
+                        // Not in the collection: a slate strip, the name muted.
+                        theme.muted
+                    })
                     .child(picture)
                     .child(
                         div()
                             .w_full()
                             .px_2()
                             .py_1p5()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
+                            .text_base()
+                            .font_weight(FontWeight::BOLD)
                             .text_center()
                             .truncate()
                             .text_color(if owned.is_some() {
-                                theme.foreground
+                                ink
                             } else {
                                 theme.muted_foreground
                             })
