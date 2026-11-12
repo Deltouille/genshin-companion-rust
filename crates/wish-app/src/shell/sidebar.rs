@@ -8,15 +8,14 @@
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::searchable_list::SearchableListItem;
 use gpui_kit::component::{ActiveTheme as _, Icon, IconName};
 use gpui_kit::{
     Context, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
     Styled as _, div, prelude::FluentBuilder as _,
 };
 use wish_core::model::AccountId;
-use wish_ui::select;
 use wish_ui::{NavGroup, NavItem};
+use wish_ui::{PickerItem, picker};
 
 use super::{ArchivePage, Feature, Page, Shell, WishPage};
 use crate::APP_TITLE;
@@ -106,22 +105,13 @@ impl Shell {
             cx,
         );
 
-        let brand = div()
-            .h_flex()
-            .gap_2()
-            .px_1()
-            .child(
-                Icon::new(IconName::Star)
-                    .size_5()
-                    .text_color(cx.theme().yellow),
-            )
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(cx.theme().foreground)
-                    .child(APP_TITLE),
-            );
+        let brand = div().h_flex().gap_2().px_1().child(
+            div()
+                .text_lg()
+                .font_weight(FontWeight::BOLD)
+                .text_color(cx.theme().sidebar_primary_foreground)
+                .child(APP_TITLE),
+        );
 
         let theme = cx.theme();
         div()
@@ -143,7 +133,11 @@ impl Shell {
                     .pb_2()
                     .child(brand)
                     .when(has_accounts, |this| {
-                        this.child(select(&self.account_select, cx).accessibility_label("Account"))
+                        this.child(
+                            picker("account", &self.account_select)
+                                .accessibility_label("Account")
+                                .menu_width(gpui_kit::rems(14.5)),
+                        )
                     }),
             )
             .child(
@@ -186,37 +180,14 @@ impl Shell {
     }
 }
 
-/// An entry of the account picker.
-#[derive(Clone, PartialEq)]
-pub(super) struct AccountOption {
-    id: AccountId,
-    title: SharedString,
-}
-
-impl AccountOption {
-    pub(super) fn new(summary: &AccountSummary) -> Self {
-        let account = &summary.account;
-        // An account named after its UID (the default for a game import) shows
-        // it once.
-        let title = match &account.uid {
-            Some(uid) if *uid != account.label => format!("{} · {uid}", account.label),
-            _ => account.label.clone(),
-        };
-        Self {
-            id: account.id,
-            title: title.into(),
-        }
-    }
-}
-
-impl SearchableListItem for AccountOption {
-    type Value = AccountId;
-
-    fn title(&self) -> SharedString {
-        self.title.clone()
-    }
-
-    fn value(&self) -> &AccountId {
-        &self.id
-    }
+/// An entry of the account picker: its name (and UID), standing for its id.
+pub(super) fn account_option(summary: &AccountSummary) -> PickerItem<AccountId> {
+    let account = &summary.account;
+    // An account named after its UID (the default for a game import) shows
+    // it once.
+    let title = match &account.uid {
+        Some(uid) if *uid != account.label => format!("{} · {uid}", account.label),
+        _ => account.label.clone(),
+    };
+    PickerItem::new(title, account.id)
 }

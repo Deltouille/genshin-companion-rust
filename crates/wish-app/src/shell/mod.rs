@@ -27,7 +27,7 @@ use std::collections::HashSet;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::ButtonVariants as _;
-use gpui_kit::component::select::{SelectEvent, SelectState};
+
 use gpui_kit::component::spinner::Spinner;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, FocusHandle, FontWeight,
@@ -39,15 +39,16 @@ use wish_core::planner::MaterialId;
 
 use crate::app::library::{Library, LoadState};
 use crate::app::{Notices, Session};
-use crate::features::archive::{CharacterTab, CharactersView, WeaponsView};
+use crate::features::archive::{CharactersView, WeaponsView};
 use crate::features::credits::Credits;
 use crate::features::planner::PlannerView;
 use crate::features::settings::SettingsPage;
 use crate::features::wishes::history::HistoryView;
 use crate::features::wishes::import::{ImportFlow, import_file_button, import_game_button};
 use crate::features::wishes::overview::Overview;
-use sidebar::AccountOption;
+use sidebar::account_option;
 use wish_ui::button;
+use wish_ui::{PickerEvent, PickerItem, PickerState};
 
 actions!(genshin_companion, [ImportFile, ImportFromGame, Quit]);
 
@@ -123,7 +124,7 @@ pub struct Shell {
     page: Page,
     /// Feature groups the user folded in the sidebar.
     collapsed: HashSet<Feature>,
-    account_select: Entity<SelectState<Vec<AccountOption>>>,
+    account_select: Entity<PickerState<AccountId>>,
     history: Entity<HistoryView>,
     archive: Entity<CharactersView>,
     weapons: Entity<WeaponsView>,
@@ -139,7 +140,7 @@ pub struct Shell {
 impl Shell {
     pub fn new(library: Entity<Library>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let session = cx.new(|cx| Session::new(library.clone(), cx));
-        let account_select = cx.new(|cx| SelectState::new(Vec::new(), None, window, cx));
+        let account_select = cx.new(|cx| PickerState::new(Vec::new(), None, cx));
         let history = cx.new(|cx| HistoryView::new(session.clone(), window, cx));
         let archive = cx.new(|cx| CharactersView::new(session.clone(), window, cx));
         let weapons = cx.new(|cx| WeaponsView::new(session.clone(), window, cx));
@@ -161,12 +162,11 @@ impl Shell {
             cx.subscribe_in(
                 &account_select,
                 window,
-                |this, _, event: &SelectEvent<Vec<AccountOption>>, _, cx| {
-                    if let SelectEvent::Confirm(Some(id)) = event {
-                        let id: AccountId = *id;
-                        this.session
-                            .update(cx, |session, cx| session.select_account(id, cx));
-                    }
+                |this, _, event: &PickerEvent<AccountId>, _, cx| {
+                    let PickerEvent::Confirm(id) = event;
+                    let id = *id;
+                    this.session
+                        .update(cx, |session, cx| session.select_account(id, cx));
                 },
             ),
         ];
@@ -195,19 +195,19 @@ impl Shell {
 
     /// Lists the accounts in the picker, selects the session's account, and
     /// leaves a history page the account has no wishes for.
-    fn sync_account_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let options: Vec<AccountOption> = self
+    fn sync_account_picker(&mut self, _: &mut Window, cx: &mut Context<Self>) {
+        let options: Vec<PickerItem<AccountId>> = self
             .library
             .read(cx)
             .accounts()
             .iter()
-            .map(AccountOption::new)
+            .map(account_option)
             .collect();
         let account = self.session.read(cx).account();
         self.account_select.update(cx, |select, cx| {
-            select.set_items(options, window, cx);
+            select.set_items(options, cx);
             if let Some(id) = account {
-                select.set_selected_value(&id, window, cx);
+                select.set_selected_value(&id, cx);
             }
         });
         if let Page::Wishes(WishPage::History(pool)) = self.page
@@ -280,6 +280,13 @@ impl Shell {
             .update(cx, |archive, cx| archive.show_character(key, cx));
     }
 
+    /// Opens the character list's filter sheet (the screenshot tool uses it).
+    pub fn open_character_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.navigate(Page::Archive(ArchivePage::Characters), cx);
+        self.archive
+            .update(cx, |archive, cx| archive.open_filters(window, cx));
+    }
+
     /// Opens the planner's "custom entry" dialog.
     /// Opens the custom character dialog: for a new one, or plan entry `id`.
     pub fn open_custom_entry(
@@ -321,12 +328,6 @@ impl Shell {
         self.navigate(Page::Archive(ArchivePage::Weapons), cx);
         self.weapons
             .update(cx, |weapons, cx| weapons.show_weapon(key, cx));
-    }
-
-    /// On a character's page, shows the profile, talents or constellations.
-    pub fn show_character_tab(&mut self, tab: CharacterTab, cx: &mut Context<Self>) {
-        self.archive
-            .update(cx, |archive, cx| archive.set_tab(tab, cx));
     }
 
     /// On a history page, shows the banner view (`true`) or the wish list.

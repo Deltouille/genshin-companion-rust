@@ -17,7 +17,12 @@ gpui_kit::assets::icon_assets!(
         Circle,
         Gem,
         Calculator,
-        GripVertical
+        GripVertical,
+        Diamond,
+        Sparkle,
+        Funnel,
+        ArrowDownWideNarrow,
+        ArrowUpNarrowWide
     ]
 );
 

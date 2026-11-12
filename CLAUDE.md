@@ -153,27 +153,46 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     They also run on real exports placed in `tests/fixtures/private/`.
 - `crates/wish-ui`: the design system (shared layer, like shadcn's `ui/`). Depends on `gpui-kit` and `wish-core`'s
   types only, never on app state. Components take plain data and render it.
-  - `theme.json` + `theme.rs`: the look, **Material 3** (the user's choice, after the Material 3 tokens of their
-    blog, les-archives-de-teyvat.vercel.app). Colours: surface `#F9F9FF` / `#111318`, cards on surface-container-low
-    `#F3F3FA` / `#191C20`, inner tiles on surface-container-high, primary `#3E5F90` / `#A7C8FF` (also the current
-    segment of a `Segmented`, the user's choice: M3's tonal fill and tick made it change width), the secondary
-    container (`#D9E3F8` / `#3D4758`) for the drawer's active indicator. `accent` is
-    the hover state layer (on-surface at 8%), drawn over a surface rather than in place of it. Default buttons are
-    M3's outlined buttons (`button.*` tokens), `.primary()` the filled ones, `.ghost()` the text ones. Shapes:
-    `radius` 20 (pills at 40–44 px), `radius.lg` 28 (cards, dialogs, fields). The layout and the rarity colours
-    (5★ `#FFB13F`, 4★ `#D28FD6`) stay paimon.moe's. Raw colours live only in `theme.json`. `theme.rs` registers
-    Google Sans Flex (`fonts/`, SIL OFL: five static instances of the variable font, made with fonttools'
-    `varLib.instancer` at opsz 18, wdth 100, ROND 0) and the themes, and gives rarity colours and icon tiles.
-    Earlier looks the user turned down: a muted navy-and-gold "designed" one (AI-generic), paimon.moe's purple-navy,
-    then the game-menu "Teyvat" theme for M3. Keep the contrast high.
-  - `components/`: `PageFrame`, `NavItem` (M3 navigation drawer entry, a 56 px pill; `nested` for a feature's pages),
+  - `theme.json` + `theme.rs`: the look, **after Genshin Impact's menus** (the user's choice on 2026-11-12, from
+    screenshots of the Paimon menu, the character list, the inventory and the achievements, and
+    genshinlist.vercel.app), **without any of the game's assets or its font**: colours and simple shapes only.
+    Dark: a plain ink-blue slate page (`#151A26`), slate cards (`#1E2435`) with no border, parchment text
+    (`#ECE5D8`), the primary a parchment fill with ink text (filled buttons, the current segment), gold (`#D3BC8E`)
+    for the focus ring, sliders and the ornaments (a diamond before each page title and each nested page). Light: a
+    parchment page (`#E8E2D5`) and cards (`#F4F0E7`, a neutral hairline), ink text (`#3B4255`), an ink primary,
+    and a slate sidebar as in the Paimon menu (the sidebar uses only the `sidebar.*` tokens). The user turned down
+    a gradient page and gold borders (cards, the current page), then a closer copy of genshinlist.vercel.app (a
+    neutral near-black page, warm brown-black panels, every button filled, a slate sidebar in both themes) as
+    worse: keep this look, and ask which point to change before reworking it. Item cards (characters, weapons,
+    materials, wished items) follow the game's: the picture on its rarity tile (`stars_tile`, dark top left to
+    light bottom right, the same in both themes) with its bottom right corner rounded wide, over a parchment
+    strip where the name or count is written in ink (`tile_label`). Buttons are filled parchment pills with ink text
+    in both themes (`button.*` tokens), like the pickers, as the user asked; `.primary()` is parchment in dark,
+    ink in light. Pickers (`wish_ui::picker`) are parchment pills over a parchment list;
+    fields, chips and `Segmented` are pills. One rule for corners (the user's choice): every control is a pill
+    (buttons, pickers and their rows, fields, chips, segments, sidebar entries, badges); surfaces (cards, panels,
+    the snackbar, a list's frame) use `radius.lg` 12; only item tiles keep `radius` 8. The app's own roles (parchment,
+    ink, gold, the 1★–5★ tiles) are each theme's `app` section, which the kit ignores and `theme::palette` reads.
+    `accent` is the hover state layer, drawn over a surface rather than in place of it. Rarity text colours:
+    5★ `#FFB13F` / `#965700`, 4★ `#D28FD6` / `#8E3F94`. Raw colours live only in `theme.json`; check text contrast
+    (4.5:1) and rerun the dataviz validator for the chart colours when surfaces change. `theme.rs` registers Google
+    Sans Flex (`fonts/`, SIL OFL: five static instances of the variable font, made with fonttools'
+    `varLib.instancer` at opsz 18, wdth 100, ROND 0) and the themes. Earlier looks: a muted navy-and-gold
+    "designed" one (turned down as AI-generic), paimon.moe's purple-navy, a first game-menu "Teyvat" theme, then
+    Material 3 after the user's blog (les-archives-de-teyvat.vercel.app), replaced by this one. Keep the contrast
+    high.
+  - `components/`: `PageFrame` (a gold diamond before the title), `NavItem` (a sidebar entry; the current one on a
+    lighter panel; `nested` for a feature's pages, each led by a diamond),
     `NavGroup` (a feature in the sidebar, folding), `card`, `card_title`, `MaterialTile` (a material and its count on its
     rarity tile; `.done` greys it out, `bare` drops the count, no icon shows "?"), `rich_text` (game text whose `**…**` terms turn semibold), `stat` (title, value,
     description), `stat_tile`, `big_number`, `stat_label`, `badge`, `outcome_badge`, `item_tile`,
-    and the controls (`controls.rs`, `segmented.rs`, `pager.rs`): `button`, `icon_button`, `select`, `input`,
-    `filter_chip` (M3 filter chip), `Segmented` (M3 segmented button, for a view or value choice; the current one
+    and the controls (`controls.rs`, `segmented.rs`, `pager.rs`): `button`, `icon_button`, `picker` (`PickerState`: a parchment pill opening a
+    parchment list in ink, the option under the keyboard shaded, a search field for long lists, Up/Down/Enter;
+    built on the kit's `Popover`, since the kit's `Select` draws its list on the popover surface with the
+    theme's hover colours, which ghost buttons share), `input`,
+    `filter_chip` (a pill chip), `Segmented` (a pill split in segments, for a view or value choice; the current one
     filled with the primary colour, no tick), `Pager`, and `dialog_footer` / `dialog_close_footer`; `snackbar`
-    (M3 snackbar: inverse colours, 4 px corners, a close button; shown through the app's `notify`). GPUI Kit's controls are 32 px with 14 px text, which looks like another
+    (M3 snackbar: inverse colours, `radius.lg` corners, a close button; shown through the app's `notify`). GPUI Kit's controls are 32 px with 14 px text, which looks like another
     app next to the app's proportions: **never use `Button::new`, `Select::new`, `Input::new` or the kit's `Pagination`,
     `ButtonGroup` and `Toggle` directly in the app; use these** (`button_style` sizes a button the kit builds, such
     as a dialog's close button). Alert dialogs get `.footer(dialog_footer(button(…).danger()…))`, since their
@@ -291,15 +310,24 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       `inventory`, `set_owned`); removing asks first. A character's archive page has "Add to the planner".
       `Shell::open_custom_entry` / `open_inventory` open the dialogs (the screenshot tool uses them).
     - `archive/`: the character archive, like Project Amber's (`Page::Archive(ArchivePage::Characters)`,
-      group "Archive"). `CharactersView` (entity: filters, open character, tab, level sliders; the shell calls
-      `show_list`, `show_character`, `set_tab`). `list.rs`: search, element / weapon / rarity filters, sort, the card
-      grid (128 px icons on the rarity tile, element badge, "New" for the latest version). `detail.rs`: a hero banner (the
+      group "Archive"). `CharactersView` (entity: filters, sort and its direction, open character, level sliders;
+      the shell calls `show_list`, `show_character`, `open_character_filters`). `filters.rs`: the filter bar of both
+      lists, after genshinlist.vercel.app's (search, "Filter" opening a drawer of filter buttons in groups,
+      applied at once; "Sort by" as a picker; a button reversing the order, its icon telling the direction;
+      chips for the filters on). The drawer is the app's own (`filter_drawer`, deferred over the page, its
+      whole height): it slides in and out (the kit's `Sheet` has no exit animation and leaves the title bar's
+      height); Escape, its cross, Done or a click on the veil close it.
+      Never read the view's entity in its own render: `filter_groups` takes `&self` and a weak handle. `list.rs`:
+      the account's characters first ("Owned": level and constellation, ☆, ×), the others faded with + ("Not
+      owned"), 8.25 rem cards (icon on the rarity tile, element badge, "New" for the latest version).
+      `collection.rs`: owning, favourites, removing, and the "My character" panel. `detail.rs`: a hero banner (the
       blurred backdrop faded into the card under the text, the art drawn 1.3× the banner's height and cropped, the
-      stars, description and facts), then tabs: Profile (stats at the slider's level and phase, and what reaching it costs, from
-      `PlannerData::character_cost`), Talents (values at the talent-level slider, cost of one talent to it),
-      Constellations.
+      stars, description and facts), "My character" when owned, then stacked sections as on genshin-list: Stats (at
+      the slider's level and phase, and what reaching it costs, from `PlannerData::character_cost`), Ascension (the
+      stats at each phase's bounds, "20/20" then "20/40"), Talents (values at the talent-level slider, cost of one
+      talent to it), Constellations.
     - `archive/weapons.rs`: `WeaponsView` (entity, `Page::Archive(ArchivePage::Weapons)`, the shell calls
-      `show_weapon`): the weapon list (search, type and rarity filters, sort) and a weapon's page (the same
+      `show_weapon`): the weapon list (the same filter bar: type and rarity) and a weapon's page (the same
       `detail::hero_banner` with its upright wish art, stats at the level slider and their cost, the passive by
       refinement, "Add to the planner"). The planner has an "Add a weapon…" picker; a weapon card has a level
       range only (`Controls::steps` holds its rarity's levels).

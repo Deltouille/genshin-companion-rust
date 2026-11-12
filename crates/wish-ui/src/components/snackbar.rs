@@ -51,7 +51,7 @@ pub fn snackbar(
         .pl_4()
         .pr_1()
         .py_1()
-        .rounded(px(4.))
+        .rounded(cx.theme().radius_lg)
         .bg(fill)
         .text_color(text)
         .text_sm()

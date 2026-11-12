@@ -52,10 +52,13 @@ Here they live in a database on your disk, with backups.
 
 ### Character and weapon archive
 
-Every character, like [Project Amber](https://gi.yatta.moe)'s archive. You can filter the list by element, weapon
-and rarity. Each character's page has three tabs:
+Every character, like [Project Amber](https://gi.yatta.moe)'s archive. The characters you have come first, with
+their level and constellation on the card; add or remove them from the list, and mark favourites. Search, filter
+(element, weapon, rarity, favourites) and sort the list. Each character's page shows, one section after another:
 
-- **Profile:** stats at any level and ascension phase, and the materials needed to get there.
+- **My character:** the level, constellation and talents you have, when you have the character.
+- **Stats:** at any level and ascension phase, and the materials needed to get there.
+- **Ascension:** the stats at each ascension.
 - **Talents:** values at any talent level.
 - **Constellations.**
 

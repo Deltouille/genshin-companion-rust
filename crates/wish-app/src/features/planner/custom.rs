@@ -281,7 +281,7 @@ impl CustomForm {
                 .items_center()
                 .gap_1p5()
                 .p_2()
-                .rounded(theme.radius)
+                .rounded(theme.radius_lg)
                 .cursor_pointer()
                 .hover(|style| style.bg(theme.muted))
                 .on_click(cx.listener(move |this, _, window, cx| this.pick(role, window, cx)))

@@ -1,3 +1,4 @@
+use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::Icon;
@@ -12,7 +13,7 @@ use gpui_kit::{
 #[derive(IntoElement)]
 pub struct PageFrame {
     title: SharedString,
-    /// Shown before the title, in the primary colour.
+    /// Shown before the title in gold (a diamond when none is given).
     icon: Option<Icon>,
     subtitle: Option<SharedString>,
     actions: Vec<AnyElement>,
@@ -35,7 +36,7 @@ impl PageFrame {
         }
     }
 
-    /// An icon before the title, in the primary colour.
+    /// An icon before the title, in gold, in place of the diamond.
     pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
         self.icon = Some(icon.into());
         self
@@ -68,6 +69,7 @@ impl PageFrame {
 impl RenderOnce for PageFrame {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
+        let gold = crate::theme::palette(cx).gold;
         let header = div()
             .v_flex()
             .gap_3()
@@ -90,9 +92,15 @@ impl RenderOnce for PageFrame {
                                     .font_weight(FontWeight::BOLD)
                                     .h_flex()
                                     .gap_2()
-                                    .when_some(self.icon, |this, icon| {
-                                        this.child(icon.text_color(theme.primary))
-                                    })
+                                    // The game heads its menus with an
+                                    // ornament: here a gold diamond, or the
+                                    // page's own icon.
+                                    .child(
+                                        self.icon
+                                            .unwrap_or_else(|| Icon::new(IconName::Diamond))
+                                            .size_5()
+                                            .text_color(gold),
+                                    )
                                     .child(self.title),
                             )
                             .when_some(self.subtitle, |this, subtitle| {

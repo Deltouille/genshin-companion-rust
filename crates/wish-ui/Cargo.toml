@@ -9,6 +9,8 @@ publish.workspace = true
 [dependencies]
 wish-core.workspace = true
 gpui-kit.workspace = true
+# Reads the app's own colours in `theme.json` (its `app` sections).
+serde_json = "1.0.154"
 
 [dev-dependencies]
 # `test-support` enables headless rendering for the gallery example.
