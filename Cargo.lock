@@ -8834,7 +8834,7 @@ dependencies = [
 
 [[package]]
 name = "wish-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8849,7 +8849,7 @@ dependencies = [
 
 [[package]]
 name = "wish-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "calamine",
@@ -8867,7 +8867,7 @@ dependencies = [
 
 [[package]]
 name = "wish-ui"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "gpui-kit",
