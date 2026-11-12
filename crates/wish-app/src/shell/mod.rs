@@ -23,16 +23,16 @@ pub(crate) fn content_width(window: &gpui_kit::Window) -> gpui_kit::Pixels {
 }
 
 use std::collections::HashSet;
+use std::rc::Rc;
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::ButtonVariants as _;
 
 use gpui_kit::component::spinner::Spinner;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, FocusHandle, FontWeight,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Window, actions, deferred, div, prelude::FluentBuilder as _,
+    Subscription, Window, actions, deferred, div,
 };
 use wish_core::model::{AccountId, Pool};
 use wish_core::planner::MaterialId;
@@ -41,11 +41,11 @@ use crate::app::library::{Library, LoadState};
 use crate::app::{Notices, Session};
 use crate::features::archive::{CharactersView, WeaponsView};
 use crate::features::credits::Credits;
+use crate::features::overview::Overview;
 use crate::features::planner::PlannerView;
 use crate::features::settings::SettingsPage;
 use crate::features::wishes::history::HistoryView;
-use crate::features::wishes::import::{ImportFlow, import_file_button, import_game_button};
-use crate::features::wishes::overview::Overview;
+use crate::features::wishes::import::ImportFlow;
 use sidebar::account_option;
 use wish_ui::button;
 use wish_ui::{PickerEvent, PickerItem, PickerState};
@@ -56,6 +56,8 @@ actions!(genshin_companion, [ImportFile, ImportFromGame, Quit]);
 /// pages at the foot of the sidebar.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
+    /// The app's home: the selected account in figures, one tab each.
+    Overview(OverviewTab),
     Wishes(WishPage),
     Archive(ArchivePage),
     /// The ascension planner.
@@ -64,10 +66,33 @@ pub enum Page {
     Credits,
 }
 
-/// The wish counter's pages.
+/// The overview's tabs.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OverviewTab {
+    /// Key figures, a card per banner type, wishes and pity over time.
+    #[default]
+    Wishes,
+    /// The characters owned, against the game's.
+    Characters,
+    /// The weapons the wishes brought.
+    Weapons,
+}
+
+impl OverviewTab {
+    pub const ALL: [OverviewTab; 3] = [Self::Wishes, Self::Characters, Self::Weapons];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Wishes => "Wishes",
+            Self::Characters => "Characters",
+            Self::Weapons => "Weapons",
+        }
+    }
+}
+
+/// The wish counter's pages: one per banner type.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WishPage {
-    Overview,
     History(Pool),
 }
 
@@ -96,16 +121,17 @@ impl Page {
             Page::Wishes(_) => Some(Feature::Wishes),
             Page::Archive(_) => Some(Feature::Archive),
             Page::Planner => Some(Feature::Planner),
-            Page::Settings | Page::Credits => None,
+            Page::Overview(_) | Page::Settings | Page::Credits => None,
         }
     }
 }
 
 impl Feature {
-    /// The page the feature opens on.
+    /// The page the feature opens on. The wish counter opens on its first
+    /// banner type; without wishes, the shell shows the overview instead.
     pub fn home(self) -> Page {
         match self {
-            Feature::Wishes => Page::Wishes(WishPage::Overview),
+            Feature::Wishes => Page::Wishes(WishPage::History(Pool::CharacterEvent)),
             Feature::Archive => Page::Archive(ArchivePage::Characters),
             Feature::Planner => Page::Planner,
         }
@@ -122,6 +148,8 @@ pub struct Shell {
     library: Entity<Library>,
     session: Entity<Session>,
     page: Page,
+    /// The overview's tab last shown, which its sidebar entry opens again.
+    overview_tab: OverviewTab,
     /// Feature groups the user folded in the sidebar.
     collapsed: HashSet<Feature>,
     account_select: Entity<PickerState<AccountId>>,
@@ -176,7 +204,8 @@ impl Shell {
         let mut shell = Self {
             library,
             session,
-            page: Feature::Wishes.home(),
+            page: Page::Overview(OverviewTab::Wishes),
+            overview_tab: OverviewTab::Wishes,
             collapsed: HashSet::new(),
             account_select,
             history,
@@ -213,7 +242,7 @@ impl Shell {
         if let Page::Wishes(WishPage::History(pool)) = self.page
             && !self.pools(cx).contains(&pool)
         {
-            self.page = Feature::Wishes.home();
+            self.page = self.first_wish_page(cx);
         }
         cx.notify();
     }
@@ -233,15 +262,18 @@ impl Shell {
         self.session.read(cx).account()
     }
 
-    /// Opens `page`, or the overview when the selected account has no
-    /// wishes in that pool.
+    /// Opens `page`; for a banner type the selected account has no wishes
+    /// in, its first one with wishes, or the overview.
     pub fn navigate(&mut self, page: Page, cx: &mut Context<Self>) {
         self.page = match page {
             Page::Wishes(WishPage::History(pool)) if !self.pools(cx).contains(&pool) => {
-                Feature::Wishes.home()
+                self.first_wish_page(cx)
             }
             page => page,
         };
+        if let Page::Overview(tab) = self.page {
+            self.overview_tab = tab;
+        }
         // The group of the page shown stays open.
         if let Some(feature) = self.page.feature() {
             self.collapsed.remove(&feature);
@@ -258,6 +290,11 @@ impl Shell {
             self.archive.update(cx, |archive, cx| archive.show_list(cx));
         }
         cx.notify();
+    }
+
+    /// Opens the overview on the tab it showed last (the sidebar's entry).
+    pub fn open_overview(&mut self, cx: &mut Context<Self>) {
+        self.navigate(Page::Overview(self.overview_tab), cx);
     }
 
     /// A feature group's header was clicked: away from the feature, it opens
@@ -346,6 +383,16 @@ impl Shell {
         self.session.read(cx).pools(cx)
     }
 
+    /// The wish counter's first banner type with wishes, or the overview's
+    /// Wishes tab when there is none.
+    fn first_wish_page(&self, cx: &App) -> Page {
+        self.pools(cx)
+            .first()
+            .map_or(Page::Overview(OverviewTab::Wishes), |pool| {
+                Page::Wishes(WishPage::History(*pool))
+            })
+    }
+
     fn import_file(&mut self, _: &ImportFile, window: &mut Window, cx: &mut Context<Self>) {
         self.import
             .update(cx, |import, cx| import.import_file(window, cx));
@@ -384,71 +431,36 @@ impl Shell {
             Page::Archive(ArchivePage::Characters) => self.archive.clone().into_any_element(),
             Page::Archive(ArchivePage::Weapons) => self.weapons.clone().into_any_element(),
             Page::Planner => self.planner.clone().into_any_element(),
-            // An account added by hand may have no wishes yet.
-            Page::Wishes(WishPage::Overview) => match self.session.read(cx).summary(cx).cloned() {
-                Some(summary) if !summary.analysis.pools.is_empty() => {
-                    let library = self.library.read(cx);
-                    let shell = cx.entity().downgrade();
-                    Overview::new(
-                        summary,
-                        library.data().cloned(),
-                        library.images().clone(),
-                        library.is_busy(),
-                        move |page, _, cx| {
-                            shell.update(cx, |shell, cx| shell.navigate(page, cx)).ok();
-                        },
-                    )
-                    .into_any_element()
-                }
-                _ => self.render_empty(cx),
-            },
+            Page::Overview(tab) => self.render_overview(tab, cx),
         }
     }
 
-    fn render_empty(&self, cx: &mut Context<Self>) -> AnyElement {
+    /// The overview, built from the library and the session; its links come
+    /// back here as navigation.
+    fn render_overview(&self, tab: OverviewTab, cx: &mut Context<Self>) -> AnyElement {
+        let shell = cx.entity().downgrade();
+        let to_weapon = shell.clone();
+        let session = self.session.read(cx);
+        let (account, summary) = (session.account(), session.summary(cx).cloned());
         let library = self.library.read(cx);
-        let (manual_counting, busy) = (library.settings().manual_counting, library.is_busy());
-        centered(
-            div()
-                .v_flex()
-                .items_center()
-                .gap_4()
-                .max_w_96()
-                .child(
-                    div()
-                        .text_lg()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .child("No wishes yet"),
-                )
-                .child(
-                    div()
-                        .text_sm()
-                        .text_center()
-                        .text_color(cx.theme().muted_foreground)
-                        .child(
-                            "Import your wish history from the game, or your paimon.moe data: \
-                             in paimon.moe, open Settings and choose Export, or download the \
-                             save file from your Google Drive. Import both to keep the history \
-                             paimon.moe holds from before the game’s last six months.",
-                        ),
-                )
-                .when(manual_counting, |this| {
-                    this.child(
-                        div()
-                            .text_sm()
-                            .text_center()
-                            .text_color(cx.theme().muted_foreground)
-                            .child("Or open a banner in the sidebar to count your wishes by hand."),
-                    )
-                })
-                .child(
-                    div()
-                        .h_flex()
-                        .gap_2()
-                        .child(import_game_button().primary())
-                        .child(import_file_button(busy)),
-                ),
-        )
+        Overview {
+            tab,
+            summary,
+            owned: library.owned(account).clone(),
+            data: library.data().cloned(),
+            planner: library.planner().clone(),
+            images: library.images().clone(),
+            manual_counting: library.settings().manual_counting,
+            busy: library.is_busy(),
+            on_navigate: Rc::new(move |page, _, cx| {
+                shell.update(cx, |shell, cx| shell.navigate(page, cx)).ok();
+            }),
+            on_open_weapon: Rc::new(move |key, _, cx| {
+                to_weapon
+                    .update(cx, |shell, cx| shell.open_weapon(key, cx))
+                    .ok();
+            }),
+        }
         .into_any_element()
     }
 

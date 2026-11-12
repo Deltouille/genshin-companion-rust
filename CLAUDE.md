@@ -142,6 +142,11 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     `excel.rs`: paimon.moe's v3 spreadsheet, export and import.
   - `import/manual.rs`: batches for counting by hand (`+1`/`+10`, one 4★/5★), each an `ImportSource::Manual` import.
   - `engine.rs`: banners, pity, 50/50, guarantees (`engine::analyze`). `stats.rs`: summary numbers and monthly counts.
+  - `collection/`: what an account owns, as the player entered it (`OwnedCharacter`, `OwnedWeapon` per copy,
+    `Collection`; `store/collection.rs`, migration `007_collection.sql`). `stats.rs`: the overview's figures,
+    `CharacterStats` (owned of the game's characters as the archive lists them, the Traveler once per element; by
+    rarity, element, weapon, constellation) and `WishedWeapons` (the 4★ and 5★ weapons among the wishes, by name,
+    with the refinement their copies make). `ELEMENTS` and `WEAPON_TYPES` in the game's order.
   - `import/paimon_check.rs`: compares the engine with the values paimon.moe stored in a save.
   - `import/api.rs` (link parsing, fetching behind a `Transport` trait), `import/game_cache.rs`
     (finding the link on disk), `import/api_plan.rs` (new wishes vs links vs held back).
@@ -262,14 +267,23 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   - `shell/`: `Shell` (sidebar, routing, the page entities, forwarding actions) and `sidebar.rs`.
     `shell::content_width(window)` is a page's content width (window less `SIDEBAR_REMS` and `PAGE_PADDING_REMS`),
     for layouts that size from it (the planner's columns, the character hero).
-    Routing is two levels: `Page::Wishes(WishPage::…)` for a feature's pages, `Page::Settings` / `Page::Credits`
-    for the app's own. Each feature is a `Feature` with a `home()` page and a `NavGroup` in the sidebar (its pages
+    Routing is two levels: `Page::Wishes(WishPage::…)` for a feature's pages, `Page::Overview(OverviewTab)`,
+    `Page::Settings` / `Page::Credits` for the app's own. The Overview is the app's home, the first sidebar entry
+    above the groups (`Shell::open_overview` reopens the tab shown last); a banner type the account has no wishes
+    in opens its first one with wishes, or the overview (`first_wish_page`). Each feature is a `Feature` with a `home()` page and a `NavGroup` in the sidebar (its pages
     as `NavItem::nested` under it); the header opens the feature, or folds its group when already there.
     The app will grow beyond wishes (an ascension planner like genshin-center's is planned): a new feature gets a
     `Feature` variant, a `Page` variant with its own page enum, a group in `sidebar.rs` and a folder in `features/`.
   - `features/`: one folder per feature, plus the app's own pages.
-    - `wishes/`: the wish counter.
-      - `overview/`: `Overview` (`RenderOnce`), top to bottom: `totals.rs` (key figures; two by two on a narrow
+    - `overview/`: `Overview` (`RenderOnce`, props built by `Shell::render_overview`), the app's home: the account
+      in figures, one tab each (a `Segmented` under the title; the tab is part of the `Page`). `mod.rs` holds the
+      frame, the empty states and the grids (`tile_grid` in even rows, `list_grid` for lists).
+      - `characters.rs`: what the account owns (`collection::CharacterStats`): owned of the game's, 5★, 4★, level 90
+        and talents at 10, then by element (with the element icons), by weapon, by constellation (with its share).
+        No characters: a link to the archive.
+      - `weapons.rs`: the weapons its wishes brought (`collection::WishedWeapons`, by name): totals, by type, then
+        each 5★ and 4★ with the refinement its copies make (a floor, said on the page); one opens its archive page.
+      - `wishes/`: the Wishes tab (`wishes_tab`), top to bottom: `totals.rs` (key figures; two by two on a narrow
         page), one card per banner type (`pool_card.rs`: its latest banner and a link to its history, 5★ and 4★ pity
         with the next one's odds, its wishes, then `details.rs`, paimon.moe's per-type summary: 5★ and 4★ count,
         share and average pity, 50/50 record, 4★ characters vs weapons, then every 5★ as a pill coloured by pity),
@@ -279,7 +293,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
         (`POOL_CARD_REMS` each) in even rows (four as two by two, `even_columns`) and stretch to the row's tallest;
         the charts sit side by side (two thirds, one third) or stack, at a fixed height (`CHART_REMS`). Totals and
         the 5★ in order come from `wish-core` (`Analysis::totals`, `pulls_of`), the per-type numbers from
-        `PoolAnalysis::stats`.
+        `PoolAnalysis::stats`. `totals::figures` is the card of key figures the three tabs share.
+    - `wishes/`: the wish counter.
       - `history/`: `HistoryView` (entity: observes `Library` and `Session`; the shell only calls `set_pool`),
         `table.rs` (`DataTable` delegate: large rows, sort by any column, pages of 25/50/100; the sort lives in the
         delegate so `TableState::refresh` keeps it; a "Type" column with rarity and character/weapon and a "#"

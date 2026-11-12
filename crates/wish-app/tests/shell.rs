@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use gpui_kit::{AppContext as _, Entity, HeadlessAppContext, NoopTextSystem, Task};
 use wish_app::app::library::{LoadState, MirrorStatus};
-use wish_app::{ArchivePage, Feature, ImageDownloads, Library, Page, Shell, WishPage};
+use wish_app::{ArchivePage, Feature, ImageDownloads, Library, OverviewTab, Page, Shell, WishPage};
 use wish_core::AppPaths;
 use wish_core::model::{AccountId, Pool};
 
@@ -122,7 +122,7 @@ fn a_new_data_folder_opens_empty() {
     assert_eq!(accounts, 0);
     assert_eq!(
         app.navigate(Page::Wishes(WishPage::History(Pool::CharacterEvent))),
-        Page::Wishes(WishPage::Overview)
+        Page::Overview(OverviewTab::Wishes)
     );
     assert_eq!(app.navigate(Page::Settings), Page::Settings);
 }
@@ -146,14 +146,15 @@ fn importing_a_save_shows_its_accounts() {
         Some(first)
     );
 
-    // Main has character and weapon wishes, but no Chronicled ones.
+    // Main has character and weapon wishes, but no Chronicled ones: the
+    // first banner type with wishes opens instead.
     assert_eq!(
         app.navigate(Page::Wishes(WishPage::History(Pool::CharacterEvent))),
         Page::Wishes(WishPage::History(Pool::CharacterEvent))
     );
     assert_eq!(
         app.navigate(Page::Wishes(WishPage::History(Pool::Chronicled))),
-        Page::Wishes(WishPage::Overview)
+        Page::Wishes(WishPage::History(Pool::CharacterEvent))
     );
 
     // Importing the same file again changes nothing.
@@ -295,24 +296,57 @@ fn counting_by_hand_starts_from_nothing_and_keeps_every_click() {
 fn a_feature_header_opens_its_feature_then_folds_it() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = App::open(dir.path());
-    let overview = Page::Wishes(WishPage::Overview);
+    let characters = Page::Archive(ArchivePage::Characters);
 
     // Away from the feature, the header opens it.
     app.navigate(Page::Settings);
-    assert_eq!(app.click_group(Feature::Wishes), (overview, false));
+    assert_eq!(app.click_group(Feature::Archive), (characters, false));
     // On one of its pages, it folds and unfolds the group.
-    assert_eq!(app.click_group(Feature::Wishes), (overview, true));
-    assert_eq!(app.click_group(Feature::Wishes), (overview, false));
+    assert_eq!(app.click_group(Feature::Archive), (characters, true));
+    assert_eq!(app.click_group(Feature::Archive), (characters, false));
     // Opening a page of a folded group unfolds it.
-    app.click_group(Feature::Wishes);
-    app.navigate(overview);
-    assert_eq!(app.click_group(Feature::Wishes), (overview, true));
+    app.click_group(Feature::Archive);
+    app.navigate(characters);
+    assert_eq!(app.click_group(Feature::Archive), (characters, true));
     app.navigate(Page::Settings);
-    app.navigate(overview);
+    app.navigate(characters);
     let folded = app
         .cx
-        .update(|cx| app.shell.read(cx).is_folded(Feature::Wishes));
+        .update(|cx| app.shell.read(cx).is_folded(Feature::Archive));
     assert!(!folded);
+}
+
+#[test]
+fn the_overview_opens_first_and_keeps_its_tab() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = App::open(dir.path());
+    let shell = app.shell.clone();
+    assert_eq!(
+        app.cx.update(|cx| shell.read(cx).page()),
+        Page::Overview(OverviewTab::Wishes)
+    );
+
+    // The sidebar's entry opens the tab shown last.
+    app.navigate(Page::Overview(OverviewTab::Weapons));
+    app.navigate(Page::Settings);
+    app.cx
+        .update(|cx| shell.update(cx, |shell, cx| shell.open_overview(cx)));
+    assert_eq!(
+        app.cx.update(|cx| shell.read(cx).page()),
+        Page::Overview(OverviewTab::Weapons)
+    );
+
+    // The overview is in no group. Without wishes, the wish counter's header
+    // opens it; with wishes, the first banner type.
+    assert_eq!(
+        app.click_group(Feature::Wishes).0,
+        Page::Overview(OverviewTab::Wishes)
+    );
+    app.import(SAMPLE);
+    assert_eq!(
+        app.click_group(Feature::Wishes).0,
+        Page::Wishes(WishPage::History(Pool::CharacterEvent))
+    );
 }
 
 #[test]

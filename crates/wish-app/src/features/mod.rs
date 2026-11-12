@@ -1,7 +1,11 @@
 //! The pages and flows of the window, one folder per feature (a group in the
 //! sidebar) or app-wide page.
 //!
-//! - `wishes/`: the wish counter (overview, history per banner type, import).
+//! - `overview/`: the app's home, the account in figures, one tab each: its
+//!   wishes, its characters, the weapons its wishes brought.
+//! - `wishes/`: the wish counter (history per banner type, import).
+//! - `archive/`, `planner/`: the game's characters and weapons, the ascension
+//!   planner.
 //! - `settings/`, `credits/`: the app's own pages, at the foot of the sidebar.
 //!
 //! A new feature (such as an ascension planner) gets its own folder here, its
@@ -9,6 +13,7 @@
 
 pub(crate) mod archive;
 pub(crate) mod credits;
+pub(crate) mod overview;
 pub(crate) mod planner;
 pub(crate) mod settings;
 pub(crate) mod wishes;

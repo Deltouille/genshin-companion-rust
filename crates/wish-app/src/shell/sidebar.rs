@@ -1,7 +1,6 @@
-//! The sidebar: the app's name, the account picker, one group per feature
-//! (the wish counter: its overview and one page per banner type; the archive:
-//! the characters), then
-//! Settings and Credits.
+//! The sidebar: the app's name, the account picker, the Overview, one group
+//! per feature (the wish counter: one page per banner type; the archive: the
+//! characters and weapons; the planner), then Settings and Credits.
 //!
 //! Its own column rather than GPUI Kit's `Sidebar`, whose items have a fixed
 //! 28 px height: the entries are Material 3's 56 px [`NavItem`]s.
@@ -53,21 +52,27 @@ impl Shell {
             .on_click(cx.listener(move |this, _, _, cx| this.open_or_fold(feature, cx)))
         };
 
-        // The wish counter: its overview, then the banner types with wishes.
-        let mut wish_pages = vec![nested(
-            "overview",
-            "Overview".into(),
-            Page::Wishes(WishPage::Overview),
-            cx,
-        )];
-        for pool in self.pools(cx) {
-            wish_pages.push(nested(
-                pool.as_str(),
-                pool.display_name().into(),
-                Page::Wishes(WishPage::History(pool)),
-                cx,
-            ));
-        }
+        // The app's home, above the features; it opens on the tab last shown.
+        let overview = NavItem::new(
+            "nav-overview",
+            "Overview",
+            Icon::new(IconName::LayoutDashboard),
+        )
+        .active(matches!(self.page, Page::Overview(_)))
+        .on_click(cx.listener(|this, _, _, cx| this.open_overview(cx)));
+        // The wish counter: the banner types with wishes.
+        let wish_pages = self
+            .pools(cx)
+            .into_iter()
+            .map(|pool| {
+                nested(
+                    pool.as_str(),
+                    pool.display_name().into(),
+                    Page::Wishes(WishPage::History(pool)),
+                    cx,
+                )
+            })
+            .collect();
         let wishes = group(
             Feature::Wishes,
             "Wishes",
@@ -151,6 +156,7 @@ impl Shell {
                             .v_flex()
                             .gap_1()
                             .px_3()
+                            .child(overview)
                             .child(wishes)
                             .child(archive)
                             .child(planner),

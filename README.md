@@ -11,17 +11,26 @@ Here they live in a database on your disk, with backups.
 
 [Download it](#download) for Windows, macOS or Linux, or [build it yourself](#building-from-source).
 
-![The wish counter's overview](docs/screenshots/overview.png)
+![The overview: an account's wishes in figures](docs/screenshots/overview.png)
 
 ## Features
+
+### Overview
+
+The app opens on your account in figures, one tab each:
+
+- **Wishes:** key figures, then a card per banner type: its pity and the odds of the next 5★ and 4★, then a
+  summary (share, average pity, 50/50 record, 4★ characters against 4★ weapons, every 5★ with its pity). Below
+  them, wishes per month and the pity of each 5★.
+- **Characters:** how many of the game's characters you own, by rarity, element and weapon, then your
+  constellations, characters at level 90 and talents at level 10.
+- **Weapons:** the weapons your wishes brought, by rarity and type, then each 4★ and 5★ with the refinement its
+  copies make (shop, event and forged copies aren't wishes, so the game may show more).
 
 ### Wish counter
 
 - Pity, 50/50 and guarantees for every banner type, computed exactly as paimon.moe does. The Character Event
   banners share their pity.
-- An overview with key figures, then a card per banner type: its pity and the odds of the next 5★ and 4★, then a
-  summary (share, average pity, 50/50 record, 4★ characters against 4★ weapons, every 5★ with its pity). Below
-  them, wishes per month and the pity of each 5★.
 - A history you can sort, with each wish's banner and its number on that banner, and a view per banner.
 - Counting by hand (+1, +10, one 4★ or 5★), like paimon.moe's manual mode, turned on in Settings.
 

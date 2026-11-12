@@ -1,11 +1,11 @@
-//! The row of key figures at the top of the overview: wishes, 5★, 4★ and the
-//! 50/50 record, over every banner type. A narrow page lays them out two by
-//! two.
+//! The row of key figures at the top of the Wishes tab: wishes, 5★, 4★ and
+//! the 50/50 record, over every banner type. A narrow page lays them out two
+//! by two.
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::prelude::FluentBuilder as _;
-use gpui_kit::{App, ImageSource, IntoElement, ParentElement as _, Styled as _, div, img};
+use gpui_kit::{App, Div, ImageSource, IntoElement, ParentElement as _, Styled as _, div, img};
 use wish_core::model::Rarity;
 use wish_core::stats::{RarityStats, Totals};
 use wish_ui::{big_number, card, format, stat, theme};
@@ -62,8 +62,18 @@ pub(super) fn totals_row(
             cx,
         ),
     ];
-    // Hairlines between the figures: before each but a row's first, and
-    // above the second row.
+    figures(cells, columns, cx)
+}
+
+/// A card of key figures (`wish_ui::stat`s), `columns` a row, with hairlines
+/// between them: before each but a row's first, and above the rows after the
+/// first.
+pub(in crate::features::overview) fn figures(
+    cells: impl IntoIterator<Item = Div>,
+    columns: usize,
+    cx: &App,
+) -> Div {
+    let colors = cx.theme();
     card(cx)
         .grid()
         .grid_cols(columns as u16)

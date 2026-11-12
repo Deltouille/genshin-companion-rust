@@ -5,6 +5,10 @@
 //! Only what the player states is kept; stats and costs are worked out from
 //! the game data when shown, never stored.
 
+mod stats;
+
+pub use stats::{CharacterStats, ELEMENTS, Tally, WEAPON_TYPES, WishedWeapon, WishedWeapons};
+
 use crate::planner::Level;
 
 /// The highest constellation.
