@@ -232,9 +232,10 @@ mod plan {
     fn entries_are_kept_edited_and_removed() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
-        assert!(store.plan().unwrap().is_empty());
+        let account = store.add_account("Main", None, None).unwrap().id;
+        assert!(store.plan(account).unwrap().is_empty());
 
-        let ganyu_id = store.add_plan_entry(&ganyu([(1, 10); 3])).unwrap();
+        let ganyu_id = store.add_plan_entry(account, &ganyu([(1, 10); 3])).unwrap();
         let leak = PlanTarget::Custom {
             name: "Leaked character".to_owned(),
             costs: vec![
@@ -248,8 +249,8 @@ mod plan {
                 },
             ],
         };
-        let leak_id = store.add_plan_entry(&leak).unwrap();
-        let plan = store.plan().unwrap();
+        let leak_id = store.add_plan_entry(account, &leak).unwrap();
+        let plan = store.plan(account).unwrap();
         assert_eq!(
             plan,
             vec![
@@ -271,12 +272,12 @@ mod plan {
             })
             .unwrap();
         // The order is the player's: it decides who gets the inventory first.
-        store.reorder_plan(&[leak_id, ganyu_id]).unwrap();
-        let order: Vec<i64> = store.plan().unwrap().iter().map(|e| e.id).collect();
+        store.reorder_plan(account, &[leak_id, ganyu_id]).unwrap();
+        let order: Vec<i64> = store.plan(account).unwrap().iter().map(|e| e.id).collect();
         assert_eq!(order, [leak_id, ganyu_id]);
 
         store.remove_plan_entry(leak_id).unwrap();
-        let plan = store.plan().unwrap();
+        let plan = store.plan(account).unwrap();
         assert_eq!(plan.len(), 1);
         assert_eq!(plan[0].target, ganyu([(6, 9); 3]));
     }
@@ -285,12 +286,13 @@ mod plan {
     fn a_custom_entry_needs_a_name() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let account = store.add_account("Main", None, None).unwrap().id;
         let blank = PlanTarget::Custom {
             name: "  ".to_owned(),
             costs: Vec::new(),
         };
-        assert!(store.add_plan_entry(&blank).is_err());
-        assert!(store.plan().unwrap().is_empty());
+        assert!(store.add_plan_entry(account, &blank).is_err());
+        assert!(store.plan(account).unwrap().is_empty());
     }
 
     #[test]
@@ -453,6 +455,7 @@ mod custom_characters {
     fn custom_characters_are_kept_and_edited() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let account = store.add_account("Main", None, None).unwrap().id;
         let mut materials = ganyus_materials();
         materials.insert(Role::BossMaterial, CustomItem::Named("New boss".to_owned()));
         let leak = PlanTarget::CustomCharacter {
@@ -461,9 +464,9 @@ mod custom_characters {
             materials,
             goal: CharacterGoal::FULL,
         };
-        let id = store.add_plan_entry(&leak).unwrap();
+        let id = store.add_plan_entry(account, &leak).unwrap();
         assert_eq!(
-            store.plan().unwrap(),
+            store.plan(account).unwrap(),
             [PlanEntry {
                 id,
                 target: leak.clone()
@@ -492,31 +495,32 @@ mod custom_characters {
                 target: edited.clone(),
             })
             .unwrap();
-        assert_eq!(store.plan().unwrap()[0].target, edited);
+        assert_eq!(store.plan(account).unwrap()[0].target, edited);
 
         store.remove_plan_entry(id).unwrap();
-        assert!(store.plan().unwrap().is_empty());
+        assert!(store.plan(account).unwrap().is_empty());
     }
 
     #[test]
     fn the_inventory_keeps_what_the_player_enters() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
-        assert_eq!(store.inventory().unwrap(), Inventory::default());
+        let account = store.add_account("Main", None, None).unwrap().id;
+        assert_eq!(store.inventory(account).unwrap(), Inventory::default());
 
         let mora = CustomItem::Material(202);
         let leak = CustomItem::Named("Moon Lily".to_owned());
-        store.set_owned(&mora, 360_000).unwrap();
-        store.set_owned(&leak, 12).unwrap();
-        store.set_owned(&mora, 420_000).unwrap();
-        let inventory = store.inventory().unwrap();
+        store.set_owned(account, &mora, 360_000).unwrap();
+        store.set_owned(account, &leak, 12).unwrap();
+        store.set_owned(account, &mora, 420_000).unwrap();
+        let inventory = store.inventory(account).unwrap();
         assert_eq!(inventory.owned(&mora), 420_000);
         assert_eq!(inventory.owned(&leak), 12);
         assert_eq!(inventory.owned(&CustomItem::Material(104003)), 0);
 
         // None of it forgets it.
-        store.set_owned(&leak, 0).unwrap();
-        let inventory = store.inventory().unwrap();
+        store.set_owned(account, &leak, 0).unwrap();
+        let inventory = store.inventory(account).unwrap();
         assert_eq!(inventory.owned(&leak), 0);
         assert!(inventory.named.is_empty());
     }
@@ -692,13 +696,14 @@ mod weapons_in_the_plan {
     fn weapon_entries_are_kept_and_costed() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let account = store.add_account("Main", None, None).unwrap().id;
         let amos = PlanTarget::Weapon {
             key: "amosbow".to_owned(),
             goal: WeaponGoal::full(5),
         };
-        let id = store.add_plan_entry(&amos).unwrap();
+        let id = store.add_plan_entry(account, &amos).unwrap();
         assert_eq!(
-            store.plan().unwrap(),
+            store.plan(account).unwrap(),
             [PlanEntry {
                 id,
                 target: amos.clone()
@@ -717,7 +722,7 @@ mod weapons_in_the_plan {
                 target: lower.clone(),
             })
             .unwrap();
-        assert_eq!(store.plan().unwrap()[0].target, lower);
+        assert_eq!(store.plan(account).unwrap()[0].target, lower);
 
         // Its EXP is ores, and owned ores count for their EXP.
         let data = PlannerData::embedded();
@@ -781,6 +786,7 @@ mod custom_weapons {
     fn custom_weapons_are_kept_and_edited() {
         let dir = tempfile::tempdir().unwrap();
         let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let account = store.add_account("Main", None, None).unwrap().id;
         let mut materials = materials_of("amosbow");
         materials.insert(Role::EliteDrop, CustomItem::Named("New drop".to_owned()));
         let leak = PlanTarget::CustomWeapon {
@@ -789,9 +795,9 @@ mod custom_weapons {
             materials,
             goal: WeaponGoal::full(5),
         };
-        let id = store.add_plan_entry(&leak).unwrap();
+        let id = store.add_plan_entry(account, &leak).unwrap();
         assert_eq!(
-            store.plan().unwrap(),
+            store.plan(account).unwrap(),
             [PlanEntry {
                 id,
                 target: leak.clone()
@@ -812,6 +818,6 @@ mod custom_weapons {
                 target: edited.clone(),
             })
             .unwrap();
-        assert_eq!(store.plan().unwrap()[0].target, edited);
+        assert_eq!(store.plan(account).unwrap()[0].target, edited);
     }
 }

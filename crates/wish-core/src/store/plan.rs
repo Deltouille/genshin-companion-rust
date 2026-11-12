@@ -6,6 +6,7 @@ use rusqlite::{Row, Transaction, params};
 
 use super::Store;
 use crate::error::Result;
+use crate::model::AccountId;
 use crate::planner::{
     CharacterGoal, CustomCost, CustomItem, CustomMaterials, Level, PlanEntry, PlanTarget, Role,
     WeaponGoal,
@@ -27,13 +28,13 @@ struct EntryRow {
 }
 
 impl Store {
-    /// The plan, in the order the player added its entries.
-    pub fn plan(&self) -> Result<Vec<PlanEntry>> {
+    /// `account`'s plan, in the order the player put its entries.
+    pub fn plan(&self, account: AccountId) -> Result<Vec<PlanEntry>> {
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT {ENTRY_COLUMNS} FROM plan_entries ORDER BY position, id"
+            "SELECT {ENTRY_COLUMNS} FROM plan_entries WHERE account_id = ?1 ORDER BY position, id"
         ))?;
         let rows: Vec<EntryRow> = stmt
-            .query_map([], read_entry)?
+            .query_map([account.0], read_entry)?
             .collect::<rusqlite::Result<_>>()?;
         let mut costs = self.conn.prepare(
             "SELECT material_id, name, count FROM plan_custom_costs \
@@ -96,17 +97,17 @@ impl Store {
         Ok(plan)
     }
 
-    /// Adds an entry at the end of the plan; returns its id.
-    pub fn add_plan_entry(&mut self, target: &PlanTarget) -> Result<i64> {
+    /// Adds an entry at the end of `account`'s plan; returns its id.
+    pub fn add_plan_entry(&mut self, account: AccountId, target: &PlanTarget) -> Result<i64> {
         self.backup_for_planning()?;
         let tx = self.conn.transaction()?;
         let position: i64 = tx.query_row(
-            "SELECT coalesce(max(position), -1) + 1 FROM plan_entries",
-            [],
+            "SELECT coalesce(max(position), -1) + 1 FROM plan_entries WHERE account_id = ?1",
+            [account.0],
             |row| row.get(0),
         )?;
         let now = Local::now().to_rfc3339_opts(SecondsFormat::Secs, false);
-        let id = insert_entry(&tx, position, &now, target)?;
+        let id = insert_entry(&tx, account, position, &now, target)?;
         tx.commit()?;
         Ok(id)
     }
@@ -120,15 +121,15 @@ impl Store {
         Ok(())
     }
 
-    /// Puts the plan in the order of `ids`, which lists its entries: the
-    /// order the inventory is shared out in.
-    pub fn reorder_plan(&mut self, ids: &[i64]) -> Result<()> {
+    /// Puts `account`'s plan in the order of `ids`, which lists its entries:
+    /// the order the inventory is shared out in.
+    pub fn reorder_plan(&mut self, account: AccountId, ids: &[i64]) -> Result<()> {
         self.backup_for_planning()?;
         let tx = self.conn.transaction()?;
         for (position, id) in ids.iter().enumerate() {
             tx.execute(
-                "UPDATE plan_entries SET position = ?2 WHERE id = ?1",
-                params![id, position as i64],
+                "UPDATE plan_entries SET position = ?3 WHERE id = ?1 AND account_id = ?2",
+                params![id, account.0, position as i64],
             )?;
         }
         tx.commit()?;
@@ -191,7 +192,13 @@ pub(super) fn item_columns(item: &CustomItem) -> (Option<i64>, Option<&str>) {
     }
 }
 
-fn insert_entry(tx: &Transaction, position: i64, now: &str, target: &PlanTarget) -> Result<i64> {
+fn insert_entry(
+    tx: &Transaction,
+    account: AccountId,
+    position: i64,
+    now: &str,
+    target: &PlanTarget,
+) -> Result<i64> {
     let (key, name) = match target {
         PlanTarget::Character { key, .. } => (Some(key.as_str()), None),
         // 003's CHECK wants a name: a weapon's is its key (see 005).
@@ -201,9 +208,9 @@ fn insert_entry(tx: &Transaction, position: i64, now: &str, target: &PlanTarget)
         | PlanTarget::Custom { name, .. } => (None, Some(name.trim())),
     };
     tx.execute(
-        "INSERT INTO plan_entries (position, character_key, name, created_at) \
-         VALUES (?1, ?2, ?3, ?4)",
-        params![position, key, name, now],
+        "INSERT INTO plan_entries (account_id, position, character_key, name, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![account.0, position, key, name, now],
     )?;
     let id = tx.last_insert_rowid();
     write_target(tx, id, target)?;

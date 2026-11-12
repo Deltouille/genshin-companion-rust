@@ -141,9 +141,9 @@ impl Shell {
         let session = cx.new(|cx| Session::new(library.clone(), cx));
         let account_select = cx.new(|cx| SelectState::new(Vec::new(), None, window, cx));
         let history = cx.new(|cx| HistoryView::new(session.clone(), window, cx));
-        let archive = cx.new(|cx| CharactersView::new(library.clone(), window, cx));
-        let weapons = cx.new(|cx| WeaponsView::new(library.clone(), window, cx));
-        let planner = cx.new(|cx| PlannerView::new(library.clone(), window, cx));
+        let archive = cx.new(|cx| CharactersView::new(session.clone(), window, cx));
+        let weapons = cx.new(|cx| WeaponsView::new(session.clone(), window, cx));
+        let planner = cx.new(|cx| PlannerView::new(session.clone(), window, cx));
         let settings = cx.new(|cx| SettingsPage::new(session.clone(), cx));
         let import = cx.new(|cx| ImportFlow::new(session.clone(), cx));
         let notices = Notices::new(cx);
@@ -301,6 +301,11 @@ impl Shell {
     }
 
     /// The window's messages (snackbars), for the screenshot tool and tests.
+    /// The selected account and the flow in progress.
+    pub fn session(&self) -> &Entity<Session> {
+        &self.session
+    }
+
     pub fn notices(&self) -> &Entity<Notices> {
         &self.notices
     }
@@ -378,8 +383,9 @@ impl Shell {
             Page::Archive(ArchivePage::Characters) => self.archive.clone().into_any_element(),
             Page::Archive(ArchivePage::Weapons) => self.weapons.clone().into_any_element(),
             Page::Planner => self.planner.clone().into_any_element(),
+            // An account added by hand may have no wishes yet.
             Page::Wishes(WishPage::Overview) => match self.session.read(cx).summary(cx).cloned() {
-                Some(summary) => {
+                Some(summary) if !summary.analysis.pools.is_empty() => {
                     let library = self.library.read(cx);
                     let shell = cx.entity().downgrade();
                     Overview::new(
@@ -393,7 +399,7 @@ impl Shell {
                     )
                     .into_any_element()
                 }
-                None => self.render_empty(cx),
+                _ => self.render_empty(cx),
             },
         }
     }

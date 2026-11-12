@@ -25,7 +25,7 @@ use wish_core::planner::{Level, PlanTarget, Weapon, WeaponGoal};
 
 use super::Sort;
 use super::detail::{facts_grid, hero_banner, level_badge, materials, table};
-use crate::app::Library;
+use crate::app::{Library, Session};
 use wish_ui::{
     PageFrame, Segmented, badge, button, card, card_title, filter_chip, format, input, theme,
 };
@@ -33,6 +33,7 @@ use wish_ui::{
 const TYPES: [&str; 5] = ["Sword", "Claymore", "Polearm", "Bow", "Catalyst"];
 
 pub struct WeaponsView {
+    session: Entity<Session>,
     library: Entity<Library>,
     search: Entity<InputState>,
     /// The weapon types and rarities shown; none means all.
@@ -50,11 +51,13 @@ pub struct WeaponsView {
 }
 
 impl WeaponsView {
-    pub fn new(library: Entity<Library>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(session: Entity<Session>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let library = session.read(cx).library().clone();
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search a weapon"));
         let (level, level_subscription) = Self::level_slider(5, cx);
         let subscriptions = vec![
             cx.observe(&library, |_, _, cx| cx.notify()),
+            cx.observe(&session, |_, _, cx| cx.notify()),
             cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     cx.notify();
@@ -62,6 +65,7 @@ impl WeaponsView {
             }),
         ];
         Self {
+            session,
             library,
             search,
             types: BTreeSet::new(),
@@ -485,9 +489,10 @@ impl WeaponsView {
     ) {
         let goal = WeaponGoal::full(rarity);
         let target = PlanTarget::Weapon { key, goal };
-        let task = self
-            .library
-            .update(cx, |library, cx| library.add_plan_entry(target, cx));
+        let account = self.session.read(cx).account();
+        let task = self.library.update(cx, |library, cx| {
+            library.add_plan_entry(account, target, cx)
+        });
         cx.spawn_in(window, async move |_, cx| {
             let message = match task.await {
                 Ok(_) => crate::app::notices::Notice::done(format!(

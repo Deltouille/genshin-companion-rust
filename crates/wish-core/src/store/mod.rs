@@ -4,6 +4,7 @@
 //! before every import or migration, and multi-row writes are transactional.
 
 mod backup;
+mod collection;
 mod inventory;
 mod plan;
 
@@ -23,7 +24,7 @@ use crate::import::{
     OriginalFile, PoolCounts, UndoReport, WishLink,
 };
 use crate::model::{
-    Account, AccountId, GachaType, ManualCounters, Pool, Source, Wish, WishId, WishTime,
+    Account, AccountId, GachaType, ManualCounters, Pool, Server, Source, Wish, WishId, WishTime,
 };
 use crate::paths::{AppPaths, write_atomic};
 
@@ -36,6 +37,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema/004_inventory_and_custom_characters.sql"),
     include_str!("schema/005_planner_weapons.sql"),
     include_str!("schema/006_planner_custom_weapons.sql"),
+    include_str!("schema/007_collection.sql"),
 ];
 
 const WISH_COLUMNS: &str =
@@ -112,6 +114,71 @@ impl Store {
             .query_map([], account_from_row)?
             .collect::<rusqlite::Result<_>>()?;
         Ok(accounts)
+    }
+
+    /// Adds an account by hand (a player who imports no wishes, or not yet):
+    /// a name, and optionally its UID and server. A UID already taken by
+    /// another account is refused.
+    pub fn add_account(
+        &mut self,
+        label: &str,
+        uid: Option<&str>,
+        server: Option<Server>,
+    ) -> Result<Account> {
+        let label = account_label(label)?;
+        let uid = uid.map(str::trim).filter(|uid| !uid.is_empty());
+        if let Some(uid) = uid {
+            if !(9..=10).contains(&uid.len()) || !uid.bytes().all(|b| b.is_ascii_digit()) {
+                return Err(Error::InvalidUid(uid.to_owned()));
+            }
+            let taken: Option<String> = self
+                .conn
+                .query_row("SELECT label FROM accounts WHERE uid = ?1", [uid], |row| {
+                    row.get(0)
+                })
+                .optional()?;
+            if let Some(account) = taken {
+                return Err(Error::UidTaken {
+                    uid: uid.to_owned(),
+                    account,
+                });
+            }
+        }
+        let now = Local::now().to_rfc3339_opts(SecondsFormat::Secs, false);
+        self.conn.execute(
+            "INSERT INTO accounts (label, uid, server, created_at) VALUES (?1, ?2, ?3, ?4)",
+            params![label, uid, server, now],
+        )?;
+        Ok(Account {
+            id: AccountId(self.conn.last_insert_rowid()),
+            label,
+            uid: uid.map(str::to_owned),
+            server,
+        })
+    }
+
+    /// Gives `account` another name.
+    pub fn rename_account(&mut self, account: AccountId, label: &str) -> Result<()> {
+        let label = account_label(label)?;
+        let changed = self.conn.execute(
+            "UPDATE accounts SET label = ?2 WHERE id = ?1",
+            params![account.0, label],
+        )?;
+        if changed == 0 {
+            return Err(Error::UnknownAccount(account));
+        }
+        Ok(())
+    }
+
+    /// Whether an import (undone or not) ever went to `account`: an account
+    /// an import made and its undo left empty is not shown, one added by
+    /// hand is.
+    pub fn has_imports(&self, account: AccountId) -> Result<bool> {
+        Ok(self.conn.query_row(
+            "SELECT EXISTS (SELECT 1 FROM imports WHERE account_id = ?1)",
+            [account.0],
+            |row| row.get(0),
+        )?)
     }
 
     /// The account's wishes in chronological order.
@@ -348,6 +415,15 @@ impl Store {
             warnings,
         })
     }
+}
+
+/// An account's name, trimmed; never empty.
+fn account_label(label: &str) -> Result<String> {
+    let label = label.trim();
+    if label.is_empty() {
+        return Err(Error::EmptyAccountName);
+    }
+    Ok(label.to_owned())
 }
 
 fn account_from_row(row: &Row<'_>) -> rusqlite::Result<Account> {

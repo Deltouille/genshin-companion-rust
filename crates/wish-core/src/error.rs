@@ -81,6 +81,15 @@ pub enum Error {
     #[error("there is no account {0}")]
     UnknownAccount(crate::model::AccountId),
 
+    #[error("an account needs a name")]
+    EmptyAccountName,
+
+    #[error("“{0}” isn’t a UID: a UID has 9 or 10 digits")]
+    InvalidUid(String),
+
+    #[error("UID {uid} is already the account “{account}”")]
+    UidTaken { uid: String, account: String },
+
     #[error(
         "“{account}” already belongs to another UID, so the wishes of UID {uid} can’t be added to it"
     )]

@@ -19,6 +19,7 @@ use wish_app::{
     ArchivePage, CharacterTab, ImageDownloads, ImportFromGame, Library, Page, Shell, WishPage,
 };
 use wish_core::AppPaths;
+use wish_core::collection::OwnedCharacter;
 use wish_core::model::Pool;
 use wish_core::planner::{
     CharacterGoal, CustomItem, CustomMaterials, Level, PlanTarget, PlannerData, Role, WeaponGoal,
@@ -158,7 +159,8 @@ fn main() -> Result<()> {
         // The planner, with a character, a custom character and a few
         // materials in the inventory (added once to a data folder whose plan
         // is empty).
-        if cx.update(|cx| library.read(cx).plan().is_empty()) {
+        let account = cx.update(|cx| shell.read(cx).session().read(cx).account());
+        if cx.update(|cx| library.read(cx).plan(account).is_empty()) {
             // A leak: the first series of each role, a local specialty the
             // game data doesn't have yet.
             let data = PlannerData::embedded();
@@ -203,11 +205,13 @@ fn main() -> Result<()> {
                 },
             ];
             for (n, target) in example.into_iter().enumerate() {
-                cx.update(|cx| library.update(cx, |l, cx| l.add_plan_entry(target, cx).detach()));
+                cx.update(|cx| {
+                    library.update(cx, |l, cx| l.add_plan_entry(account, target, cx).detach())
+                });
                 // The write runs in the background; wait for its reload.
                 for _ in 0..100 {
                     cx.run_until_parked();
-                    if cx.update(|cx| library.read(cx).plan().len()) > n {
+                    if cx.update(|cx| library.read(cx).plan(account).len()) > n {
                         break;
                     }
                     std::thread::sleep(Duration::from_millis(50));
@@ -224,7 +228,8 @@ fn main() -> Result<()> {
                 (CustomItem::Named("Moonfall Lily".to_owned()), 168),
             ];
             for (item, count) in owned {
-                let task = cx.update(|cx| library.update(cx, |l, cx| l.set_owned(item, count, cx)));
+                let task = cx
+                    .update(|cx| library.update(cx, |l, cx| l.set_owned(account, item, count, cx)));
                 task.detach();
             }
             for _ in 0..40 {
@@ -236,7 +241,7 @@ fn main() -> Result<()> {
         settle(&mut cx)?;
         shoot(&mut cx, format!("planner-{mode_name}"))?;
         let custom = cx.update(|cx| {
-            let plan = library.read(cx).plan();
+            let plan = library.read(cx).plan(account);
             plan.iter()
                 .find(|entry| matches!(entry.target, PlanTarget::CustomCharacter { .. }))
                 .map(|entry| entry.id)
@@ -256,7 +261,7 @@ fn main() -> Result<()> {
         cx.run_until_parked();
         // The same dialog on the custom weapon.
         let custom_weapon = cx.update(|cx| {
-            let plan = library.read(cx).plan();
+            let plan = library.read(cx).plan(account);
             plan.iter()
                 .find(|entry| matches!(entry.target, PlanTarget::CustomWeapon { .. }))
                 .map(|entry| entry.id)
@@ -319,6 +324,36 @@ fn main() -> Result<()> {
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
+
+        // A few characters the account owns (added once to a data folder
+        // that has none), Ganyu among them, a favourite.
+        if cx.update(|cx| library.read(cx).owned(account).characters.is_empty()) {
+            let owned = [
+                ("ganyu", (80, 6), 2, [6, 9, 9], true),
+                ("furina", (90, 6), 0, [1, 9, 9], true),
+                ("bennett", (80, 5), 6, [1, 8, 9], false),
+                ("xiangling", (70, 4), 6, [1, 6, 8], false),
+                ("amber", (20, 0), 1, [1, 1, 1], false),
+            ];
+            for (key, (level, phase), constellation, talents, favourite) in owned {
+                let character = OwnedCharacter {
+                    level: Level::new(level, phase).expect("a level of its phase"),
+                    constellation,
+                    talents,
+                    favourite,
+                    ..OwnedCharacter::new(key)
+                };
+                cx.update(|cx| {
+                    library.update(cx, |l, cx| {
+                        l.save_owned_character(account, character, cx).detach()
+                    })
+                });
+            }
+            for _ in 0..40 {
+                cx.run_until_parked();
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        }
 
         // The character archive: the list, then one character's three tabs.
         cx.update(|cx| {
