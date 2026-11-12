@@ -67,7 +67,8 @@ The point of the project is that the player's data, wish history first, is never
   Releases (`release.yml`, on a `v*` tag matching the workspace version): run `ci.yml` first, then build each target
   without a cache and package it (`tools/package-release.sh`); only the last job, which compiles nothing, may write
   to the repository. It publishes the release with `docs/releases/<tag>.md` as its notes (write it before tagging;
-  there is no GitHub login here to edit a release afterwards), then GitHub's generated list of changes.
+  there is no GitHub login here to edit a release afterwards), then GitHub's generated list of changes. Write each
+  paragraph and list item of a notes file on one line: GitHub shows a release's newlines as line breaks.
   The README's Download section names the archives and the first launch of unsigned builds: keep it in step. Every
   action is pinned to a commit with its tag in a comment (Dependabot proposes updates); checkouts don't keep the
   token (`persist-credentials: false`). Keep it that way when adding a step.
