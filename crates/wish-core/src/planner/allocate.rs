@@ -9,7 +9,8 @@
 //!   it, three for one as at the alchemy table (the Mora crafting costs is
 //!   not counted);
 //! - EXP books, and weapon ores, are worth their EXP: four Adventurer's
-//!   Experience do a Hero's Wit's work.
+//!   Experience do a Hero's Wit's work. What is still needed shows as Hero's
+//!   Wit and Mystic Enhancement Ore alone.
 
 use std::collections::BTreeMap;
 
@@ -27,6 +28,16 @@ pub struct Allocation {
     pub needed: PlanTotals,
     /// What the whole plan still lacks once the inventory is used.
     pub missing: PlanTotals,
+    /// How many of each material the plan crafts from the tiers below it,
+    /// out of what they have to spare.
+    pub crafted: BTreeMap<MaterialId, u64>,
+}
+
+impl Allocation {
+    /// How many of `id` the plan crafts from the tiers below.
+    pub fn crafted(&self, id: MaterialId) -> u64 {
+        self.crafted.get(&id).copied().unwrap_or(0)
+    }
 }
 
 /// What one entry needs, and what it still lacks after the entries before it
@@ -36,12 +47,19 @@ pub struct EntryShare {
     pub id: i64,
     pub needed: PlanTotals,
     pub missing: PlanTotals,
+    /// How many of each material are crafted for it from the tiers below.
+    pub crafted: BTreeMap<MaterialId, u64>,
 }
 
 impl EntryShare {
     /// How many of a known material the entry still lacks.
     pub fn missing_material(&self, id: MaterialId) -> u64 {
         self.missing.materials.get(&id).copied().unwrap_or(0)
+    }
+
+    /// How many of `id` are crafted for the entry from the tiers below.
+    pub fn crafted(&self, id: MaterialId) -> u64 {
+        self.crafted.get(&id).copied().unwrap_or(0)
     }
 }
 
@@ -84,6 +102,10 @@ impl PlannerData {
             for (name, count) in short.named {
                 *allocation.missing.named.entry(name).or_default() += count;
             }
+            for (&id, &count) in &short.crafted {
+                *allocation.crafted.entry(id).or_default() += count;
+            }
+            share.crafted = short.crafted;
             character_exp += short.character_exp;
             weapon_exp += short.weapon_exp;
             allocation.entries.push(share);
@@ -104,10 +126,11 @@ struct Pool {
     weapon_exp: u64,
 }
 
-/// What an entry lacks: EXP still as EXP.
+/// What an entry lacks (EXP still as EXP), and what was crafted for it.
 struct Short {
     materials: BTreeMap<MaterialId, u64>,
     named: BTreeMap<String, u64>,
+    crafted: BTreeMap<MaterialId, u64>,
     character_exp: u64,
     weapon_exp: u64,
 }
@@ -143,6 +166,7 @@ impl Pool {
             *want.entry(MORA).or_default() += mora;
         }
         let mut short = BTreeMap::new();
+        let mut crafted_for = BTreeMap::new();
 
         // Crafted series, lowest tier first: what the entry needs of a lower
         // tier is kept for it before the rest is crafted up.
@@ -164,6 +188,9 @@ impl Pool {
                     let crafted = craftable(&counts[..tier]).min(left);
                     use_for_crafting(&mut counts, tier, crafted);
                     left -= crafted;
+                    if crafted > 0 {
+                        crafted_for.insert(*id, crafted);
+                    }
                 }
                 if left > 0 {
                     short.insert(*id, left);
@@ -200,6 +227,7 @@ impl Pool {
         Short {
             materials: short,
             named: named_short,
+            crafted: crafted_for,
             character_exp: exp(requirement.character_exp, &mut self.character_exp),
             weapon_exp: exp(requirement.weapon_exp, &mut self.weapon_exp),
         }

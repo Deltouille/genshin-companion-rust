@@ -22,7 +22,8 @@ gpui_kit::assets::icon_assets!(
         Sparkle,
         Funnel,
         ArrowDownWideNarrow,
-        ArrowUpNarrowWide
+        ArrowUpNarrowWide,
+        FlaskConical
     ]
 );
 

@@ -1,22 +1,26 @@
+use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     App, FontWeight, ImageSource, IntoElement, ParentElement as _, RenderOnce, SharedString,
-    Styled as _, Window, div, img, rems,
+    Styled as _, Window, div, img, px, rems,
 };
 
-use crate::theme;
+use crate::{format, theme};
 
 /// A material and a count, as the game shows costs: the icon on its rarity
 /// tile, the count under it. 56 px wide. Without an icon (a material the game
 /// data does not have), a question mark; without a count, the tile alone.
+/// How many are crafted from the tiers below shows in a badge over the
+/// picture, an alchemy flask and the count, as genshin-center does.
 #[derive(IntoElement)]
 pub struct MaterialTile {
     icon: Option<ImageSource>,
     stars: u8,
     label: Option<SharedString>,
     done: bool,
+    crafted: u64,
 }
 
 impl MaterialTile {
@@ -26,6 +30,7 @@ impl MaterialTile {
             stars,
             label: Some(label.into()),
             done: false,
+            crafted: 0,
         }
     }
 
@@ -36,12 +41,20 @@ impl MaterialTile {
             stars,
             label: None,
             done: false,
+            crafted: 0,
         }
     }
 
-    /// Nothing left to get: the tile greyed out.
+    /// Nothing left to get: the tile greyed out (its crafted badge stays
+    /// clear).
     pub fn done(mut self, done: bool) -> Self {
         self.done = done;
+        self
+    }
+
+    /// How many are crafted from the tiers below; none shows no badge.
+    pub fn crafted(mut self, count: u64) -> Self {
+        self.crafted = count;
         self
     }
 }
@@ -66,11 +79,9 @@ impl RenderOnce for MaterialTile {
         // right corner rounds wide into the parchment strip under it, where
         // the count is written in ink.
         let (ink, parchment) = theme::tile_label(cx);
-        div()
-            .relative()
+        let tile = div()
             .v_flex()
             .w(rems(3.5))
-            .flex_shrink_0()
             .rounded(colors.radius)
             .overflow_hidden()
             .when(self.label.is_some(), |this| this.bg(parchment))
@@ -99,6 +110,26 @@ impl RenderOnce for MaterialTile {
                         .child(label),
                 )
             })
-            .when(self.done, |this| this.opacity(0.35))
+            .when(self.done, |this| this.opacity(0.35));
+        // The crafted count, ink on parchment like the strip, over the
+        // picture's top left corner.
+        let badge = (self.crafted > 0).then(|| {
+            div()
+                .absolute()
+                .top(px(2.))
+                .left(px(2.))
+                .h_flex()
+                .gap(px(2.))
+                .px(px(4.))
+                .rounded_full()
+                .bg(parchment)
+                .text_color(ink)
+                .text_xs()
+                .font_weight(FontWeight::BOLD)
+                .shadow_sm()
+                .child(Icon::new(IconName::FlaskConical).size(px(11.)))
+                .child(format::compact(self.crafted))
+        });
+        div().relative().flex_shrink_0().child(tile).children(badge)
     }
 }

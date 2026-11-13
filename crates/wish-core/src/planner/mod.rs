@@ -30,11 +30,9 @@ const PHASE_CAPS: [u8; 7] = [20, 40, 50, 60, 70, 80, 90];
 
 /// Character EXP materials, largest first: Hero's Wit, Adventurer's
 /// Experience, Wanderer's Advice, and the EXP each gives.
-pub(crate) const EXP_BOOKS: [(MaterialId, u64); 3] =
-    [(104003, 20_000), (104002, 5_000), (104001, 1_000)];
+pub const EXP_BOOKS: [(MaterialId, u64); 3] = [(104003, 20_000), (104002, 5_000), (104001, 1_000)];
 /// Weapon EXP materials, largest first: Mystic, Fine and plain Enhancement Ore.
-pub(crate) const EXP_ORES: [(MaterialId, u64); 3] =
-    [(104013, 10_000), (104012, 2_000), (104011, 400)];
+pub const EXP_ORES: [(MaterialId, u64); 3] = [(104013, 10_000), (104012, 2_000), (104011, 400)];
 /// Levelling costs 1 Mora per 5 EXP for a character, per 10 for a weapon
 /// (a Hero's Wit costs 4,000 Mora to use, a Mystic Enhancement Ore 1,000).
 const CHARACTER_EXP_PER_MORA: u64 = 5;
@@ -191,8 +189,9 @@ impl Requirement {
         self.weapon_exp += other.weapon_exp;
     }
 
-    /// The materials with the EXP turned into books and ores, largest first
-    /// (the smallest rounded up, so the EXP is always reached), and the Mora
+    /// The materials with the EXP as Hero's Wit and Mystic Enhancement Ore,
+    /// rounded up so the EXP is always reached (the smaller books and ores
+    /// count for their EXP: [`EXP_BOOKS`], [`EXP_ORES`]), and the Mora
     /// levelling costs added: 1 per 5 character EXP, 1 per 10 weapon EXP.
     pub fn materials_with_exp(&self) -> BTreeMap<MaterialId, u64> {
         let mut materials = self.materials.clone();
@@ -210,27 +209,28 @@ impl Requirement {
     }
 }
 
-/// Adds the books giving `character_exp` and the ores giving `weapon_exp` to
-/// `materials`: largest first, the smallest rounded up.
+/// Adds `character_exp` as Hero's Wit and `weapon_exp` as Mystic Enhancement
+/// Ore to `materials`, rounded up: the plan shows the largest of each series
+/// alone, and the player's smaller ones count for their EXP.
 pub(crate) fn add_exp_items(
     materials: &mut BTreeMap<MaterialId, u64>,
     character_exp: u64,
     weapon_exp: u64,
 ) {
-    for (exp, items) in [(character_exp, EXP_BOOKS), (weapon_exp, EXP_ORES)] {
-        let mut left = exp;
-        for (i, (material, gives)) in items.into_iter().enumerate() {
-            let count = if i + 1 == items.len() {
-                left.div_ceil(gives)
-            } else {
-                left / gives
-            };
-            if count > 0 {
-                *materials.entry(material).or_default() += count;
-            }
-            left = left.saturating_sub(count * gives);
+    for (exp, [(largest, gives), ..]) in [(character_exp, EXP_BOOKS), (weapon_exp, EXP_ORES)] {
+        let count = exp.div_ceil(gives);
+        if count > 0 {
+            *materials.entry(largest).or_default() += count;
         }
     }
+}
+
+/// The EXP series `id` belongs to ([`EXP_BOOKS`] or [`EXP_ORES`]), largest
+/// first, with the EXP each gives.
+pub fn exp_series(id: MaterialId) -> Option<[(MaterialId, u64); 3]> {
+    [EXP_BOOKS, EXP_ORES]
+        .into_iter()
+        .find(|series| series.iter().any(|(item, _)| *item == id))
 }
 
 impl PlannerData {
