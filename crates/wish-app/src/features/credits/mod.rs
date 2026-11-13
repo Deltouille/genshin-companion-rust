@@ -100,6 +100,12 @@ impl RenderOnce for Credits {
                     "https://gitlab.com/Dimbreath/AnimeGameData",
                 ),
                 (
+                    "genshin.py",
+                    "The HoYoLAB sync's requests and their signing follow genshin.py, by thesadru \
+                     and seriaati, under the MIT License.",
+                    "https://github.com/seriaati/genshin.py",
+                ),
+                (
                     "UIGF",
                     "Item ids from UIGF’s public dictionary, for exports other trackers read.",
                     "https://uigf.org",

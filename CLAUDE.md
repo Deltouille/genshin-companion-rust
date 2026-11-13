@@ -38,9 +38,13 @@ starting a milestone, and tick its checkboxes when a step is done.
 - `cargo test --workspace`
 - `cargo run -p wish-core --example wishctl -- [--data-dir DIR] <command>`: command-line import, export and summary.
   Commands: `import-paimon`, `check-paimon`, `import-snapshot`, `find-link`, `fetch-game`, `import-game`, `undo`,
-  `export`, `summary`, `backup`.
+  `export`, `summary`, `backup`, `hoyolab-check`, `hoyolab-fetch`, `hoyolab-sync`.
   - `check-paimon <file>` compares the engine with a paimon.moe save without touching any data.
   - `fetch-game <link>` fetches and plans a game import without writing anything.
+  - `hoyolab-check [--raw DIR]` reads a HoYoLAB cookie from stdin and prints what HoYoLAB tells of the account
+    (accounts, characters, talents, the authkey), writing nothing and never printing the cookie or the authkey.
+  - `hoyolab-fetch [--uid U]` shows what a HoYoLAB sync would change in the collection, writing nothing;
+    `hoyolab-sync` writes it. `--from FILE --uid U` reads the details `hoyolab-check --raw` saved, offline.
   - `summary` lists import ids for `undo`.
   Without `--data-dir` it uses the real app data folder, so point it at a scratch folder when experimenting.
 - `node tools/extract-paimon-data.mjs`: regenerates `crates/wish-core/data/*.json` from `reference/`.
@@ -81,8 +85,14 @@ starting a milestone, and tick its checkboxes when a step is done.
 ## Layout
 
 The three crates mirror a front-end's core / shared / features split, and Cargo enforces the direction:
-`wish-app` → `wish-ui` → `wish-core`, never the reverse.
+`wish-app` → `wish-ui` → `wish-core` → `hoyolab`, never the reverse.
 
+- `crates/hoyolab`: a small HoYoLAB client (overseas Genshin only), after genshin.py (MIT): the game accounts behind a
+  cookie, the Battle Chronicle's characters and their details, an authkey for the wish history; the DS signature
+  (`ds.rs`, the salt genshin.py has), retcodes as errors the player can act on (`error.rs`). No GPUI, nothing of
+  the app. **The cookie is never stored**: `Cookie` keeps only HoYoLAB's fields, each a `Secret` (wiped when
+  dropped, hidden from `Debug`/`Display`); `HttpTransport` sends it over https to HoYoverse's hosts only, with no
+  redirect. Tests on a fake `Transport`, never the network. Its own repository only to publish it.
 - `crates/wish-core`: model, banner/item data, SQLite storage, importers, pity / 50-50 engine, stats, planner costs.
   **Never depends on GPUI.** All logic and tests go here.
   - `model.rs`: domain types (`Pool`, `GachaType`, `Wish`, `WishTime`…). Text-stored enums use `text_enum!`.
@@ -149,6 +159,13 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     `CharacterStats` (owned of the game's characters as the archive lists them, the Traveler once per element; by
     rarity, element, weapon, constellation) and `WishedWeapons` (the 4★ and 5★ weapons among the wishes, by name,
     with the refinement their copies make). `ELEMENTS` and `WEAPON_TYPES` in the game's order.
+    `sync.rs`: a HoYoLAB sync, `plan_sync(details, collection, planner, archive)` → `SyncPlan` (each character and
+    weapon copy `Added`, `Raised` or `Unchanged`, never lowered; `SyncNote`s: a level cap whose phase HoYoLAB
+    doesn't send, counted as not ascended; levels above 90 counted as 90/90; characters, weapons or talents the
+    data lacks, left out). Characters by game id (the Traveler 10000005/10000007 by element), talents by their
+    names in `archive.json`, less the +3 an active C3/C5 gives; a weapon copy is the one its holder has, else one
+    without a holder, else a new one. `Store::apply_sync` works the plan out again against the stored collection
+    and writes it in one transaction after a `before-sync` backup; `Store::account_with_uid`.
   - `import/paimon_check.rs`: compares the engine with the values paimon.moe stored in a save.
   - `import/api.rs` (link parsing, fetching behind a `Transport` trait), `import/game_cache.rs`
     (finding the link on disk), `import/api_plan.rs` (new wishes vs links vs held back).
@@ -226,7 +243,7 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   **How data flows, and why, is documented at the top of `src/lib.rs`; follow it and update it when it changes.**
   In short:
   - each piece of state has one owner: data and settings → `Library`; selected account and the flow in progress
-    → `Session`; the page shown → `Shell`; app-wide commands → GPUI actions (`ImportFile`, `ImportFromGame`);
+    → `Session`; the page shown → `Shell`; app-wide commands → GPUI actions (`ImportFile`, `ImportFromGame`, `SyncFromHoyolab`);
   - others hold an `Entity<…>`, read it and `observe` it; they change it only through its methods (fields stay
     private). Don't copy shared state into pages;
   - one flow for the whole window: start async flows with `Session::start_flow`, which cancels the previous one;
@@ -310,7 +327,11 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       - `import/`: `ImportFlow` (entity, no view): pick a file, preview dialog, apply; `game.rs`: the
         "Import from the game" dialog; `import_file_button` / `import_game_button` send the actions.
     - `planner/`: the ascension planner, like genshin-center's (`Page::Planner`, group "Planner"). `PlannerView`
-      (entity): a searchable picker adds a character (from 1 to 90/90, talents to 10: `CharacterGoal::FULL`); each
+      (entity): "Add a character…" and "Add a weapon…" are buttons opening a dialog of cards (`add.rs`, the
+      user's choice over pickers: the picture on its rarity tile over a parchment strip, a search, what the account
+      owns first with its level and constellation or refinement; a character already planned is faded; a click adds
+      and closes): a character from the levels and talents the account has (else `CharacterGoal::FULL`) to 90/90
+      with talents to 10, a weapon from 1 to its rarity's top (`Shell::open_planner_add` for the screenshot tool); each
       character entry has range sliders (level over `Level::steps`, the three talents) that save on release, and
       the costs follow them while dragged. The "Still needed" card is on top (`Allocation::missing`), then the
       character cards in a grid of up to 4 columns (each card at least `CARD_REMS` wide, worked out from the
@@ -349,8 +370,18 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     - `archive/weapons.rs`: `WeaponsView` (entity, `Page::Archive(ArchivePage::Weapons)`, the shell calls
       `show_weapon`): the weapon list (the same filter bar: type and rarity) and a weapon's page (the same
       `detail::hero_banner` with its upright wish art, stats at the level slider and their cost, the passive by
-      refinement, "Add to the planner"). The planner has an "Add a weapon…" picker; a weapon card has a level
+      refinement, "Add to the planner"). The planner's "Add a weapon…" opens the cards; a weapon card has a level
       range only (`Controls::steps` holds its rarity's levels).
+    - `imports/`: the Import page (`Imports`, `RenderOnce`, `Page::Imports`, in the sidebar's foot above Settings):
+      every source on one page, a card each (the wish history: from the game, from a file; characters and weapons:
+      HoYoLAB), their buttons sending the app's actions; the wish import buttons stay on the pages that had them.
+      `hoyolab.rs`: `HoyolabSync`, the HoYoLAB dialog (`SyncFromHoyolab`, `Shell::open_hoyolab_sync`): the cookie
+      in three masked fields (`ltuid_v2`, `ltoken_v2`, `ltmid_v2`, from the browser's Storage tab) or read whole
+      from the clipboard (then cleared); `Library::fetch_from_hoyolab` (every Genshin account behind the cookie,
+      each a `HoyolabAccount` with its `SyncPlan`; the fields are emptied when it starts, the cookie dropped when
+      its requests end), a preview (account choice, counts, each change, the notes), then
+      `Library::apply_hoyolab_sync` (into the account of that UID, made from the nickname if none; the session
+      selects it). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
     - `settings/`: `SettingsPage` (entity) and its rows; `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
       `images.rs` (the image cache: size, empty, download all for offline use).
     - `credits/`: `Credits` (`RenderOnce`). It must keep paimon.moe's and genshin-db's MIT notices

@@ -125,6 +125,7 @@ fn a_new_data_folder_opens_empty() {
         Page::Overview(OverviewTab::Wishes)
     );
     assert_eq!(app.navigate(Page::Settings), Page::Settings);
+    assert_eq!(app.navigate(Page::Imports), Page::Imports);
 }
 
 #[test]

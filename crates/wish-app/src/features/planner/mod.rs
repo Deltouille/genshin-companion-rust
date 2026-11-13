@@ -9,6 +9,8 @@
 //! inventory are the [`Library`]'s; a slider saves its entry when released,
 //! and while it is dragged the costs follow it.
 
+mod add;
+pub(crate) use add::Kind as AddKind;
 mod custom;
 mod inventory;
 
@@ -26,7 +28,7 @@ use gpui_kit::{
     AnyElement, App, AppContext as _, Context, CursorStyle, Div, Entity, FontWeight, ImageSource,
     InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _, Pixels, Render,
     SharedString, StatefulInteractiveElement as _, Styled as _, StyledImage as _, Subscription,
-    Window, div, img, px, relative, rems,
+    Window, div, img, px, relative,
 };
 use wish_core::planner::{
     CharacterGoal, CustomItem, EntryShare, Inventory, Level, Material, MaterialId, PlanEntry,
@@ -37,8 +39,8 @@ use crate::app::images::Images;
 use crate::app::{Library, Session};
 use wish_core::model::AccountId;
 use wish_ui::{
-    MaterialTile, PageFrame, PickerEvent, PickerItem, PickerState, badge, button, card, card_title,
-    dialog_footer, format, icon_button, picker, theme,
+    MaterialTile, PageFrame, badge, button, card, card_title, dialog_footer, format, icon_button,
+    theme,
 };
 
 /// The talent rows' names, in the order of the goal's talents.
@@ -47,9 +49,6 @@ const TALENTS: [&str; 3] = ["Normal Attack", "Elemental Skill", "Elemental Burst
 pub struct PlannerView {
     session: Entity<Session>,
     library: Entity<Library>,
-    /// The pickers that add a character and a weapon.
-    add_character: Entity<PickerState<SharedString>>,
-    add_weapon: Entity<PickerState<SharedString>>,
     /// The sliders of each character and weapon entry, by entry id.
     controls: HashMap<i64, Controls>,
     /// The entry whose card is being dragged, dimmed meanwhile.
@@ -71,12 +70,6 @@ struct Controls {
 impl PlannerView {
     pub fn new(session: Entity<Session>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let library = session.read(cx).library().clone();
-        let planner = library.read(cx).planner().clone();
-        let picker = |options, window: &mut Window, cx: &mut Context<Self>| {
-            cx.new(|cx| PickerState::searchable(options, None, window, cx))
-        };
-        let add_character = picker(character_options(&planner), window, cx);
-        let add_weapon = picker(weapon_options(&planner), window, cx);
         let subscriptions = vec![
             cx.observe_in(&library, window, |this, _, window, cx| {
                 this.sync_controls(window, cx);
@@ -87,31 +80,10 @@ impl PlannerView {
                 this.sync_controls(window, cx);
                 cx.notify();
             }),
-            cx.subscribe_in(
-                &add_character,
-                window,
-                |this, picker, event: &PickerEvent<SharedString>, window, cx| {
-                    let PickerEvent::Confirm(key) = event;
-                    this.add_character(key.to_string(), window, cx);
-                    // Ready for the next one.
-                    picker.update(cx, |picker, cx| picker.set_selected_index(None, cx));
-                },
-            ),
-            cx.subscribe_in(
-                &add_weapon,
-                window,
-                |this, picker, event: &PickerEvent<SharedString>, window, cx| {
-                    let PickerEvent::Confirm(key) = event;
-                    this.add_weapon(key.to_string(), window, cx);
-                    picker.update(cx, |picker, cx| picker.set_selected_index(None, cx));
-                },
-            ),
         ];
         let mut view = Self {
             session,
             library,
-            add_character,
-            add_weapon,
             controls: HashMap::new(),
             dragging: None,
             _subscriptions: subscriptions,
@@ -125,12 +97,19 @@ impl PlannerView {
         self.session.read(cx).account()
     }
 
+    /// Adds a character: from the levels and talents the account has (as the
+    /// archive's "Add to the planner" does), to 90/90 with its talents to 10.
     fn add_character(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
-        let target = PlanTarget::Character {
-            key,
-            goal: CharacterGoal::FULL,
-        };
         let account = self.account(cx);
+        let goal = match self.library.read(cx).owned(account).character(&key) {
+            Some(owned) => CharacterGoal {
+                from: owned.level,
+                to: Level::MAX,
+                talents: owned.talents.map(|t| (t, t.max(10))),
+            },
+            None => CharacterGoal::FULL,
+        };
+        let target = PlanTarget::Character { key, goal };
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
         });
@@ -524,20 +503,21 @@ impl Render for PlannerView {
             .h_flex()
             .gap_3()
             .child(
-                div().w(rems(18.)).child(
-                    picker("add-character", &self.add_character)
-                        .placeholder("Add a character…")
-                        .accessibility_label("Add a character")
-                        .menu_width(rems(18.)),
-                ),
+                button("add-character")
+                    .primary()
+                    .icon(IconName::UserPlus)
+                    .label("Add a character…")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.open_add(add::Kind::Character, window, cx)
+                    })),
             )
             .child(
-                div().w(rems(18.)).child(
-                    picker("add-weapon", &self.add_weapon)
-                        .placeholder("Add a weapon…")
-                        .accessibility_label("Add a weapon")
-                        .menu_width(rems(18.)),
-                ),
+                button("add-weapon")
+                    .icon(IconName::Swords)
+                    .label("Add a weapon…")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.open_add(add::Kind::Weapon, window, cx)
+                    })),
             )
             .child(
                 button("add-custom")
@@ -1388,26 +1368,6 @@ fn clickable(
         .tooltip(move |window, cx| {
             gpui_kit::component::tooltip::Tooltip::new(tip.clone()).build(window, cx)
         })
-}
-
-fn character_options(planner: &PlannerData) -> Vec<PickerItem<SharedString>> {
-    let mut options: Vec<PickerItem<SharedString>> = planner
-        .characters()
-        .iter()
-        .map(|c| PickerItem::new(c.name.clone(), SharedString::from(c.key.clone())))
-        .collect();
-    options.sort_by(|a, b| a.title.cmp(&b.title));
-    options
-}
-
-fn weapon_options(planner: &PlannerData) -> Vec<PickerItem<SharedString>> {
-    let mut options: Vec<PickerItem<SharedString>> = planner
-        .weapons()
-        .iter()
-        .map(|w| PickerItem::new(w.name.clone(), SharedString::from(w.key.clone())))
-        .collect();
-    options.sort_by(|a, b| a.title.cmp(&b.title));
-    options
 }
 
 /// Shows a notification if a plan write fails.

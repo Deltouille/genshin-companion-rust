@@ -124,14 +124,20 @@ impl RenderOnce for Overview {
             None => frame,
         };
         // Without wishes, the tab's own buttons say how to import them.
-        frame.when(
-            self.tab == OverviewTab::Wishes && with_wishes.is_some(),
-            |frame| {
-                frame
-                    .action(import_game_button())
-                    .action(import_file_button(self.busy))
-            },
-        )
+        frame
+            .when(
+                self.tab == OverviewTab::Wishes && with_wishes.is_some(),
+                |frame| {
+                    frame
+                        .action(import_game_button())
+                        .action(import_file_button(self.busy))
+                },
+            )
+            // Without characters, the tab's own button offers the sync.
+            .when(
+                self.tab == OverviewTab::Characters && !self.owned.characters.is_empty(),
+                |frame| frame.action(crate::features::imports::hoyolab_sync_button()),
+            )
     }
 }
 

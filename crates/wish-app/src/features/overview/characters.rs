@@ -32,14 +32,19 @@ pub(super) fn characters_tab(
         let on_navigate = on_navigate.clone();
         return empty_state(
             "No characters yet",
-            "Mark the characters you have in the archive: they are counted here, by rarity, \
-             element, weapon and constellation.",
-            button("open-characters")
-                .primary()
-                .label("Open the characters")
-                .on_click(move |_, window, cx| {
-                    on_navigate(Page::Archive(ArchivePage::Characters), window, cx)
-                }),
+            "Sync them from HoYoLAB, or mark the characters you have in the archive: they are \
+             counted here, by rarity, element, weapon and constellation.",
+            div()
+                .h_flex()
+                .gap_2()
+                .child(crate::features::imports::hoyolab_sync_button().primary())
+                .child(
+                    button("open-characters")
+                        .label("Open the characters")
+                        .on_click(move |_, window, cx| {
+                            on_navigate(Page::Archive(ArchivePage::Characters), window, cx)
+                        }),
+                ),
             cx,
         );
     }
