@@ -10,7 +10,7 @@ use gpui_kit::component::{ActiveTheme as _, Size};
 use gpui_kit::{
     App, Context, Div, FontWeight, InteractiveElement as _, IntoElement, ParentElement as _,
     Pixels, SharedString, Stateful, Styled as _, Window, div, linear_color_stop, linear_gradient,
-    prelude::FluentBuilder as _,
+    prelude::FluentBuilder as _, rems,
 };
 use wish_core::data::GameData;
 use wish_core::engine::{Analysis, Pull, RateUpOutcome};
@@ -54,6 +54,13 @@ pub struct PullTable {
 
 /// The card's content inset (`p_4`) in rem: the first column starts there.
 const PAGE_INSET_REMS: f32 = 1.0;
+/// A row's height in rem: room for the item's tile and the cell's padding
+/// above and below.
+pub(super) const ROW_REMS: f32 = 4.0;
+/// The header row's height in rem, as the kit's large table has it.
+pub(super) const HEADER_REMS: f32 = 2.5;
+/// The side of an item's tile in rem, big enough to tell the items apart.
+const TILE_REMS: f32 = 3.0;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Col {
@@ -346,15 +353,16 @@ impl TableDelegate for PullTable {
             Col::Item | Col::Banner => self.rem * self.base_rems(col) + spare / 2.,
             _ => self.rem * self.base_rems(col),
         };
-        let column = column.width(width);
-        match col {
+        // The rows are taller than any of the kit's sizes, whose padding is
+        // then the narrow default: every column keeps the large one.
+        let mut paddings = Size::Large.table_cell_padding();
+        if col == Col::Item {
             // The first column starts its text on the card's inset, like the
             // cards' content elsewhere.
-            Col::Item => {
-                let mut paddings = Size::Large.table_cell_padding();
-                paddings.left = self.rem * PAGE_INSET_REMS;
-                column.paddings(paddings)
-            }
+            paddings.left = self.rem * PAGE_INSET_REMS;
+        }
+        let column = column.width(width).paddings(paddings);
+        match col {
             Col::Pity | Col::Roll => column.text_right(),
             _ => column,
         }
@@ -413,14 +421,15 @@ impl TableDelegate for PullTable {
         };
         let rarity = pull.wish.rarity;
         let muted = cx.theme().muted_foreground;
-        match self.col(col_ix) {
+        let content = match self.col(col_ix) {
             // The icon has its own slot so names stay aligned without one.
             Col::Item => div()
                 .h_flex()
-                .gap_2()
+                .gap_3()
                 .child(item_tile(
                     pull.wish.rarity,
                     self.images.item(&pull.wish),
+                    rems(TILE_REMS),
                     cx,
                 ))
                 .child(
@@ -448,16 +457,19 @@ impl TableDelegate for PullTable {
                         .child(kind(pull.wish.item_type)),
                 ),
             Col::RateUp => match pull.rate_up.map(|r| r.outcome()) {
-                Some(outcome) => div()
-                    .h_full()
-                    .h_flex()
-                    .items_center()
-                    .child(outcome_badge(outcome, cx)),
+                Some(outcome) => div().h_flex().child(outcome_badge(outcome, cx)),
                 None => div(),
             },
             Col::Banner | Col::Roll | Col::Time => div().truncate().text_color(muted).child(text),
             Col::Pity => div().child(text),
-        }
+        };
+        // Centred in the row's height; full width, so a right-aligned
+        // column's text reaches the right.
+        div()
+            .size_full()
+            .flex()
+            .items_center()
+            .child(content.flex_1().min_w_0())
     }
 
     fn cell_label(&self, row_ix: usize, col_ix: usize, _: &App) -> Option<SharedString> {

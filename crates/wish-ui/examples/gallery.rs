@@ -13,7 +13,7 @@ use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::{ActiveTheme as _, Icon, Theme, ThemeMode};
 use gpui_kit::{
     AppContext as _, Context, HeadlessAppContext, IntoElement, ParentElement as _, Render,
-    Styled as _, Window, div, px, size,
+    Styled as _, Window, div, px, rems, size,
 };
 use wish_core::model::{Pool, Rarity};
 use wish_ui::{
@@ -73,9 +73,9 @@ impl Render for Gallery {
             div()
                 .h_flex()
                 .gap_2()
-                .child(item_tile(Rarity::Five, None, cx))
-                .child(item_tile(Rarity::Four, None, cx))
-                .child(item_tile(Rarity::Three, None, cx)),
+                .child(item_tile(Rarity::Five, None, rems(1.75), cx))
+                .child(item_tile(Rarity::Four, None, rems(1.75), cx))
+                .child(item_tile(Rarity::Three, None, rems(1.75), cx)),
         );
         let icons = section("pool_icon").child(
             div().h_flex().gap_3().children(
@@ -130,7 +130,6 @@ impl Render for Gallery {
             .text_color(colors.foreground)
             .child(
                 PageFrame::new("Components", body)
-                    .icon(Icon::new(pool_icon(Pool::CharacterEvent)))
                     .subtitle("Everything in wish-ui, in the current theme"),
             )
     }

@@ -19,7 +19,7 @@ use wish_app::{
     ArchivePage, ImageDownloads, ImportFromGame, Library, OverviewTab, Page, Shell, WishPage,
 };
 use wish_core::AppPaths;
-use wish_core::collection::OwnedCharacter;
+use wish_core::collection::{OwnedCharacter, OwnedWeapon};
 use wish_core::model::Pool;
 use wish_core::planner::{
     CharacterGoal, CustomItem, CustomMaterials, Level, PlanTarget, PlannerData, Role, WeaponGoal,
@@ -158,6 +158,34 @@ fn main() -> Result<()> {
         for _ in 0..40 {
             cx.run_until_parked();
             std::thread::sleep(Duration::from_millis(50));
+        }
+    }
+
+    // A few weapons too (added once): Ganyu's Amos' Bow, two Favonius Swords
+    // (one held by Bennett), Xiangling's The Catch at R5, a spare catalyst.
+    if cx.update(|cx| library.read(cx).owned(account).weapons.is_empty()) {
+        let weapons = [
+            ("amosbow", (90, 6), 1, Some("ganyu"), true),
+            ("favoniussword", (80, 6), 3, Some("bennett"), false),
+            ("favoniussword", (1, 0), 2, None, false),
+            ("thecatch", (70, 5), 5, Some("xiangling"), false),
+            ("sacrificialfragments", (20, 0), 1, None, false),
+        ];
+        for (key, (level, phase), refinement, holder, favourite) in weapons {
+            let weapon = OwnedWeapon {
+                level: Level::new(level, phase).expect("a level of its phase"),
+                refinement,
+                holder: holder.map(str::to_owned),
+                favourite,
+                ..OwnedWeapon::new(key)
+            };
+            cx.update(|cx| {
+                library.update(cx, |l, cx| l.add_owned_weapon(account, weapon, cx).detach())
+            });
+            for _ in 0..10 {
+                cx.run_until_parked();
+                std::thread::sleep(Duration::from_millis(50));
+            }
         }
     }
 

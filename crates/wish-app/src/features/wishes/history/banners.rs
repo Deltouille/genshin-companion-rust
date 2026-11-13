@@ -5,7 +5,7 @@ use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{
     AnyElement, App, FontWeight, InteractiveElement as _, IntoElement, ObjectFit,
     ParentElement as _, Pixels, SharedString, Styled as _, StyledImage as _, Window, div, img,
-    prelude::FluentBuilder as _, relative,
+    prelude::FluentBuilder as _, relative, rems,
 };
 use wish_core::data::Banner;
 use wish_core::engine::{PoolAnalysis, Pull};
@@ -15,6 +15,10 @@ use crate::app::images::Images;
 use wish_ui::outcome_badge;
 use wish_ui::{card, card_title, item_tile, stat_label};
 use wish_ui::{format, theme};
+
+/// The side of an item tile in the 5★ history, in rem: big enough to tell
+/// the items apart at a glance.
+const FIVE_TILE_REMS: f32 = 2.5;
 
 /// Every 5★ of the pool, newest first, with its pity as a bar out of the
 /// hard pity: how lucky each one was, labelled, at a glance.
@@ -43,7 +47,12 @@ pub(super) fn five_star_history(
             .h_flex()
             .gap_3()
             .py_1()
-            .child(item_tile(pull.wish.rarity, images.item(&pull.wish), cx))
+            .child(item_tile(
+                pull.wish.rarity,
+                images.item(&pull.wish),
+                rems(FIVE_TILE_REMS),
+                cx,
+            ))
             .child(
                 div()
                     .w_48()
@@ -168,7 +177,12 @@ pub(super) fn banner_card(
             div()
                 .h_flex()
                 .gap_2()
-                .child(item_tile(pull.wish.rarity, images.item(&pull.wish), cx))
+                .child(item_tile(
+                    pull.wish.rarity,
+                    images.item(&pull.wish),
+                    rems(1.75),
+                    cx,
+                ))
                 .child(
                     div()
                         .flex_1()

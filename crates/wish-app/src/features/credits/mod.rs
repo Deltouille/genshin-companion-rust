@@ -180,7 +180,6 @@ impl RenderOnce for Credits {
         let body = div()
             .v_flex()
             .gap_6()
-            .max_w(rems(48.))
             .child(paimon)
             .child(genshin_db)
             .child(hoyoverse)
@@ -198,7 +197,7 @@ impl RenderOnce for Credits {
                     .child(group_title("Open-source components", cx))
                     .child(components),
             );
-        PageFrame::new("Credits", body)
+        PageFrame::new("Credits", body).max_width(rems(48.))
     }
 }
 

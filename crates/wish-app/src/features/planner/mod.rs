@@ -101,14 +101,7 @@ impl PlannerView {
     /// archive's "Add to the planner" does), to 90/90 with its talents to 10.
     fn add_character(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
         let account = self.account(cx);
-        let goal = match self.library.read(cx).owned(account).character(&key) {
-            Some(owned) => CharacterGoal {
-                from: owned.level,
-                to: Level::MAX,
-                talents: owned.talents.map(|t| (t, t.max(10))),
-            },
-            None => CharacterGoal::FULL,
-        };
+        let goal = self.library.read(cx).owned(account).character_goal(&key);
         let target = PlanTarget::Character { key, goal };
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
@@ -116,15 +109,14 @@ impl PlannerView {
         report_errors(task, window, cx);
     }
 
-    /// Adds a weapon, from level 1 to the top of its rarity.
+    /// Adds a weapon: from its most levelled copy that can still go up (else
+    /// level 1, for a new copy) to the top of its rarity.
     fn add_weapon(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
-        let planner = self.library.read(cx).planner();
-        let rarity = planner.weapon(&key).map_or(5, |weapon| weapon.rarity);
-        let target = PlanTarget::Weapon {
-            key,
-            goal: WeaponGoal::full(rarity),
-        };
         let account = self.account(cx);
+        let library = self.library.read(cx);
+        let rarity = (library.planner().weapon(&key)).map_or(5, |weapon| weapon.rarity);
+        let goal = library.owned(account).weapon_goal(&key, rarity);
+        let target = PlanTarget::Weapon { key, goal };
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
         });

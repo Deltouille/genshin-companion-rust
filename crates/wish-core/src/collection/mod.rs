@@ -8,10 +8,12 @@
 mod stats;
 mod sync;
 
-pub use stats::{CharacterStats, ELEMENTS, Tally, WEAPON_TYPES, WishedWeapon, WishedWeapons};
+pub use stats::{
+    CharacterStats, ELEMENTS, OwnedWeaponStats, OwnedWeaponSummary, Tally, WEAPON_TYPES,
+};
 pub use sync::{Change, SyncNote, SyncPlan, plan_sync};
 
-use crate::planner::Level;
+use crate::planner::{CharacterGoal, Level, WeaponGoal};
 
 /// The highest constellation.
 pub const MAX_CONSTELLATION: u8 = 6;
@@ -121,6 +123,33 @@ impl Collection {
     pub fn is_empty(&self) -> bool {
         self.characters.is_empty() && self.weapons.is_empty()
     }
+
+    /// Where planning character `key` starts: the level and talents entered
+    /// for it, up to 90/90 with its talents to 10; from level 1 when it isn't
+    /// owned.
+    pub fn character_goal(&self, key: &str) -> CharacterGoal {
+        match self.character(key) {
+            Some(owned) => CharacterGoal {
+                from: owned.level,
+                to: Level::MAX,
+                talents: owned.talents.map(|t| (t, t.max(MAX_TALENT))),
+            },
+            None => CharacterGoal::FULL,
+        }
+    }
+
+    /// Where planning weapon `key` (of `rarity` stars) starts: its most
+    /// levelled copy that can still go up; from level 1 when none can (the
+    /// plan is then for a new copy), up to its rarity's top.
+    pub fn weapon_goal(&self, key: &str, rarity: u8) -> WeaponGoal {
+        let full = WeaponGoal::full(rarity);
+        let from = (self.copies(key))
+            .map(|copy| copy.level)
+            .filter(|level| *level < full.to)
+            .max()
+            .unwrap_or(full.from);
+        WeaponGoal { from, to: full.to }
+    }
 }
 
 #[cfg(test)]
@@ -146,5 +175,47 @@ mod tests {
         .clamped();
         assert_eq!(weapon.refinement, 1);
         assert_eq!(weapon.holder, None);
+    }
+}
+
+#[cfg(test)]
+mod goals {
+    use super::*;
+
+    #[test]
+    fn planning_starts_from_what_is_owned() {
+        let collection = Collection {
+            characters: vec![OwnedCharacter {
+                level: Level::new(80, 6).unwrap(),
+                talents: [6, 9, 10],
+                ..OwnedCharacter::new("ganyu")
+            }],
+            weapons: vec![
+                OwnedWeapon {
+                    level: Level::MAX,
+                    ..OwnedWeapon::new("favoniussword")
+                },
+                OwnedWeapon {
+                    level: Level::new(40, 1).unwrap(),
+                    ..OwnedWeapon::new("favoniussword")
+                },
+                OwnedWeapon {
+                    level: Level::MAX,
+                    ..OwnedWeapon::new("amosbow")
+                },
+            ],
+        };
+        let ganyu = collection.character_goal("ganyu");
+        assert_eq!(ganyu.from, Level::new(80, 6).unwrap());
+        assert_eq!(ganyu.talents, [(6, 10), (9, 10), (10, 10)]);
+        assert_eq!(collection.character_goal("amber"), CharacterGoal::FULL);
+
+        // The copy that can still go up, not the one at 90.
+        let sword = collection.weapon_goal("favoniussword", 4);
+        assert_eq!(sword.from, Level::new(40, 1).unwrap());
+        assert_eq!(sword.to, Level::MAX);
+        // Every copy at the top, or none: a new copy, from level 1.
+        assert_eq!(collection.weapon_goal("amosbow", 5), WeaponGoal::full(5));
+        assert_eq!(collection.weapon_goal("thecatch", 4), WeaponGoal::full(4));
     }
 }

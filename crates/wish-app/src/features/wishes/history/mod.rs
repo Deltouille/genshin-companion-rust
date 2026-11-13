@@ -11,7 +11,7 @@ use gpui_kit::base::{ElementExt as _, StyledExt as _};
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::table::{DataTable, TableEvent, TableState};
-use gpui_kit::component::{ActiveTheme as _, Icon, IconName, Sizable as _};
+use gpui_kit::component::{ActiveTheme as _, IconName, Sizable as _, Size};
 use gpui_kit::{
     AnyElement, AppContext as _, Context, Entity, InteractiveElement as _, IntoElement,
     ParentElement as _, Pixels, Render, SharedString, Styled as _, Subscription, Window, div,
@@ -26,7 +26,6 @@ use crate::app::{Library, Session};
 use banners::{BANNER_CARD_REMS, BANNER_COLUMNS, banner_card, five_star_history};
 use table::{PAGE_SIZES, PullTable};
 use wish_ui::format;
-use wish_ui::pool_icon;
 use wish_ui::{ButtonExt as _, PageFrame, Pager, Segmented, button, card, filter_chip};
 
 /// The height of the charts above the table, in rem.
@@ -548,9 +547,17 @@ impl Render for HistoryView {
                                     }
                                 })
                                 .child(
-                                    div().flex_1().min_h_0().child(
+                                    // Taller rows than the kit's sizes, for
+                                    // icons big enough to tell apart; the
+                                    // header keeps the large height.
+                                    div().flex_1().min_h_0().text_base().child(
                                         DataTable::new(&self.table)
-                                            .large()
+                                            .with_size(Size::Size(
+                                                window.rem_size() * table::ROW_REMS,
+                                            ))
+                                            .header_row_height(
+                                                window.rem_size() * table::HEADER_REMS,
+                                            )
                                             .bordered(false)
                                             .accessibility_label(format!("{title} wishes")),
                                     ),
@@ -562,11 +569,7 @@ impl Render for HistoryView {
             Mode::Banners => self.render_banners(window, cx),
         };
 
-        let mut frame = PageFrame::new(title, body);
-        if let Some(shown) = &self.shown {
-            frame = frame.icon(Icon::new(pool_icon(shown.pool)));
-        }
-        frame
+        PageFrame::new(title, body)
             .subtitle(self.subtitle.clone())
             .toolbar(toolbar)
             .body_scrolls()

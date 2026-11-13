@@ -24,8 +24,8 @@ The app opens on your account in figures, one tab each:
   them, wishes per month and the pity of each 5★.
 - **Characters:** how many of the game's characters you own, by rarity, element and weapon, then your
   constellations, characters at level 90 and talents at level 10.
-- **Weapons:** the weapons your wishes brought, by rarity and type, then each 4★ and 5★ with the refinement its
-  copies make (shop, event and forged copies aren't wishes, so the game may show more).
+- **Weapons:** how many of the game's weapons you own, by rarity and type, then each of your 5★ and 4★ with its
+  refinement, its copies and the characters holding them.
 
 ### Wish counter
 
@@ -78,8 +78,9 @@ their level and constellation on the card; add or remove them from the list, and
 - **Talents:** values at any talent level.
 - **Constellations.**
 
-Every weapon too, filtered by type and rarity: its ATK and secondary stat at any level, what reaching it costs,
-and its passive at each refinement.
+Every weapon too, the ones you have first (with their best refinement and how many copies), filtered by type,
+rarity and favourites. A weapon's page lists your copies (level, refinement, the character holding it) above
+its ATK and secondary stat at any level, what reaching it costs, and its passive at each refinement.
 
 ### Ascension planner
 

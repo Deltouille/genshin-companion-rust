@@ -1,6 +1,6 @@
 //! Overview: the app's home, the selected account in figures, one tab each:
 //! its wishes (`wishes/`), the characters it owns (`characters.rs`) and the
-//! weapons its wishes brought (`weapons.rs`).
+//! weapons it owns (`weapons.rs`).
 
 mod characters;
 mod weapons;
@@ -85,11 +85,11 @@ impl RenderOnce for Overview {
                 cx,
             ),
             OverviewTab::Weapons => weapons::weapons_tab(
-                with_wishes,
+                &self.owned,
                 &self.planner,
                 &self.images,
+                &self.on_navigate,
                 &self.on_open_weapon,
-                self.busy,
                 window,
                 cx,
             ),
@@ -133,9 +133,10 @@ impl RenderOnce for Overview {
                         .action(import_file_button(self.busy))
                 },
             )
-            // Without characters, the tab's own button offers the sync.
+            // Without characters or weapons, the tab's own button offers the sync.
             .when(
-                self.tab == OverviewTab::Characters && !self.owned.characters.is_empty(),
+                (self.tab == OverviewTab::Characters && !self.owned.characters.is_empty())
+                    || (self.tab == OverviewTab::Weapons && !self.owned.weapons.is_empty()),
                 |frame| frame.action(crate::features::imports::hoyolab_sync_button()),
             )
     }
