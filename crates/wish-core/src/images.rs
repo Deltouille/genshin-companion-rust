@@ -78,6 +78,11 @@ impl Remote {
         }
     }
 
+    /// Original Resin's icon, for the planner's estimate.
+    pub fn resin() -> Remote {
+        Remote::amber("UI_ItemIcon_106")
+    }
+
     /// One of the game's UI images by its file name (`UI_ItemIcon_104315`),
     /// from Project Amber.
     pub fn amber(file: &str) -> Remote {
@@ -154,6 +159,7 @@ pub fn catalog(
             .filter_map(|item| Remote::wish_icon(item.item_type, &item.key)),
     );
     remotes.push(Remote::primogem());
+    remotes.push(Remote::resin());
     let icons = (planner.characters().iter().map(|c| &c.icon))
         .chain(planner.weapons().iter().map(|w| &w.icon))
         .chain(planner.materials().iter().map(|m| &m.icon))

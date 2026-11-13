@@ -100,6 +100,12 @@ impl RenderOnce for Credits {
                     "https://gitlab.com/Dimbreath/AnimeGameData",
                 ),
                 (
+                    "Genshin Impact Wiki",
+                    "The average drops of domains, bosses and ley lines behind the planner's resin \
+                     estimate, gathered by the Genshin Data Gathering team.",
+                    "https://genshin-impact.fandom.com",
+                ),
+                (
                     "genshin.py",
                     "The HoYoLAB sync's requests and their signing follow genshin.py, by thesadru \
                      and seriaati, under the MIT License.",

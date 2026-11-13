@@ -101,6 +101,10 @@ Like [genshin-center](https://genshin-center.com/planner)'s planner.
   its stars and its materials (a character's six: common, local specialty, boss, gem, talent book, weekly boss;
   a weapon's three: domain material, elite and common drops), picked from the game's or typed by name. It then
   costs what any character, or weapon of its stars, costs.
+- **Resin:** how much Original Resin farming what is still lacking takes on average, and how many days, as on
+  genshin-center: on each card, and for the whole plan by source (talent books and weapon materials from domains,
+  boss materials, Hero's Wit and Mora from ley lines). *Resin options…* sets your world level, the resin you spend
+  a day (180 regenerate) and what to count. Weekly bosses, gems and enemy drops aren't counted.
 
 <p>
   <img src="docs/screenshots/archive.png" width="49%" alt="A character's page in the archive">
@@ -261,6 +265,8 @@ list of changes. A tag that doesn't match the version publishes nothing.
 - [Project Amber](https://gi.yatta.moe): the character, weapon, material, talent and constellation icons, and the
   wish art.
 - [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData): the EXP each level needs.
+- [Genshin Impact Wiki](https://genshin-impact.fandom.com): the average drops behind the resin estimate,
+  gathered by the Genshin Data Gathering team.
 - [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync's requests and
   their signing follow it (MIT License).
 - [UIGF](https://uigf.org): item ids for UIGF exports.

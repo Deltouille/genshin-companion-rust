@@ -139,6 +139,12 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     ores count for their EXP.
     `PlannerData::craft_families` / `craft_family`: the crafted series, grouped by (`kind`, `sort`) with
     consecutive rarities (gems, talent books, enemy drops, weapon materials).
+    `resin.rs`: the resin estimate, like genshin-center's "Average Estimated Resin": `PlannerData::resin_estimate(missing,
+    ResinOptions)` → `ResinEstimate` (runs per `ResinSource`: talent books and weapon materials from domains, a series
+    counted in its lowest tier against what a level IV run gives of the tiers still lacking; normal boss materials, the
+    4★ level-up ones, per boss; Character EXP and Mora from ley lines). Averages by world level from the Genshin Impact
+    wiki (Genshin Data Gathering team); weekly bosses, gems, ores and enemy drops are left out, as genshin-center does.
+    `ResinOptions` (world level, resin a day, sources ignored) live in `settings.json` (`Settings::resin`).
   - `store/plan.rs` + migrations `003_planner.sql`, `004_inventory_and_custom_characters.sql` and
     `005_planner_weapons.sql` (a weapon entry has `weapon_key`, and its key in `name` too, which 003's CHECK wants),
     `006_planner_custom_weapons.sql` (`custom_weapon` tells a custom weapon from a custom character): `plan_entries`
@@ -354,7 +360,11 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       the form for a searchable grid of its series, or a typed name). Custom characters get the same sliders. The
       plan and inventory are the `Library`'s (`plan`, `add_plan_entry`, `update_plan_entry`, `remove_plan_entry`,
       `inventory`, `set_owned`); removing asks first. A character's archive page has "Add to the planner".
-      `Shell::open_custom_entry` / `open_inventory` open the dialogs (the screenshot tool uses them).
+      `resin.rs`: the resin estimate, one line on each card (its runs by source in a tooltip) and the plan's under
+      "Still needed" by source, with "Resin options…" (`ResinForm`: world level, resin a day, sources counted; saved
+      with `Library::set_resin_options`). Original Resin's icon is `images::Remote::resin`.
+      `Shell::open_custom_entry`, `open_inventory` and `open_resin_options` open the dialogs (the screenshot tool uses
+      them).
     - `archive/`: the character archive, like Project Amber's (`Page::Archive(ArchivePage::Characters)`,
       group "Archive"). `CharactersView` (entity: filters, sort and its direction, open character, level sliders;
       the shell calls `show_list`, `show_character`, `open_character_filters`). `filters.rs`: the filter bar of both
