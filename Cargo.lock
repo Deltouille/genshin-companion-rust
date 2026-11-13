@@ -3376,6 +3376,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "hoyolab"
+version = "0.2.0"
+dependencies = [
+ "fastrand",
+ "md-5",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "ureq",
+ "url",
+ "zeroize",
+]
+
+[[package]]
 name = "html5ever"
 version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8855,6 +8869,7 @@ dependencies = [
  "calamine",
  "chrono",
  "directories",
+ "hoyolab",
  "rusqlite",
  "rust_xlsxwriter",
  "serde",

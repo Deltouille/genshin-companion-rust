@@ -2,14 +2,18 @@
 //! (one row per copy). Every write is one transaction, after at most one
 //! backup an hour (`before-planning`, like the plan's and the inventory's).
 
+use std::path::PathBuf;
+
 use chrono::{Local, SecondsFormat};
 use rusqlite::{Row, Transaction, params};
 
 use super::Store;
-use crate::collection::{Collection, OwnedCharacter, OwnedWeapon};
+use crate::archive::ArchiveData;
+use crate::collection::{Change, Collection, OwnedCharacter, OwnedWeapon, SyncPlan, plan_sync};
 use crate::error::Result;
 use crate::model::AccountId;
-use crate::planner::Level;
+use crate::planner::{Level, PlannerData};
+use crate::store::BackupReason;
 
 impl Store {
     /// What `account` owns.
@@ -110,6 +114,44 @@ impl Store {
             params![account.0, id],
         )?;
         Ok(())
+    }
+
+    /// Applies a HoYoLAB sync to `account`, once the player confirmed its
+    /// preview: a backup first, then the plan worked out again against the
+    /// collection as it is now (so what was entered meanwhile is never
+    /// lowered either), written in one transaction. Returns what it changed
+    /// and the backup.
+    pub fn apply_sync(
+        &mut self,
+        account: AccountId,
+        details: &[hoyolab::CharacterDetail],
+        planner: &PlannerData,
+        archive: &ArchiveData,
+    ) -> Result<(SyncPlan, PathBuf)> {
+        let backup = self.backup(BackupReason::BeforeSync)?;
+        let plan = plan_sync(details, &self.collection(account)?, planner, archive);
+        let tx = self.conn.transaction()?;
+        let now = now();
+        for change in plan.characters.iter().filter(|c| c.changes()) {
+            save_character(&tx, account, change.after(), &now)?;
+        }
+        for change in &plan.weapons {
+            match change {
+                Change::Added(weapon) => {
+                    tx.execute(
+                        "INSERT INTO owned_weapons (account_id, weapon_key, created_at, updated_at) \
+                         VALUES (?1, ?2, ?3, ?3)",
+                        params![account.0, weapon.key, now],
+                    )?;
+                    let id = tx.last_insert_rowid();
+                    write_weapon(&tx, account, id, weapon, &now)?;
+                }
+                Change::Raised { after, .. } => write_weapon(&tx, account, after.id, after, &now)?,
+                Change::Unchanged(_) => {}
+            }
+        }
+        tx.commit()?;
+        Ok((plan, backup))
     }
 }
 

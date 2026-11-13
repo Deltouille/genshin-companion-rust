@@ -33,6 +33,14 @@ Commands:
   export <file>           Write every account to a snapshot file
   summary                 Show counters, pity, 50/50 and backups for every account
   backup                  Take a backup now
+  hoyolab-check [--raw D] Read your HoYoLAB cookie from stdin and check what HoYoLAB tells of your
+                          account, writing nothing (D: also save HoYoLAB's answers there, without
+                          the cookie)
+  hoyolab-fetch [--uid U] Read your HoYoLAB cookie from stdin and show what a sync of your characters
+                          and their weapons would change (U: which game account; else the highest AR)
+  hoyolab-sync [--uid U]  The same, then write it (into the account of that UID, made if needed)
+                          (--from F: read the details hoyolab-check --raw saved, with --uid, instead
+                          of asking HoYoLAB)
 
 DIR defaults to the app's data folder.";
 
@@ -42,6 +50,9 @@ fn main() -> Result<()> {
         Some(dir) => AppPaths::at(dir),
         None => AppPaths::from_os()?,
     };
+    let raw = take_option(&mut args, "--raw")?;
+    let uid = take_option(&mut args, "--uid")?;
+    let from = take_option(&mut args, "--from")?;
 
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["import-paimon", file] => import_paimon(&paths, Path::new(file)),
@@ -70,6 +81,16 @@ fn main() -> Result<()> {
         }
         ["export", file] => export(&paths, Path::new(file)),
         ["summary"] => summary(&paths),
+        ["hoyolab-check"] => hoyolab_check(raw.as_deref().map(Path::new)),
+        ["hoyolab-fetch"] => hoyolab_sync(
+            &paths,
+            uid.as_deref(),
+            from.as_deref().map(Path::new),
+            false,
+        ),
+        ["hoyolab-sync"] => {
+            hoyolab_sync(&paths, uid.as_deref(), from.as_deref().map(Path::new), true)
+        }
         ["backup"] => {
             let store = Store::open(paths)?;
             println!(
@@ -438,4 +459,382 @@ fn print_pool(pool: &PoolAnalysis, data: &GameData) {
 
 fn plural(count: u32, one: &'static str, many: &'static str) -> &'static str {
     if count == 1 { one } else { many }
+}
+
+/// Reads the player's HoYoLAB cookie from stdin and prints what HoYoLAB
+/// tells of their account: what the HoYoLAB sync needs to know before it is
+/// built. Writes nothing to the data folder; never prints the cookie or the
+/// authkey. With `raw`, saves HoYoLAB's answers there (they hold the UID and
+/// the characters, never the cookie).
+fn hoyolab_check(raw: Option<&Path>) -> Result<()> {
+    let cookie = read_cookie()?;
+    println!("Cookie fields kept: {}", cookie.names().join(", "));
+    if !cookie.can_make_authkeys() {
+        println!("  (no cookie_token_v2 with account_id_v2: no authkey for the wish history)");
+    }
+
+    let transport = hoyolab::HttpTransport::new();
+    let client = hoyolab::Client::new(cookie, &transport);
+    let accounts = client.game_accounts()?;
+    println!("\nGenshin accounts: {}", accounts.len());
+    for account in &accounts {
+        println!(
+            "  {}  {}  AR {}  {}",
+            account.uid, account.region, account.level, account.nickname
+        );
+    }
+    let Some(account) = accounts.iter().max_by_key(|a| a.level) else {
+        bail!("no Genshin Impact account on this HoYoLAB account");
+    };
+    let save = |name: &str, value: &serde_json::Value| -> Result<()> {
+        if let Some(dir) = raw {
+            fs::create_dir_all(dir)?;
+            let file = dir.join(name);
+            fs::write(&file, serde_json::to_string_pretty(value)?)?;
+            println!("  (saved to {})", file.display());
+        }
+        Ok(())
+    };
+
+    let list = client.characters_raw(account)?;
+    save("characters.json", &list)?;
+    let characters = client.characters(account)?;
+    println!("\nCharacters of {}: {}", account.uid, characters.len());
+    let ids: Vec<u32> = characters.iter().map(|c| c.id).collect();
+    let details_raw = client.character_details_raw(account, &ids)?;
+    save("details.json", &details_raw)?;
+    let details = client.character_details(account, &ids)?;
+    println!("Details: {} characters", details.len());
+
+    // 1. The ascension phase: is it there, under another name?
+    if let Some(first) = details_raw["list"].get(0) {
+        let keys = |value: &serde_json::Value| -> String {
+            value
+                .as_object()
+                .map(|o| o.keys().cloned().collect::<Vec<_>>().join(", "))
+                .unwrap_or_default()
+        };
+        println!("\n1. Fields of a character's details: {}", keys(first));
+        println!("   Fields of its base: {}", keys(&first["base"]));
+    }
+    let at_a_cap: Vec<String> = details
+        .iter()
+        .filter(|d| [20, 40, 50, 60, 70, 80].contains(&d.base.level))
+        .map(|d| format!("{} (level {})", d.base.name, d.base.level))
+        .collect();
+    println!(
+        "   At a level cap, where the phase is ambiguous: {}",
+        if at_a_cap.is_empty() {
+            "none".to_owned()
+        } else {
+            at_a_cap.join(", ")
+        }
+    );
+
+    // 2. Talents: does a level include the +3 of constellations 3 and 5?
+    println!("\n2. Talents of characters at C3 or more (a level above 10 includes the +3):");
+    for detail in details.iter().filter(|d| d.base.constellation >= 3) {
+        let talents: Vec<String> = detail
+            .skills
+            .iter()
+            .filter(|s| s.skill_type == 1)
+            .map(|s| format!("{} {}", s.name, s.level))
+            .collect();
+        let boosts: Vec<String> = detail
+            .constellations
+            .iter()
+            .filter(|c| c.active && (c.pos == 3 || c.pos == 5))
+            .map(|c| {
+                let boosted = detail
+                    .skills
+                    .iter()
+                    .find(|s| c.effect.contains(&s.name))
+                    .map_or("?", |s| s.name.as_str());
+                format!("C{} boosts {boosted}", c.pos)
+            })
+            .collect();
+        println!(
+            "   {} C{}: {} ({})",
+            detail.base.name,
+            detail.base.constellation,
+            talents.join(", "),
+            boosts.join("; ")
+        );
+    }
+
+    // 3. How many talents of type 1 each character has (3, or 4 with an
+    //    alternate sprint).
+    let mut counts: BTreeMap<usize, Vec<&str>> = BTreeMap::new();
+    for detail in &details {
+        let n = detail.skills.iter().filter(|s| s.skill_type == 1).count();
+        counts.entry(n).or_default().push(&detail.base.name);
+    }
+    println!("\n3. Talents of type 1 per character:");
+    for (n, names) in &counts {
+        let shown: Vec<&str> = names.iter().take(8).copied().collect();
+        println!(
+            "   {n}: {} character(s), such as {}",
+            names.len(),
+            shown.join(", ")
+        );
+    }
+
+    // 4. Characters and weapons the game data doesn't know by id.
+    let planner = wish_core::planner::PlannerData::embedded();
+    let unknown: Vec<String> = details
+        .iter()
+        .filter(|d| !planner.characters().iter().any(|c| c.id == d.base.id))
+        .map(|d| format!("{} ({})", d.base.name, d.base.id))
+        .collect();
+    let unknown_weapons: Vec<String> = details
+        .iter()
+        .filter(|d| !planner.weapons().iter().any(|w| w.id == d.weapon.id))
+        .map(|d| format!("{} ({})", d.weapon.name, d.weapon.id))
+        .collect();
+    println!(
+        "\n4. Not in the game data by id: characters [{}], weapons [{}]",
+        unknown.join(", "),
+        unknown_weapons.join(", ")
+    );
+
+    // 5. The authkey for the wish history.
+    print!("\n5. Authkey for the wish history: ");
+    match client.authkey(account) {
+        Ok(key) => println!("obtained ({} characters, not shown)", key.len()),
+        Err(e) => println!("not obtained: {e}"),
+    }
+    Ok(())
+}
+
+/// Reads the player's HoYoLAB cookie from stdin: one line, `name=value`
+/// pairs (from the browser's Storage tab, or a request's Cookie header).
+fn read_cookie() -> Result<hoyolab::Cookie> {
+    use std::io::{BufRead as _, IsTerminal as _};
+
+    if std::io::stdin().is_terminal() {
+        eprintln!(
+            "Paste your HoYoLAB cookie as one line (ltuid_v2=…; ltoken_v2=…; ltmid_v2=…), then \
+             press Enter. It is used for this command only and never saved."
+        );
+    }
+    let mut line = String::new();
+    std::io::stdin().lock().read_line(&mut line)?;
+    // Wiped from memory once read, like the cookie's fields.
+    let pasted = hoyolab::Secret::new(line);
+    Ok(hoyolab::Cookie::parse(pasted.expose())?)
+}
+
+/// Fetches the characters of one game account from HoYoLAB and shows what a
+/// sync would change in its collection; with `apply`, writes it (after a
+/// backup), into the account of that UID, made if there is none.
+fn hoyolab_sync(
+    paths: &AppPaths,
+    uid: Option<&str>,
+    from: Option<&Path>,
+    apply: bool,
+) -> Result<()> {
+    use wish_core::archive::ArchiveData;
+    use wish_core::collection::{Change, Collection, SyncNote, plan_sync};
+    use wish_core::model::Server;
+    use wish_core::planner::{Level, PlannerData};
+
+    let (account, details) = match from {
+        Some(file) => saved_details(file, uid)?,
+        None => fetch_details(uid)?,
+    };
+    let account = &account;
+
+    let mut store = Store::open(paths.clone())?;
+    let existing = store.account_with_uid(&account.uid)?;
+    println!(
+        "HoYoLAB: {} ({}, AR {}) → {}",
+        account.uid,
+        account.nickname,
+        account.level,
+        existing
+            .as_ref()
+            .map_or("a new account".to_owned(), |a| format!("“{}”", a.label))
+    );
+    let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
+    let current = match &existing {
+        Some(existing) => store.collection(existing.id)?,
+        None => Collection::default(),
+    };
+    let plan = plan_sync(&details, &current, planner, archive);
+
+    let level = |level: Level| {
+        const CAPS: [u8; 7] = [20, 40, 50, 60, 70, 80, 90];
+        format!("{}/{}", level.level, CAPS[usize::from(level.phase.min(6))])
+    };
+    let name = |key: &str| {
+        planner
+            .character(key)
+            .map_or(key.to_owned(), |c| c.name.clone())
+    };
+    let weapon_name = |key: &str| {
+        planner
+            .weapon(key)
+            .map_or(key.to_owned(), |w| w.name.clone())
+    };
+    let character = |c: &wish_core::collection::OwnedCharacter| {
+        let [a, e, q] = c.talents;
+        format!(
+            "{} {} C{} talents {a}/{e}/{q}",
+            name(&c.key),
+            level(c.level),
+            c.constellation
+        )
+    };
+    let weapon = |w: &wish_core::collection::OwnedWeapon| {
+        format!(
+            "{} {} R{}{}",
+            weapon_name(&w.key),
+            level(w.level),
+            w.refinement,
+            w.holder
+                .as_deref()
+                .map_or(String::new(), |h| format!(", held by {}", name(h)))
+        )
+    };
+    let count = |changes: &[bool]| changes.iter().filter(|c| **c).count();
+    let added = plan
+        .characters
+        .iter()
+        .map(|c| matches!(c, Change::Added(_)));
+    let raised = plan
+        .characters
+        .iter()
+        .map(|c| matches!(c, Change::Raised { .. }));
+    println!(
+        "\nCharacters: {} added, {} raised, {} unchanged",
+        count(&added.collect::<Vec<_>>()),
+        count(&raised.collect::<Vec<_>>()),
+        plan.characters.iter().filter(|c| !c.changes()).count()
+    );
+    for change in &plan.characters {
+        match change {
+            Change::Added(c) => println!("  + {}", character(c)),
+            Change::Raised { before, after } => {
+                println!("  ↑ {}  (was {})", character(after), character(before));
+            }
+            Change::Unchanged(_) => {}
+        }
+    }
+    let added = plan.weapons.iter().map(|w| matches!(w, Change::Added(_)));
+    let raised = plan
+        .weapons
+        .iter()
+        .map(|w| matches!(w, Change::Raised { .. }));
+    println!(
+        "\nWeapons: {} added, {} raised, {} unchanged",
+        count(&added.collect::<Vec<_>>()),
+        count(&raised.collect::<Vec<_>>()),
+        plan.weapons.iter().filter(|w| !w.changes()).count()
+    );
+    for change in &plan.weapons {
+        match change {
+            Change::Added(w) => println!("  + {}", weapon(w)),
+            Change::Raised { before, after } => {
+                println!("  ↑ {}  (was {})", weapon(after), weapon(before));
+            }
+            Change::Unchanged(_) => {}
+        }
+    }
+    if !plan.notes.is_empty() {
+        println!("\nNotes:");
+    }
+    for note in &plan.notes {
+        let text = match note {
+            SyncNote::PhaseUnknown { name, level } => format!(
+                "{name} is level {level}: HoYoLAB doesn't say whether they ascended; counted as not yet."
+            ),
+            SyncNote::AboveMaxLevel { name, level } => {
+                format!("{name} is level {level}: counted as 90/90, the highest the app knows.")
+            }
+            SyncNote::UnknownCharacter { name, id } => {
+                format!("{name} ({id}) isn't in the game data: left out.")
+            }
+            SyncNote::UnknownWeapon { name, id } => {
+                format!("The weapon {name} ({id}) isn't in the game data: left out.")
+            }
+            SyncNote::TalentsUnread { name } => {
+                format!("{name}'s talents couldn't be read: left as they were.")
+            }
+        };
+        println!("  ! {text}");
+    }
+
+    if !apply {
+        println!("\nNothing was written. `hoyolab-sync` writes it, after a backup.");
+        return Ok(());
+    }
+    let target = match existing {
+        Some(existing) => existing.id,
+        None => {
+            store
+                .add_account(
+                    &account.nickname,
+                    Some(&account.uid),
+                    Server::from_api_region(&account.region),
+                )?
+                .id
+        }
+    };
+    let (applied, backup) = store.apply_sync(target, &details, planner, archive)?;
+    println!(
+        "\nWritten: {} changes. Backup: {}",
+        applied.changes(),
+        backup.display()
+    );
+    Ok(())
+}
+
+/// The details of one game account's characters, from HoYoLAB: `uid`'s, or
+/// the account with the highest Adventure Rank. The cookie is dropped once
+/// they are in.
+fn fetch_details(
+    uid: Option<&str>,
+) -> Result<(hoyolab::GameAccount, Vec<hoyolab::CharacterDetail>)> {
+    let cookie = read_cookie()?;
+    let transport = hoyolab::HttpTransport::new();
+    let client = hoyolab::Client::new(cookie, &transport);
+    let accounts = client.game_accounts()?;
+    let account = match uid {
+        Some(uid) => accounts.iter().find(|a| a.uid == uid),
+        None => accounts.iter().max_by_key(|a| a.level),
+    };
+    let Some(account) = account.cloned() else {
+        let known: Vec<&str> = accounts.iter().map(|a| a.uid.as_str()).collect();
+        bail!(
+            "no such Genshin account on this HoYoLAB account (it has: {})",
+            known.join(", ")
+        );
+    };
+    let ids: Vec<u32> = client.characters(&account)?.iter().map(|c| c.id).collect();
+    let details = client.character_details(&account, &ids)?;
+    Ok((account, details))
+}
+
+/// The details `hoyolab-check --raw` saved in `file`, for the account `uid`.
+fn saved_details(
+    file: &Path,
+    uid: Option<&str>,
+) -> Result<(hoyolab::GameAccount, Vec<hoyolab::CharacterDetail>)> {
+    #[derive(serde::Deserialize)]
+    struct Saved {
+        list: Vec<hoyolab::CharacterDetail>,
+    }
+    let Some(uid) = uid else {
+        bail!("--from needs --uid: the file doesn't say whose characters they are");
+    };
+    let text = fs::read_to_string(file).with_context(|| format!("reading {}", file.display()))?;
+    let saved: Saved = serde_json::from_str(&text)?;
+    let account = hoyolab::GameAccount {
+        uid: uid.to_owned(),
+        region: hoyolab::genshin_server(uid).unwrap_or_default().to_owned(),
+        nickname: uid.to_owned(),
+        level: 0,
+        game_biz: "hk4e_global".to_owned(),
+    };
+    Ok((account, saved.list))
 }
