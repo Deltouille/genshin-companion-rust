@@ -80,11 +80,15 @@ Like [genshin-center](https://genshin-center.com/planner)'s planner.
 
 - Pick a character or a weapon, then set the level (and a character's three talents) from where they are to where
   you want them.
-  The materials are shown for each character and for the whole plan, with EXP converted into books and Mora.
+  The materials are shown for each character and for the whole plan, with EXP as Hero's Wit (or Mystic Enhancement
+  Ore for weapons) and its Mora.
 - **Inventory:** click a material to enter how many you have, or add what a domain run just gave you. What you
   have goes to the characters in the plan's order (drag a card by its header to change it): each card shows what its character still lacks once the ones
   before it have taken their share, and "Still needed" what the whole plan lacks. A tier you lack is crafted from
-  the tiers below, three for one, as at the alchemy table, and EXP books count for their EXP.
+  the tiers below, three for one, as at the alchemy table (a flask badge on a material says how many are
+  crafted, as on genshin-center), and EXP books count for their EXP. The dialog shows the
+  whole series (or the three books under Hero's Wit) with what the plan needs, crafts and still lacks of each, as
+  you type.
 - A **custom character or weapon** covers one the game data doesn't have yet, such as a leak: give it a name,
   its stars and its materials (a character's six: common, local specialty, boss, gem, talent book, weekly boss;
   a weapon's three: domain material, elite and common drops), picked from the game's or typed by name. It then

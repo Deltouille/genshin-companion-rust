@@ -103,7 +103,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     the wish data; a cost naming an unknown material is refused). `mod.rs`: `Level` (level and ascension phase:
     80 is phase 5 before ascending, 6 after), `CharacterGoal` / `WeaponGoal` (from → to, talents 1–10),
     `PlannerData::character_cost` / `weapon_cost` → `Requirement` (materials by game id, Mora included, plus the
-    EXP), `Requirement::materials_with_exp` (EXP as books / ores, and its Mora). Game rules the data lacks (level
+    EXP), `Requirement::materials_with_exp` (EXP as Hero's Wit / Mystic Enhancement Ore alone, rounded up, and its Mora;
+    `EXP_BOOKS`, `EXP_ORES`, `exp_series`: the smaller ones count for their EXP). Game rules the data lacks (level
     caps, what books and ores give, 1 Mora per 5 character EXP or 10 weapon EXP) are constants there.
     `tests/planner.rs` checks totals the game is known for (90/10/10/10: 168 local specialties, 46 boss drops,
     36/96/129 common drops, 9/63/114 books, 18 weekly drops, 3 crowns; 8,362,650 EXP to 90).
@@ -124,7 +125,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     `allocate.rs`: `PlannerData::allocate` shares the inventory out over the plan in its order, like
     genshin-center: each `EntryShare` has what the entry needs and what it still lacks after the entries before
     it; `Allocation::missing` is the plan's. A tier short is crafted 3 for 1 from the tiers below (after the
-    entry's own needs of those tiers; crafting Mora not counted); EXP books and ores count for their EXP.
+    entry's own needs of those tiers; crafting Mora not counted; `Allocation::crafted` and `EntryShare::crafted` say how many, for the tiles' flask badge); EXP books and
+    ores count for their EXP.
     `PlannerData::craft_families` / `craft_family`: the crafted series, grouped by (`kind`, `sort`) with
     consecutive rarities (gems, talent books, enemy drops, weapon materials).
   - `store/plan.rs` + migrations `003_planner.sql`, `004_inventory_and_custom_characters.sql` and
@@ -189,7 +191,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   - `components/`: `PageFrame` (a gold diamond before the title), `NavItem` (a sidebar entry; the current one on a
     lighter panel; `nested` for a feature's pages, each led by a diamond),
     `NavGroup` (a feature in the sidebar, folding), `card`, `card_title`, `MaterialTile` (a material and its count on its
-    rarity tile; `.done` greys it out, `bare` drops the count, no icon shows "?"), `rich_text` (game text whose `**…**` terms turn semibold), `stat` (title, value,
+    rarity tile; `.done` greys it out, `bare` drops the count, no icon shows "?", `.crafted(n)` a flask badge with how
+    many are crafted from the tiers below, as genshin-center shows them), `rich_text` (game text whose `**…**` terms turn semibold), `stat` (title, value,
     description), `stat_tile`, `big_number`, `stat_label`, `badge`, `outcome_badge`, `item_tile`,
     and the controls (`controls.rs`, `segmented.rs`, `pager.rs`): `button`, `icon_button`, `picker` (`PickerState`: a parchment pill opening a
     parchment list in ink, the option under the keyboard shaded, a search field for long lists, Up/Down/Enter;
@@ -317,8 +320,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       who gets the inventory first. While dragged, a copy of the card (`CardPreview`, drawn by `card_copy` at the
       card's width, ranges as filled bars) follows the pointer and the card itself is dimmed (`PlannerView::dragging`;
       never read the view's entity inside its own render, pass the view). Clicking a material opens `inventory.rs`: one material
-      (how many the player has, add or subtract, a ley line's Mora), or a crafted series side by side, saved in one
-      write (`Library::set_owned_many`). `custom.rs`: the custom character or weapon dialog (Character | Weapon when new, name, stars, one material per
+      (how many the player has, add or subtract, a ley line's Mora), a crafted series side by side, or the three EXP
+      books (ores) under Hero's Wit (Mystic Enhancement Ore), saved in one write (`Library::set_owned_many`). Under
+      the fields, what the plan needs, crafts from below and still lacks of each, shared out again as the player
+      types. `custom.rs`: the custom character or weapon dialog (Character | Weapon when new, name, stars, one material per
       role; clicking a role swaps
       the form for a searchable grid of its series, or a typed name). Custom characters get the same sliders. The
       plan and inventory are the `Library`'s (`plan`, `add_plan_entry`, `update_plan_entry`, `remove_plan_entry`,

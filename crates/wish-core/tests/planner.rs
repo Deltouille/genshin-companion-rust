@@ -67,11 +67,11 @@ fn a_character_to_90_10_10_10() {
     // Mora: 420,000 to ascend, 1,652,500 per talent.
     assert_eq!(count(&need, 202), 420_000 + 3 * 1_652_500);
 
-    // The EXP as books, and its Mora.
+    // The EXP as Hero's Wit alone, rounded up (8,362,650 EXP), and its Mora.
     let all = need.materials_with_exp();
-    assert_eq!(all[&104003], 418, "Hero's Wit");
+    assert_eq!(all[&104003], 419, "Hero's Wit");
     assert!(!all.contains_key(&104002), "no Adventurer's Experience");
-    assert_eq!(all[&104001], 3, "Wanderer's Advice");
+    assert!(!all.contains_key(&104001), "no Wanderer's Advice");
     assert_eq!(all[&202], 420_000 + 3 * 1_652_500 + 1_672_530);
 }
 
@@ -624,6 +624,43 @@ mod allocation {
             assert_eq!(shared.entries[0].missing_material(book), 0);
         }
         assert!(shared.entries[1].missing_material(HEROS_WIT) < wits - 5);
+    }
+
+    #[test]
+    fn what_is_still_needed_of_exp_shows_as_heros_wit_alone() {
+        let data = PlannerData::embedded();
+        let plan = [entry(1, "ganyu", CharacterGoal::FULL)];
+        // 8,362,650 EXP to level 90; 3 Wanderer's Advice and 2 Adventurer's
+        // Experience give 13,000 of it.
+        let inventory = owning(&[(WANDERERS_ADVICE, 3), (ADVENTURERS_EXPERIENCE, 2)]);
+        let shared = data.allocate(&plan, &inventory);
+        assert_eq!(
+            shared.missing.materials.get(&HEROS_WIT),
+            Some(&(8_362_650u64 - 13_000).div_ceil(20_000))
+        );
+        for book in [ADVENTURERS_EXPERIENCE, WANDERERS_ADVICE] {
+            assert!(!shared.needed.materials.contains_key(&book));
+            assert!(!shared.missing.materials.contains_key(&book));
+        }
+    }
+
+    #[test]
+    fn the_spare_of_a_lower_tier_is_crafted_up() {
+        let data = PlannerData::embedded();
+        // Ganyu to 90 with her talents to 10 needs 36, 96 and 129 nectar.
+        let nectar = [112038, 112039, 112040];
+        let plan = [entry(1, "ganyu", CharacterGoal::FULL)];
+        let needed = data.allocate(&plan, &Inventory::default());
+        assert_eq!(nectar.map(|id| needed.needed.materials[&id]), [36, 96, 129]);
+        // 151 of the first tier: 36 for the plan, 114 of the 115 left make
+        // 38 of the second, which then lacks 96 - 45 - 38 = 13. Nothing is
+        // left to craft the third.
+        let inventory = owning(&[(nectar[0], 151), (nectar[1], 45), (nectar[2], 21)]);
+        let shared = data.allocate(&plan, &inventory);
+        let missing = nectar.map(|id| shared.missing.materials.get(&id).copied().unwrap_or(0));
+        assert_eq!(missing, [0, 13, 108]);
+        assert_eq!(nectar.map(|id| shared.crafted(id)), [0, 38, 0]);
+        assert_eq!(nectar.map(|id| shared.entries[0].crafted(id)), [0, 38, 0]);
     }
 }
 

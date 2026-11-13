@@ -12,7 +12,7 @@
 mod custom;
 mod inventory;
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
@@ -30,7 +30,7 @@ use gpui_kit::{
 };
 use wish_core::planner::{
     CharacterGoal, CustomItem, EntryShare, Inventory, Level, Material, MaterialId, PlanEntry,
-    PlanTarget, PlanTotals, PlannerData, WeaponGoal,
+    PlanTarget, PlanTotals, PlannerData, WeaponGoal, exp_series,
 };
 
 use crate::app::images::Images;
@@ -469,6 +469,7 @@ impl Render for PlannerView {
                 "total",
                 &allocation.needed,
                 &allocation.missing,
+                &allocation.crafted,
                 Count::Plan,
                 shared,
                 cx,
@@ -572,6 +573,7 @@ impl PlannerView {
                 &scope,
                 &share.needed,
                 &share.missing,
+                &share.crafted,
                 Count::Entry,
                 shared,
                 cx,
@@ -754,7 +756,8 @@ impl PlannerView {
     }
 
     /// Asks how many of `item` the player has: with the other tiers of its
-    /// series, when it is crafted from lower tiers.
+    /// series, when it is crafted from lower tiers, or with the smaller books
+    /// or ores, for an EXP material.
     fn open_inventory_for(
         &mut self,
         item: CustomItem,
@@ -763,22 +766,30 @@ impl PlannerView {
     ) {
         let library = self.library.read(cx);
         let (planner, images) = (library.planner().clone(), library.images().clone());
-        let needed = planner.plan_totals(&self.live_plan(cx));
         let materials = match &item {
             CustomItem::Material(id) => {
-                let series = planner
-                    .craft_family(*id)
-                    .map_or_else(|| vec![*id], <[MaterialId]>::to_vec);
+                // Lowest first, with the EXP each gives for books and ores.
+                let series: Vec<(MaterialId, Option<u64>)> = match exp_series(*id) {
+                    Some(series) => (series.iter().rev())
+                        .map(|(id, gives)| (*id, Some(*gives)))
+                        .collect(),
+                    None => planner
+                        .craft_family(*id)
+                        .map_or_else(|| vec![*id], <[MaterialId]>::to_vec)
+                        .into_iter()
+                        .map(|id| (id, None))
+                        .collect(),
+                };
                 series
                     .into_iter()
-                    .filter_map(|id| {
+                    .filter_map(|(id, exp)| {
                         let material = planner.material(id)?;
                         Some(inventory::Material {
                             item: CustomItem::Material(id),
                             name: material.name.clone(),
                             icon: images.material(material),
                             stars: material.rarity,
-                            needed: needed.materials.get(&id).copied().unwrap_or(0),
+                            exp,
                         })
                     })
                     .collect()
@@ -788,7 +799,7 @@ impl PlannerView {
                 name: name.clone(),
                 icon: None,
                 stars: 1,
-                needed: needed.named.get(name).copied().unwrap_or(0),
+                exp: None,
             }],
         };
         if !materials.is_empty() {
@@ -914,7 +925,8 @@ struct CardPreview {
     /// and ends (0 to 1).
     ranges: Vec<(SharedString, SharedString, f32, f32)>,
     /// Each tile: icon, stars, count, done.
-    tiles: Vec<(Option<ImageSource>, u8, SharedString, bool)>,
+    /// Icon, stars, what is still lacking, whether nothing is, how many are crafted.
+    tiles: Vec<(Option<ImageSource>, u8, SharedString, bool, u64)>,
     /// What the game data does not have: label, done.
     named: Vec<(SharedString, bool)>,
 }
@@ -1043,6 +1055,7 @@ impl CardPreview {
                     material.rarity,
                     format::compact(lack).into(),
                     lack == 0,
+                    share.crafted(material.id),
                 )
             })
             .collect();
@@ -1116,9 +1129,14 @@ fn card_copy(card: &CardPreview, cx: &App) -> Div {
                         ),
                 )
         });
-        let tiles = card.tiles.iter().map(|(icon, stars, label, done)| {
-            MaterialTile::new(icon.clone(), *stars, label.clone()).done(*done)
-        });
+        let tiles = card
+            .tiles
+            .iter()
+            .map(|(icon, stars, label, done, crafted)| {
+                MaterialTile::new(icon.clone(), *stars, label.clone())
+                    .done(*done)
+                    .crafted(*crafted)
+            });
         let named = card.named.iter().map(|(label, done)| {
             badge(label.clone(), (theme.foreground, theme.muted), cx)
                 .text_sm()
@@ -1267,11 +1285,13 @@ struct Shared<'a> {
 
 /// Known materials as the game shows them (its inventory order), then the
 /// ones the game data does not have, by name. Each opens the inventory
-/// dialog. `scope` keeps the tiles' ids apart from other lists'.
+/// dialog. `crafted`: how many of each are crafted from the tiers below,
+/// shown on the tile. `scope` keeps the tiles' ids apart from other lists'.
 fn materials(
     scope: &str,
     needed: &PlanTotals,
     missing: &PlanTotals,
+    crafted: &BTreeMap<MaterialId, u64>,
     count: Count,
     shared: Shared,
     cx: &Context<PlannerView>,
@@ -1308,14 +1328,22 @@ fn materials(
     };
     let tiles = known.into_iter().map(|(material, need, lack)| {
         let item = CustomItem::Material(material.id);
-        let text = tip(&material.name, &item, need, lack);
+        let made = crafted.get(&material.id).copied().unwrap_or(0);
+        let mut text = tip(&material.name, &item, need, lack);
+        if made > 0 {
+            text.push_str(&format!(
+                "; {} crafted from the tiers below",
+                format::count(made)
+            ));
+        }
         clickable(format!("{scope}-{}", material.id), item, text, cx).child(
             MaterialTile::new(
                 shared.images.material(material),
                 material.rarity,
                 format::compact(lack),
             )
-            .done(lack == 0),
+            .done(lack == 0)
+            .crafted(made),
         )
     });
     let named = names.into_iter().map(|(name, need, lack)| {
