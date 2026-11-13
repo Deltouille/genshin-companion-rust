@@ -43,7 +43,14 @@ The app opens on your account in figures, one tab each:
   - a paimon.moe save (JSON) or spreadsheet (Excel);
   - a [UIGF](https://uigf.org) v4 file from another tracker;
   - this app's own snapshot.
+- **Characters from HoYoLAB.** Your characters as they are in the game (level, constellations, talents) and the
+  weapon each holds, into your collection: it only adds or raises, never lowers, and shows what would change
+  first. It reads them with your HoYoLAB cookie, which you copy from the browser (F12 → Storage → Cookies →
+  hoyolab.com: `ltuid_v2`, `ltoken_v2`, `ltmid_v2`) for that sync only: the app never saves it and sends it to
+  HoYoverse only. HoYoLAB doesn't show the weapons in your bag, nor your materials, nor whether a character at a
+  level cap ascended (counted as not yet).
 - **Exports:** the lossless snapshot, UIGF v4 and paimon.moe's spreadsheet.
+All of these are on the Import page; the wish imports are also on the Overview.
 
 ### Your history is never lost
 
@@ -78,8 +85,8 @@ and its passive at each refinement.
 
 Like [genshin-center](https://genshin-center.com/planner)'s planner.
 
-- Pick a character or a weapon, then set the level (and a character's three talents) from where they are to where
-  you want them.
+- Pick a character or a weapon among the cards (yours first; a character you own starts from your levels), then set
+  the level (and a character's three talents) from where they are to where you want them.
   The materials are shown for each character and for the whole plan, with EXP as Hero's Wit (or Mystic Enhancement
   Ore for weapons) and its Mora.
 - **Inventory:** click a material to enter how many you have, or add what a domain run just gave you. What you
@@ -253,6 +260,8 @@ list of changes. A tag that doesn't match the version publishes nothing.
 - [Project Amber](https://gi.yatta.moe): the character, weapon, material, talent and constellation icons, and the
   wish art.
 - [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData): the EXP each level needs.
+- [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync's requests and
+  their signing follow it (MIT License).
 - [UIGF](https://uigf.org): item ids for UIGF exports.
 - [Google Sans Flex](https://github.com/googlefonts/googlesans-flex), under the SIL Open Font License 1.1, and
   [Lucide](https://lucide.dev) icons, under the ISC License.

@@ -22,7 +22,10 @@ use wish_core::data::GameData;
 use wish_core::images::{self, Collection, Remote};
 
 use super::images::{Fetched, Job};
-use wish_core::collection::{Collection as Owned, OwnedCharacter, OwnedWeapon};
+use wish_core::collection::{
+    Collection as Owned, OwnedCharacter, OwnedWeapon, SyncPlan, plan_sync,
+};
+use wish_core::hoyolab;
 use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
 
 use super::images::Images;
@@ -144,6 +147,17 @@ pub enum ExportKind {
     Uigf,
     /// One account, in paimon.moe's spreadsheet layout.
     Spreadsheet,
+}
+
+/// One Genshin account HoYoLAB showed: its characters, and what a sync would
+/// change in the app's account of the same UID.
+#[derive(Clone, Debug)]
+pub struct HoyolabAccount {
+    pub account: hoyolab::GameAccount,
+    pub details: Vec<hoyolab::CharacterDetail>,
+    /// The app's account with that UID; without one, the sync makes it.
+    pub target: Option<Account>,
+    pub plan: SyncPlan,
 }
 
 /// Shared between a running fetch and the view that shows it.
@@ -958,6 +972,102 @@ impl Library {
 
     /// Writes a prepared batch (backup first, one transaction), then
     /// recomputes every account and refreshes the mirror folder.
+    /// Asks HoYoLAB, with the player's `cookie`, for the characters of every
+    /// Genshin account behind it, and works out what a sync would change in
+    /// the app's account of each UID. The cookie is dropped as soon as the
+    /// requests are done, and nothing is written. The store isn't locked
+    /// during the requests.
+    pub fn fetch_from_hoyolab(
+        &self,
+        cookie: hoyolab::Cookie,
+        control: Arc<FetchControl>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Vec<HoyolabAccount>>> {
+        let Some(store) = self.store.clone() else {
+            return Task::ready(Err(anyhow!("the data is not open yet")));
+        };
+        let (planner, archive) = (self.planner.clone(), self.archive.clone());
+        cx.background_spawn(async move {
+            let cancelled = || control.cancelled.load(Ordering::Relaxed);
+            let fetched = {
+                let transport = hoyolab::HttpTransport::new();
+                // The cookie lives in the client, dropped (and wiped) at the
+                // end of this block.
+                let client = hoyolab::Client::new(cookie, &transport);
+                let mut fetched = Vec::new();
+                for account in client.game_accounts()? {
+                    if cancelled() {
+                        return Err(wish_core::Error::Cancelled.into());
+                    }
+                    let characters = client.characters(&account)?;
+                    let ids: Vec<u32> = characters.iter().map(|c| c.id).collect();
+                    if cancelled() {
+                        return Err(wish_core::Error::Cancelled.into());
+                    }
+                    let details = client.character_details(&account, &ids)?;
+                    fetched.push((account, details));
+                }
+                fetched
+            };
+            if fetched.is_empty() {
+                return Err(hoyolab::Error::NoGameAccount.into());
+            }
+            let store = lock(&store);
+            fetched
+                .into_iter()
+                .map(|(account, details)| {
+                    let target = store.account_with_uid(&account.uid)?;
+                    let current = match &target {
+                        Some(target) => store.collection(target.id)?,
+                        None => Owned::default(),
+                    };
+                    let plan = plan_sync(&details, &current, &planner, &archive);
+                    Ok(HoyolabAccount {
+                        account,
+                        details,
+                        target,
+                        plan,
+                    })
+                })
+                .collect()
+        })
+    }
+
+    /// Writes a HoYoLAB sync the player confirmed into the app's account of
+    /// its UID, made if there is none (named after the game's nickname): the
+    /// plan is worked out again against the stored collection, then written
+    /// in one transaction after a backup. Returns the account and what
+    /// changed.
+    pub fn apply_hoyolab_sync(
+        &mut self,
+        fetched: HoyolabAccount,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<(AccountId, SyncPlan)>> {
+        let (planner, archive) = (self.planner.clone(), self.archive.clone());
+        // The mirror's snapshot lists the accounts, and one may be made.
+        self.write(
+            cx,
+            true,
+            move |store, _| {
+                let game = &fetched.account;
+                let account = match store.account_with_uid(&game.uid)? {
+                    Some(account) => account.id,
+                    None => {
+                        let label = match game.nickname.trim() {
+                            "" => game.uid.as_str(),
+                            nickname => nickname,
+                        };
+                        let server = Server::from_api_region(&game.region);
+                        store.add_account(label, Some(&game.uid), server)?.id
+                    }
+                };
+                let (plan, _) = store.apply_sync(account, &fetched.details, &planner, &archive)?;
+                Ok((account, plan))
+            },
+            |_, applied| applied,
+        )
+    }
+
     pub fn apply_import(
         &mut self,
         batch: ImportBatch,

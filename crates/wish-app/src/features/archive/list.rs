@@ -167,6 +167,7 @@ impl CharactersView {
                 owned.characters.len(),
                 planner.characters().len()
             ))
+            .action(crate::features::imports::hoyolab_sync_button())
             .toolbar(toolbar)
             .body_scrolls();
         let drawer = (self.drawer != filters::Drawer::Closed).then(|| {

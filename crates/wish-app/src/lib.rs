@@ -23,7 +23,7 @@
 //! | Wish data, settings, backups | [`Library`] | hold `Entity<Library>`, read it, `observe` it to redraw; change it with its methods (writes run in the background) |
 //! | Selected account, flow in progress | [`Session`] | hold `Entity<Session>`, read and `observe` it; change it only with its methods |
 //! | Which page is shown | [`Shell`] | pages ask with a callback (`on_navigate`) or the shell calls the page (`HistoryView::set_pool`) |
-//! | App-wide commands (import) | GPUI actions | buttons and the menu send [`ImportFile`] / [`ImportFromGame`]; the shell forwards them to the import flow |
+//! | App-wide commands (import) | GPUI actions | buttons and the menu send [`ImportFile`] / [`ImportFromGame`] / [`SyncFromHoyolab`]; the shell forwards them to the import flow or opens the HoYoLAB sync |
 //!
 //! Why these choices:
 //!
@@ -70,7 +70,8 @@ use gpui_kit::{
 
 pub use app::{AppAssets, ImageDownloads, Library, Session};
 pub use shell::{
-    ArchivePage, Feature, ImportFile, ImportFromGame, OverviewTab, Page, Quit, Shell, WishPage,
+    ArchivePage, Feature, ImportFile, ImportFromGame, OverviewTab, Page, Quit, Shell,
+    SyncFromHoyolab, WishPage,
 };
 pub use startup_error::{record_error, record_panics, show_startup_error};
 
@@ -101,6 +102,7 @@ pub fn init(cx: &mut App) {
         items: vec![
             MenuItem::action("Import from Game…", ImportFromGame),
             MenuItem::action("Import File…", ImportFile),
+            MenuItem::action("Sync from HoYoLAB…", SyncFromHoyolab),
             MenuItem::separator(),
             MenuItem::action("Quit", Quit),
         ],

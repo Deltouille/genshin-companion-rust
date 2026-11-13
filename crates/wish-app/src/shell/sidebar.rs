@@ -169,6 +169,13 @@ impl Shell {
                     .px_3()
                     .py_3()
                     .child(item(
+                        "imports",
+                        "Import".into(),
+                        Icon::new(gpui_kit::assets::IconName::Import),
+                        Page::Imports,
+                        cx,
+                    ))
+                    .child(item(
                         "settings",
                         "Settings".into(),
                         Icon::new(IconName::Settings),

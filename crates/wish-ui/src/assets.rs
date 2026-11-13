@@ -23,7 +23,10 @@ gpui_kit::assets::icon_assets!(
         Funnel,
         ArrowDownWideNarrow,
         ArrowUpNarrowWide,
-        FlaskConical
+        FlaskConical,
+        Import,
+        CloudDownload,
+        UserPlus
     ]
 );
 

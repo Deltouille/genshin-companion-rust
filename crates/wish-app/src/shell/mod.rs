@@ -27,10 +27,11 @@ use std::rc::Rc;
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::WindowExt as _;
 
 use gpui_kit::component::spinner::Spinner;
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Context, Entity, FocusHandle, FontWeight,
+    AnyElement, App, AppContext as _, Context, Entity, FocusHandle, Focusable as _, FontWeight,
     InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
     Subscription, Window, actions, deferred, div,
 };
@@ -41,6 +42,8 @@ use crate::app::library::{Library, LoadState};
 use crate::app::{Notices, Session};
 use crate::features::archive::{CharactersView, WeaponsView};
 use crate::features::credits::Credits;
+use crate::features::imports::Imports;
+use crate::features::imports::hoyolab::HoyolabSync;
 use crate::features::overview::Overview;
 use crate::features::planner::PlannerView;
 use crate::features::settings::SettingsPage;
@@ -50,7 +53,10 @@ use sidebar::account_option;
 use wish_ui::button;
 use wish_ui::{PickerEvent, PickerItem, PickerState};
 
-actions!(genshin_companion, [ImportFile, ImportFromGame, Quit]);
+actions!(
+    genshin_companion,
+    [ImportFile, ImportFromGame, SyncFromHoyolab, Quit]
+);
 
 /// A destination in the sidebar: a page of a feature, or one of the app's own
 /// pages at the foot of the sidebar.
@@ -62,6 +68,8 @@ pub enum Page {
     Archive(ArchivePage),
     /// The ascension planner.
     Planner,
+    /// Every way to bring data in.
+    Imports,
     Settings,
     Credits,
 }
@@ -121,7 +129,7 @@ impl Page {
             Page::Wishes(_) => Some(Feature::Wishes),
             Page::Archive(_) => Some(Feature::Archive),
             Page::Planner => Some(Feature::Planner),
-            Page::Overview(_) | Page::Settings | Page::Credits => None,
+            Page::Overview(_) | Page::Imports | Page::Settings | Page::Credits => None,
         }
     }
 }
@@ -337,6 +345,20 @@ impl Shell {
             .update(cx, |planner, cx| planner.open_custom_entry(id, window, cx));
     }
 
+    /// Opens the planner's "Add a character" (or, with `weapons`, "Add a
+    /// weapon") dialog (the screenshot tool uses it).
+    pub fn open_planner_add(&mut self, weapons: bool, window: &mut Window, cx: &mut Context<Self>) {
+        use crate::features::planner::AddKind;
+        self.navigate(Page::Planner, cx);
+        let kind = if weapons {
+            AddKind::Weapon
+        } else {
+            AddKind::Character
+        };
+        self.planner
+            .update(cx, |planner, cx| planner.open_add(kind, window, cx));
+    }
+
     /// Asks how many of material `id` the player has.
     pub fn open_inventory(&mut self, id: MaterialId, window: &mut Window, cx: &mut Context<Self>) {
         self.navigate(Page::Planner, cx);
@@ -408,6 +430,36 @@ impl Shell {
             .update(cx, |import, cx| import.import_from_game(window, cx));
     }
 
+    fn sync_from_hoyolab(
+        &mut self,
+        _: &SyncFromHoyolab,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.open_hoyolab_sync(window, cx);
+    }
+
+    /// Opens the HoYoLAB sync: the cookie, the fetch, then what it changes
+    /// (the screenshot tool opens it this way).
+    pub fn open_hoyolab_sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !matches!(self.library.read(cx).state(), LoadState::Ready) {
+            return;
+        }
+        let (library, session) = (self.library.clone(), self.session.clone());
+        let view = cx.new(|cx| HoyolabSync::new(library, session, window, cx));
+        let first = view.read(cx).first_field().clone();
+        let focus_once = std::cell::Cell::new(true);
+        window.open_dialog(cx, move |dialog, window, cx| {
+            if focus_once.replace(false) {
+                first.focus_handle(cx).focus(window, cx);
+            }
+            dialog
+                .title("Sync from HoYoLAB")
+                .w(window.rem_size() * 44.)
+                .child(view.clone())
+        });
+    }
+
     fn render_page(&mut self, cx: &mut Context<Self>) -> AnyElement {
         match self.library.read(cx).state() {
             LoadState::Loading => {
@@ -427,6 +479,7 @@ impl Shell {
         match self.page {
             Page::Settings => self.settings.clone().into_any_element(),
             Page::Credits => Credits.into_any_element(),
+            Page::Imports => Imports::new(self.library.read(cx).is_busy()).into_any_element(),
             Page::Wishes(WishPage::History(_)) => self.history.clone().into_any_element(),
             Page::Archive(ArchivePage::Characters) => self.archive.clone().into_any_element(),
             Page::Archive(ArchivePage::Weapons) => self.weapons.clone().into_any_element(),
@@ -514,6 +567,7 @@ impl Render for Shell {
             // flow carries them out.
             .on_action(cx.listener(Self::import_file))
             .on_action(cx.listener(Self::import_from_game))
+            .on_action(cx.listener(Self::sync_from_hoyolab))
             .child(self.render_sidebar(cx))
             .child(
                 div()

@@ -83,6 +83,7 @@ fn main() -> Result<()> {
             "history-standard",
             Page::Wishes(WishPage::History(Pool::Standard)),
         ),
+        ("imports", Page::Imports),
         ("settings", Page::Settings),
         ("credits", Page::Credits),
     ];
@@ -350,6 +351,20 @@ fn main() -> Result<()> {
             cx.advance_clock(Duration::from_secs(1));
             cx.run_until_parked();
         }
+        // "Add a character": the cards, what the account owns first.
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_planner_add(false, window, cx))
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("planner-add-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
 
         // The open-source licences, over the Credits page.
         cx.update_window(window, |_, window, cx| {
@@ -468,6 +483,22 @@ fn main() -> Result<()> {
             cx.run_until_parked();
         }
         shoot(&mut cx, format!("game-import-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
+
+        // The HoYoLAB sync's first step, over the Import page.
+        cx.update(|cx| shell.update(cx, |shell, cx| shell.navigate(Page::Imports, cx)));
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_hoyolab_sync(window, cx))
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("hoyolab-{mode_name}"))?;
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
