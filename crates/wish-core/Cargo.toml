@@ -10,6 +10,7 @@ publish.workspace = true
 calamine = { version = "0.38.0", features = ["dates"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std", "clock", "serde"] }
 directories = "6.0.0"
+hoyolab.workspace = true
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 rust_xlsxwriter = "0.102.0"
 serde = { version = "1.0.229", features = ["derive"] }

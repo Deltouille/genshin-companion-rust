@@ -22,5 +22,7 @@ pub mod store;
 pub mod uigf;
 
 pub use error::{Error, Result};
+/// The HoYoLAB client, so the app reaches it through the core.
+pub use hoyolab;
 pub use paths::AppPaths;
 pub use store::Store;

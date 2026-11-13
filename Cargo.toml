@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/wish-core", "crates/wish-ui", "crates/wish-app"]
+members = ["crates/hoyolab", "crates/wish-core", "crates/wish-ui", "crates/wish-app"]
 
 [workspace.package]
 version = "0.2.0"
@@ -10,6 +10,7 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [workspace.dependencies]
+hoyolab = { path = "crates/hoyolab" }
 wish-core = { path = "crates/wish-core" }
 wish-ui = { path = "crates/wish-ui" }
 

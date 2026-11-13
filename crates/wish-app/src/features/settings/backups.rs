@@ -197,6 +197,7 @@ fn backup_reason(reason: Option<BackupReason>) -> &'static str {
         Some(BackupReason::BeforeDelete) => "Before deleting wishes",
         Some(BackupReason::BeforeCounting) => "Before counting wishes",
         Some(BackupReason::BeforePlanning) => "Before changing the plan",
+        Some(BackupReason::BeforeSync) => "Before a HoYoLAB sync",
         None => "Backup",
     }
 }

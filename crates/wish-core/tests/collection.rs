@@ -328,3 +328,126 @@ mod owned {
         assert_eq!(ids, [second]);
     }
 }
+
+mod hoyolab_sync {
+    use super::*;
+    use hoyolab::{CharacterDetail, EquippedWeapon, Skill};
+    use wish_core::archive::ArchiveData;
+    use wish_core::planner::PlannerData;
+
+    /// A character as HoYoLAB details it, with no constellation that raises
+    /// a talent.
+    fn detail(
+        (id, name, level): (u32, &str, u8),
+        talents: [(&str, u8); 3],
+        (weapon, weapon_level, phase): (u32, u8, u8),
+    ) -> CharacterDetail {
+        CharacterDetail {
+            base: hoyolab::OwnedCharacter {
+                id,
+                name: name.to_owned(),
+                element: String::new(),
+                rarity: 5,
+                level,
+                constellation: 1,
+                weapon: None,
+            },
+            weapon: EquippedWeapon {
+                id: weapon,
+                name: String::new(),
+                rarity: 5,
+                level: weapon_level,
+                refinement: 1,
+                promote_level: Some(phase),
+            },
+            constellations: Vec::new(),
+            skills: talents
+                .iter()
+                .enumerate()
+                .map(|(i, (name, level))| Skill {
+                    id: i as u32,
+                    skill_type: 1,
+                    name: (*name).to_owned(),
+                    level: *level,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn a_sync_adds_raises_and_never_lowers() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let main = store
+            .add_account("Main", Some("712345678"), Some(Server::Europe))
+            .unwrap()
+            .id;
+        assert_eq!(
+            store.account_with_uid("712345678").unwrap().map(|a| a.id),
+            Some(main)
+        );
+        assert!(store.account_with_uid("812345678").unwrap().is_none());
+        let ganyu = OwnedCharacter {
+            level: Level::MAX,
+            talents: [9, 9, 9],
+            favourite: true,
+            ..OwnedCharacter::new("ganyu")
+        };
+        store.save_owned_character(main, &ganyu).unwrap();
+
+        let details = [
+            detail(
+                (10000037, "Ganyu", 80),
+                [
+                    ("Liutian Archery", 6),
+                    ("Trail of the Qilin", 6),
+                    ("Celestial Shower", 6),
+                ],
+                (15502, 90, 6),
+            ),
+            detail(
+                (10000021, "Amber", 40),
+                [
+                    ("Sharpshooter", 1),
+                    ("Explosive Puppet", 4),
+                    ("Fiery Rain", 2),
+                ],
+                (15401, 40, 1),
+            ),
+        ];
+        let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
+        let (plan, backup) = store.apply_sync(main, &details, planner, archive).unwrap();
+        assert!(backup.exists());
+        assert!(
+            backup.to_string_lossy().contains("before-sync"),
+            "{}",
+            backup.display()
+        );
+        assert_eq!(plan.changes(), 4, "Ganyu's C1, Amber, two weapons");
+
+        let collection = store.collection(main).unwrap();
+        let kept = collection.character("ganyu").unwrap();
+        assert_eq!(kept.level, Level::MAX, "not lowered to 80");
+        assert_eq!(kept.talents, [9, 9, 9]);
+        assert_eq!(kept.constellation, 1);
+        assert!(kept.favourite);
+        let amber = collection.character("amber").unwrap();
+        assert_eq!(amber.level, Level::new(40, 1).unwrap());
+        assert_eq!(amber.talents, [1, 4, 2]);
+        assert_eq!(
+            collection.weapon_of("amber").map(|w| w.key.as_str()),
+            Some("favoniuswarbow")
+        );
+        assert_eq!(
+            collection
+                .weapon_of("ganyu")
+                .map(|w| (w.key.as_str(), w.level)),
+            Some(("amosbow", Level::MAX))
+        );
+
+        // Synced again: nothing changes, no copy is added twice.
+        let (again, _) = store.apply_sync(main, &details, planner, archive).unwrap();
+        assert_eq!(again.changes(), 0);
+        assert_eq!(store.collection(main).unwrap().weapons.len(), 2);
+    }
+}

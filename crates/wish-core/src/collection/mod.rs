@@ -6,8 +6,10 @@
 //! the game data when shown, never stored.
 
 mod stats;
+mod sync;
 
 pub use stats::{CharacterStats, ELEMENTS, Tally, WEAPON_TYPES, WishedWeapon, WishedWeapons};
+pub use sync::{Change, SyncNote, SyncPlan, plan_sync};
 
 use crate::planner::Level;
 

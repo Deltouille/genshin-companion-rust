@@ -157,6 +157,14 @@ impl Store {
         })
     }
 
+    /// The account whose UID is `uid`, if there is one.
+    pub fn account_with_uid(&self, uid: &str) -> Result<Option<Account>> {
+        Ok(self
+            .accounts()?
+            .into_iter()
+            .find(|account| account.uid.as_deref() == Some(uid)))
+    }
+
     /// Gives `account` another name.
     pub fn rename_account(&mut self, account: AccountId, label: &str) -> Result<()> {
         let label = account_label(label)?;
