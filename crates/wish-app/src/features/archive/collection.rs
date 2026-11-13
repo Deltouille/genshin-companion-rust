@@ -246,6 +246,27 @@ impl CharactersView {
             );
         }
 
+        // The copy it holds, set on the weapon's page.
+        let held_weapon = {
+            let library = self.library.read(cx);
+            let held = library.owned(self.account(cx)).weapon_of(&character.key);
+            let text = match held {
+                Some(copy) => {
+                    let name = library
+                        .planner()
+                        .weapon(&copy.key)
+                        .map_or(copy.key.as_str(), |w| w.name.as_str());
+                    format!(
+                        "{name} · R{} · {}/{}",
+                        copy.refinement,
+                        copy.level.level,
+                        copy.level.cap()
+                    )
+                }
+                None => "None: give it one on a weapon’s page".to_owned(),
+            };
+            div().h(rems(2.5)).flex().items_center().child(text)
+        };
         card(cx)
             .p_4()
             .gap_4()
@@ -270,7 +291,8 @@ impl CharactersView {
                         cx,
                     ))
                     .child(field("Constellation", constellation, cx))
-                    .child(div().h_flex().gap_6().children(talents)),
+                    .child(div().h_flex().gap_6().children(talents))
+                    .child(field("Weapon", held_weapon, cx)),
             )
             .into_any_element()
     }

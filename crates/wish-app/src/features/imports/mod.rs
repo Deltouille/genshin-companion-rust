@@ -53,7 +53,6 @@ impl RenderOnce for Imports {
         let body = div()
             .v_flex()
             .gap_4()
-            .max_w(rems(48.))
             .child(source(
                 "Wish history",
                 div()
@@ -94,6 +93,6 @@ impl RenderOnce for Imports {
             .child(div().text_sm().text_color(muted).child(
                 "Every import can be undone, and a backup is taken before each: see Settings.",
             ));
-        PageFrame::new("Import", body)
+        PageFrame::new("Import", body).max_width(rems(48.))
     }
 }

@@ -82,7 +82,7 @@ pub enum OverviewTab {
     Wishes,
     /// The characters owned, against the game's.
     Characters,
-    /// The weapons the wishes brought.
+    /// The weapons owned, against the game's.
     Weapons,
 }
 

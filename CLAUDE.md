@@ -157,8 +157,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   - `collection/`: what an account owns, as the player entered it (`OwnedCharacter`, `OwnedWeapon` per copy,
     `Collection`; `store/collection.rs`, migration `007_collection.sql`). `stats.rs`: the overview's figures,
     `CharacterStats` (owned of the game's characters as the archive lists them, the Traveler once per element; by
-    rarity, element, weapon, constellation) and `WishedWeapons` (the 4★ and 5★ weapons among the wishes, by name,
-    with the refinement their copies make). `ELEMENTS` and `WEAPON_TYPES` in the game's order.
+    rarity, element, weapon, constellation) and `OwnedWeaponStats` (the weapons owned against the game's, by rarity and type, with copies, refinements and
+    holders). `Collection::character_goal` / `weapon_goal`: where planning starts (the owned level and talents;
+    a weapon's most levelled copy that can still go up, else level 1). `ELEMENTS` and `WEAPON_TYPES` in the game's
+    order.
     `sync.rs`: a HoYoLAB sync, `plan_sync(details, collection, planner, archive)` → `SyncPlan` (each character and
     weapon copy `Added`, `Raised` or `Unchanged`, never lowered; `SyncNote`s: a level cap whose phase HoYoLAB
     doesn't send, counted as not ascended; levels above 90 counted as 90/90; characters, weapons or talents the
@@ -182,7 +184,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     genshinlist.vercel.app), **without any of the game's assets or its font**: colours and simple shapes only.
     Dark: a plain ink-blue slate page (`#151A26`), slate cards (`#1E2435`) with no border, parchment text
     (`#ECE5D8`), the primary a parchment fill with ink text (filled buttons, the current segment), gold (`#D3BC8E`)
-    for the focus ring, sliders and the ornaments (a diamond before each page title and each nested page). Light: a
+    for the focus ring, sliders and the ornaments (a diamond before each nested page in the sidebar; page and
+    section titles have no icon, the user's choice on 2026-11-13). Light: a
     parchment page (`#E8E2D5`) and cards (`#F4F0E7`, a neutral hairline), ink text (`#3B4255`), an ink primary,
     and a slate sidebar as in the Paimon menu (the sidebar uses only the `sidebar.*` tokens). The user turned down
     a gradient page and gold borders (cards, the current page), then a closer copy of genshinlist.vercel.app (a
@@ -205,7 +208,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     "designed" one (turned down as AI-generic), paimon.moe's purple-navy, a first game-menu "Teyvat" theme, then
     Material 3 after the user's blog (les-archives-de-teyvat.vercel.app), replaced by this one. Keep the contrast
     high.
-  - `components/`: `PageFrame` (a gold diamond before the title), `NavItem` (a sidebar entry; the current one on a
+  - `components/`: `PageFrame` (the title, no icon; `.max_width` centres the title and body in a column, as Settings,
+    Import and Credits do), `NavItem` (a sidebar entry; the current one on a
     lighter panel; `nested` for a feature's pages, each led by a diamond),
     `NavGroup` (a feature in the sidebar, folding), `card`, `card_title`, `MaterialTile` (a material and its count on its
     rarity tile; `.done` greys it out, `bare` drops the count, no icon shows "?", `.crafted(n)` a flask badge with how
@@ -301,8 +305,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       - `characters.rs`: what the account owns (`collection::CharacterStats`): owned of the game's, 5★, 4★, level 90
         and talents at 10, then by element (with the element icons), by weapon, by constellation (with its share).
         No characters: a link to the archive.
-      - `weapons.rs`: the weapons its wishes brought (`collection::WishedWeapons`, by name): totals, by type, then
-        each 5★ and 4★ with the refinement its copies make (a floor, said on the page); one opens its archive page.
+      - `weapons.rs`: the weapons it owns (`collection::OwnedWeaponStats`): owned of the game's, 5★, 4★, R5 and
+        copies held, by type, then each 5★ and 4★ with its best refinement, copies and holders; one opens its
+        archive page. No weapons: the HoYoLAB sync and a link to the archive.
       - `wishes/`: the Wishes tab (`wishes_tab`), top to bottom: `totals.rs` (key figures; two by two on a narrow
         page), one card per banner type (`pool_card.rs`: its latest banner and a link to its history, 5★ and 4★ pity
         with the next one's odds, its wishes, then `details.rs`, paimon.moe's per-type summary: 5★ and 4★ count,
@@ -316,7 +321,7 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
         `PoolAnalysis::stats`. `totals::figures` is the card of key figures the three tabs share.
     - `wishes/`: the wish counter.
       - `history/`: `HistoryView` (entity: observes `Library` and `Session`; the shell only calls `set_pool`),
-        `table.rs` (`DataTable` delegate: large rows, sort by any column, pages of 25/50/100; the sort lives in the
+        `table.rs` (`DataTable` delegate: rows 4 rem tall with the item's icon at 3 rem, the user's choice (`ROW_REMS`), each cell centred in its row; sort by any column, pages of 25/50/100; the sort lives in the
         delegate so `TableState::refresh` keeps it; a "Type" column with rarity and character/weapon and a "#"
         column with the wish's number on its banner, `PoolAnalysis::banner_rolls`; 4★/5★ rows tinted from
         `render_tr`; the widths add up to 60.5 rem so it fits a 1280 px window; on a wider one the card measures
@@ -368,9 +373,15 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       stats at each phase's bounds, "20/20" then "20/40"), Talents (values at the talent-level slider, cost of one
       talent to it), Constellations.
     - `archive/weapons.rs`: `WeaponsView` (entity, `Page::Archive(ArchivePage::Weapons)`, the shell calls
-      `show_weapon`): the weapon list (the same filter bar: type and rarity) and a weapon's page (the same
-      `detail::hero_banner` with its upright wish art, stats at the level slider and their cost, the passive by
-      refinement, "Add to the planner"). The planner's "Add a weapon…" opens the cards; a weapon card has a level
+      `show_weapon`): the weapon list (the same filter bar: type, rarity, favourites; "Owned" first, a card
+      showing the best refinement and the copies, "R3 · ×2", with ☆ (every copy) and + (add a copy), then "Not
+      owned" faded) and a weapon's page (the same `detail::hero_banner` with its upright wish art, "My copies",
+      stats at the level slider and their cost, the passive by refinement, "Add to the planner").
+      `weapon_copies.rs`: the copies, one row each (level picker over `Level::weapon_steps`, refinement, "Held
+      by" among the owned characters of that weapon type, favourite, remove after asking), "Add a copy";
+      `CopyControls` are each copy's pickers, kept in step with the stored copies (`sync_copies`, on every change
+      of the library or the session). A character holds one copy: giving it another takes it from the first.
+      The character's "My character" panel shows the weapon it holds. The planner's "Add a weapon…" opens the cards; a weapon card has a level
       range only (`Controls::steps` holds its rarity's levels).
     - `imports/`: the Import page (`Imports`, `RenderOnce`, `Page::Imports`, in the sidebar's foot above Settings):
       every source on one page, a card each (the wish history: from the game, from a file; characters and weapons:
@@ -382,7 +393,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       its requests end), a preview (account choice, counts, each change, the notes), then
       `Library::apply_hoyolab_sync` (into the account of that UID, made from the nickname if none; the session
       selects it). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
-    - `settings/`: `SettingsPage` (entity) and its rows; `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
+    - `settings/`: `SettingsPage` (entity) and its rows, in a centred column, or two on a page at least
+      `TWO_COLUMNS_REMS` wide (your data and recent imports on the left, the rest on the right); `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
       `images.rs` (the image cache: size, empty, download all for offline use).
     - `credits/`: `Credits` (`RenderOnce`). It must keep paimon.moe's and genshin-db's MIT notices
       (`licenses/paimon-moe-MIT.txt`, `licenses/genshin-db-MIT.txt`)

@@ -23,6 +23,11 @@ use wish_core::store::{KEEP_BACKUPS, KEEP_HOURLY_BACKUPS};
 use wish_ui::format;
 use wish_ui::{ButtonExt as _, PageFrame, button, card};
 
+/// A column of settings, in rems.
+const COLUMN_REMS: f32 = 48.;
+/// The room a page needs for two columns of settings side by side, in rems.
+const TWO_COLUMNS_REMS: f32 = 84.;
+
 /// The Settings page.
 ///
 /// An entity rather than a plain component (like the overview) because it
@@ -74,13 +79,13 @@ impl SettingsPage {
 }
 
 impl Render for SettingsPage {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.render_settings(cx)
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.render_settings(window, cx)
     }
 }
 
 impl SettingsPage {
-    fn render_settings(&mut self, cx: &mut Context<Self>) -> AnyElement {
+    fn render_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let library = self.library.read(cx);
         let theme = cx.theme();
         let busy = library.is_busy();
@@ -356,17 +361,45 @@ impl SettingsPage {
         );
 
         let images = self.images_group(cx);
-        let body = div()
-            .v_flex()
-            .gap_6()
-            .max_w(rems(48.))
-            .child(data)
-            .child(recent)
-            .child(export)
-            .child(counting)
-            .child(game_data)
-            .child(images);
-        PageFrame::new("Settings", body).into_any_element()
+        // A centred column; on a wide window, two: the data and its imports
+        // on the left, the rest on the right.
+        let room = crate::shell::content_width(window) / window.rem_size();
+        let wide = room >= TWO_COLUMNS_REMS;
+        let body = if wide {
+            div()
+                .grid()
+                .grid_cols(2)
+                .gap_6()
+                .items_start()
+                .child(div().v_flex().gap_6().child(data).child(recent))
+                .child(
+                    div()
+                        .v_flex()
+                        .gap_6()
+                        .child(export)
+                        .child(images)
+                        .child(counting)
+                        .child(game_data),
+                )
+        } else {
+            div()
+                .v_flex()
+                .gap_6()
+                .child(data)
+                .child(recent)
+                .child(export)
+                .child(counting)
+                .child(game_data)
+                .child(images)
+        };
+        let width = if wide {
+            2. * COLUMN_REMS + 1.5
+        } else {
+            COLUMN_REMS
+        };
+        PageFrame::new("Settings", body)
+            .max_width(rems(width))
+            .into_any_element()
     }
 }
 

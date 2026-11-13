@@ -472,7 +472,7 @@ fn picture(icon: ImageSource, owned: bool) -> impl IntoElement {
 
 /// A small round button in a card's corner, on a veil of the page's colour
 /// so it reads over any picture.
-fn corner_button(
+pub(super) fn corner_button(
     id: impl Into<SharedString>,
     icon: IconName,
     label: &'static str,
@@ -492,7 +492,7 @@ fn corner_button(
 }
 
 /// A part of the list: its name and how many it holds, as a chip.
-fn section_title(title: &str, count: usize, cx: &App) -> Div {
+pub(super) fn section_title(title: &str, count: usize, cx: &App) -> Div {
     let theme = cx.theme();
     div()
         .h_flex()

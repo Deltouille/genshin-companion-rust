@@ -21,6 +21,8 @@ use gpui_kit::{
     IntoElement, ObjectFit, ParentElement as _, Render, SharedString, Styled as _,
     StyledImage as _, Subscription, WeakEntity, Window, div, img, rems,
 };
+use wish_core::collection::OwnedWeapon;
+use wish_core::model::Rarity;
 use wish_core::planner::{Level, PlanTarget, Weapon, WeaponGoal};
 
 use std::rc::Rc;
@@ -28,6 +30,9 @@ use std::rc::Rc;
 use super::Sort;
 use super::detail::{facts_grid, hero_banner, level_badge, materials, table};
 use super::filters::{self, FilterGroup, FilterOption};
+use super::list::{corner_button, section_title};
+use super::weapon_copies::CopyControls;
+use crate::app::images::Images;
 use crate::app::{Library, Session};
 use wish_ui::{PageFrame, Segmented, badge, button, card, card_title, format, theme};
 use wish_ui::{PickerEvent, PickerState};
@@ -35,12 +40,14 @@ use wish_ui::{PickerEvent, PickerState};
 const TYPES: [&str; 5] = ["Sword", "Claymore", "Polearm", "Bow", "Catalyst"];
 
 pub struct WeaponsView {
-    session: Entity<Session>,
-    library: Entity<Library>,
+    pub(super) session: Entity<Session>,
+    pub(super) library: Entity<Library>,
     search: Entity<InputState>,
     /// The weapon types and rarities shown; none means all.
     types: BTreeSet<SharedString>,
     stars: BTreeSet<u8>,
+    /// Only the weapons with a copy marked as a favourite.
+    favourites: bool,
     sort: Sort,
     /// The sort pill.
     sort_select: Entity<PickerState<Sort>>,
@@ -50,7 +57,9 @@ pub struct WeaponsView {
     drawer: filters::Drawer,
     drawer_focus: FocusHandle,
     /// The weapon whose page is open (a genshin-db key).
-    open: Option<String>,
+    pub(super) open: Option<String>,
+    /// The pickers of the open weapon's copies.
+    pub(super) copies: Vec<CopyControls>,
     /// An index into the open weapon's levels ([`Level::weapon_steps`]).
     level: Entity<SliderState>,
     /// The refinement its passive is shown at, 1 to 5.
@@ -66,8 +75,15 @@ impl WeaponsView {
         let (level, level_subscription) = Self::level_slider(5, cx);
         let sort_select = cx.new(|cx| PickerState::new(filters::sort_options(), Some(0), cx));
         let subscriptions = vec![
-            cx.observe(&library, |_, _, cx| cx.notify()),
-            cx.observe(&session, |_, _, cx| cx.notify()),
+            // New data, or another account: the copies' pickers follow.
+            cx.observe(&library, |this, _, cx| {
+                this.sync_copies(cx);
+                cx.notify();
+            }),
+            cx.observe(&session, |this, _, cx| {
+                this.sync_copies(cx);
+                cx.notify();
+            }),
             cx.subscribe(&sort_select, |this, _, event: &PickerEvent<Sort>, cx| {
                 let PickerEvent::Confirm(sort) = event;
                 this.sort = *sort;
@@ -85,12 +101,14 @@ impl WeaponsView {
             search,
             types: BTreeSet::new(),
             stars: BTreeSet::new(),
+            favourites: false,
             sort: Sort::default(),
             sort_select,
             reversed: false,
             drawer: filters::Drawer::default(),
             drawer_focus: cx.focus_handle(),
             open: None,
+            copies: Vec::new(),
             level,
             refinement: 1,
             _level: level_subscription,
@@ -115,6 +133,7 @@ impl WeaponsView {
     /// Back to the list.
     pub fn show_list(&mut self, cx: &mut Context<Self>) {
         self.open = None;
+        self.sync_copies(cx);
         cx.notify();
     }
 
@@ -126,6 +145,7 @@ impl WeaponsView {
         self._level = subscription;
         self.refinement = 1;
         self.open = Some(key.to_owned());
+        self.sync_copies(cx);
         cx.notify();
     }
 
@@ -176,6 +196,12 @@ impl WeaponsView {
                 toggle: toggle(Rc::new(move |this| Self::toggle(&mut this.stars, stars))),
             })
             .collect();
+        let collection = vec![FilterOption {
+            label: "Favourites".into(),
+            icon: None,
+            on: this.favourites,
+            toggle: toggle(Rc::new(|this| this.favourites = !this.favourites)),
+        }];
         vec![
             FilterGroup {
                 title: "Type",
@@ -184,6 +210,10 @@ impl WeaponsView {
             FilterGroup {
                 title: "Rarity",
                 options: stars,
+            },
+            FilterGroup {
+                title: "Collection",
+                options: collection,
             },
         ]
     }
@@ -195,6 +225,7 @@ impl WeaponsView {
             weak.update(cx, |this, cx| {
                 this.types.clear();
                 this.stars.clear();
+                this.favourites = false;
                 cx.notify();
             })
             .ok();
@@ -244,6 +275,8 @@ impl WeaponsView {
         };
         let latest = planner.weapons().iter().map(|w| version(&w.key)).max();
 
+        let owned = library.owned(self.account(cx)).clone();
+        let favourite = |key: &str| owned.copies(key).any(|c| c.favourite);
         let query = self.search.read(cx).value().to_lowercase();
         let mut shown: Vec<&Weapon> = planner
             .weapons()
@@ -251,6 +284,7 @@ impl WeaponsView {
             .filter(|w| query.is_empty() || w.name.to_lowercase().contains(&query))
             .filter(|w| self.types.is_empty() || self.types.contains(w.weapon.as_str()))
             .filter(|w| self.stars.is_empty() || self.stars.contains(&w.rarity))
+            .filter(|w| !self.favourites || favourite(&w.key))
             .collect();
         match self.sort {
             Sort::Newest => shown.sort_by(|a, b| {
@@ -268,63 +302,25 @@ impl WeaponsView {
             shown.reverse();
         }
 
+        // What the account owns first, its favourites leading; the others
+        // after, each part in the chosen order.
+        let (mut mine, others): (Vec<&Weapon>, Vec<&Weapon>) = shown
+            .into_iter()
+            .partition(|w| owned.copies(&w.key).next().is_some());
+        mine.sort_by_key(|w| !favourite(&w.key));
+        let is_new = |w: &Weapon| latest.is_some() && Some(version(&w.key)) == latest;
+        let mine_cards: Vec<AnyElement> = mine
+            .iter()
+            .map(|w| {
+                let copies: Vec<OwnedWeapon> = owned.copies(&w.key).cloned().collect();
+                self.weapon_card(w, &copies, is_new(w), &images, cx)
+            })
+            .collect();
+        let other_cards: Vec<AnyElement> = others
+            .iter()
+            .map(|w| self.weapon_card(w, &[], is_new(w), &images, cx))
+            .collect();
         let theme = cx.theme();
-        let (ink, parchment) = theme::tile_label(cx);
-        let cards = shown.iter().map(|weapon| {
-            let key = weapon.key.clone();
-            let new = latest.is_some() && Some(version(&weapon.key)) == latest;
-            let picture = div()
-                .relative()
-                .w_full()
-                .h(rems(8.25))
-                .rounded_t(theme.radius_lg)
-                .rounded_br(rems(2.))
-                .bg(theme::stars_tile(weapon.rarity, cx))
-                .children(
-                    images
-                        .weapon(weapon)
-                        .map(|icon| img(icon).size_full().object_fit(ObjectFit::Contain)),
-                )
-                .when(new, |this| {
-                    this.child(div().absolute().top_1().right_1().child(badge(
-                        "New",
-                        (theme.primary_foreground, theme.primary),
-                        cx,
-                    )))
-                });
-            Button::new(SharedString::from(format!("weapon-{}", weapon.key)))
-                .ghost()
-                .p_0()
-                .w(rems(8.25))
-                .h_auto()
-                .rounded(theme.radius_lg)
-                .cursor_pointer()
-                .accessibility_label(format!(
-                    "{}, {}★ {}",
-                    weapon.name, weapon.rarity, weapon.weapon
-                ))
-                .child(
-                    div()
-                        .v_flex()
-                        .w_full()
-                        .rounded(theme.radius_lg)
-                        .bg(parchment)
-                        .child(picture)
-                        .child(
-                            div()
-                                .w_full()
-                                .px_2()
-                                .py_1p5()
-                                .text_sm()
-                                .font_weight(FontWeight::BOLD)
-                                .text_center()
-                                .truncate()
-                                .text_color(ink)
-                                .child(weapon.name.clone()),
-                        ),
-                )
-                .on_click(cx.listener(move |this, _, _, cx| this.show_weapon(&key, cx)))
-        });
 
         let view = cx.entity();
         let groups = self.filter_groups(view.downgrade());
@@ -342,7 +338,12 @@ impl WeaponsView {
             cx,
         );
 
-        let count = shown.len();
+        let (mine_count, other_count) = (mine_cards.len(), other_cards.len());
+        let filtered = !query.is_empty()
+            || !self.types.is_empty()
+            || !self.stars.is_empty()
+            || self.favourites;
+        let muted = theme.muted_foreground;
         let body = div()
             .id("weapon-grid")
             .size_full()
@@ -354,17 +355,42 @@ impl WeaponsView {
                     .px_6()
                     .pt_2()
                     .pb_6()
-                    .child(div().h_flex().flex_wrap().gap_5().children(cards))
-                    .when(count == 0, |this| {
+                    .child(section_title("Owned", mine_count, cx))
+                    .when(mine_count == 0, |this| {
+                        this.child(div().text_sm().text_color(muted).child(if filtered {
+                            "None of your weapons matches these filters."
+                        } else {
+                            "The weapons you have show here, with their refinement and how \
+                             many copies. Add them with + on their card."
+                        }))
+                    })
+                    .child(div().h_flex().flex_wrap().gap_5().children(mine_cards))
+                    .when(other_count > 0 || mine_count == 0, |this| {
                         this.child(
                             div()
-                                .text_color(theme.muted_foreground)
+                                .pt_2()
+                                .child(section_title("Not owned", other_count, cx)),
+                        )
+                    })
+                    .child(div().h_flex().flex_wrap().gap_5().children(other_cards))
+                    .when(mine_count + other_count == 0, |this| {
+                        this.child(
+                            div()
+                                .text_color(muted)
                                 .child("No weapon matches these filters."),
                         )
                     }),
             );
+        let distinct = planner
+            .weapons()
+            .iter()
+            .filter(|w| owned.copies(&w.key).next().is_some())
+            .count();
         let page = PageFrame::new("Weapons", body)
-            .subtitle(format!("{count} of {} weapons", planner.weapons().len()))
+            .subtitle(format!(
+                "{distinct} owned · {} weapons",
+                planner.weapons().len()
+            ))
             .toolbar(toolbar)
             .body_scrolls();
         let drawer = (self.drawer != filters::Drawer::Closed).then(|| {
@@ -386,6 +412,138 @@ impl WeaponsView {
             .size_full()
             .child(page)
             .children(drawer)
+            .into_any_element()
+    }
+
+    /// A weapon's card: its picture with what the account has of it (the
+    /// best refinement, and how many copies), its name; the corner buttons
+    /// mark it as a favourite or add a copy.
+    fn weapon_card(
+        &self,
+        weapon: &Weapon,
+        copies: &[OwnedWeapon],
+        new: bool,
+        images: &Images,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = cx.theme();
+        let (ink, parchment) = theme::tile_label(cx);
+        let (key, name) = (weapon.key.clone(), weapon.name.clone());
+        let owned = !copies.is_empty();
+        let add = corner_button(format!("add-copy-{key}"), IconName::Plus, "Add a copy", cx)
+            .on_click(cx.listener({
+                let (key, name) = (key.clone(), name.clone());
+                move |this, _, _, cx| {
+                    cx.stop_propagation();
+                    this.add_copy(key.clone(), name.clone(), cx);
+                }
+            }));
+        let corner = if owned {
+            let favourite = copies.iter().any(|c| c.favourite);
+            let gold = theme::rarity(Rarity::Five, cx);
+            let star = corner_button(
+                format!("favourite-{key}"),
+                if favourite {
+                    IconName::StarFill
+                } else {
+                    IconName::Star
+                },
+                if favourite {
+                    "Remove from favourites"
+                } else {
+                    "Add to favourites"
+                },
+                cx,
+            )
+            .when(favourite, |this| this.text_color(gold))
+            .on_click(cx.listener({
+                let key = key.clone();
+                move |this, _, _, cx| {
+                    cx.stop_propagation();
+                    this.toggle_weapon_favourite(&key, cx);
+                }
+            }));
+            div().h_flex().gap_1().child(star).child(add)
+        } else {
+            div().child(add)
+        };
+        let summary = owned.then(|| {
+            let best = copies.iter().map(|c| c.refinement).max().unwrap_or(1);
+            match copies.len() {
+                1 => format!("R{best}"),
+                n => format!("R{best} · ×{n}"),
+            }
+        });
+        let picture = div()
+            .relative()
+            .w_full()
+            .h(rems(8.25))
+            .rounded_t(theme.radius_lg)
+            .rounded_br(rems(2.))
+            .bg(if owned {
+                theme::stars_tile(weapon.rarity, cx)
+            } else {
+                // Faded with its picture: the card reads as one not owned.
+                theme::stars_tile(weapon.rarity, cx).opacity(0.4)
+            })
+            .children(images.weapon(weapon).map(|icon| {
+                img(icon)
+                    .size_full()
+                    .object_fit(ObjectFit::Contain)
+                    .when(!owned, |this| this.opacity(0.5))
+            }))
+            .child(div().absolute().top_1().right_1().child(corner))
+            .child(
+                div()
+                    .absolute()
+                    .bottom_1()
+                    .left_1()
+                    .right_1()
+                    .h_flex()
+                    .gap_1()
+                    .children(summary.map(|text| {
+                        badge(text, (theme.foreground, theme.background.opacity(0.85)), cx)
+                    }))
+                    .child(div().flex_1())
+                    .when(new, |this| {
+                        this.child(badge("New", (theme.primary_foreground, theme.primary), cx))
+                    }),
+            );
+        Button::new(SharedString::from(format!("weapon-{key}")))
+            .ghost()
+            .p_0()
+            .w(rems(8.25))
+            .h_auto()
+            .rounded(theme.radius_lg)
+            .cursor_pointer()
+            .accessibility_label(format!(
+                "{}, {}★ {}{}",
+                weapon.name,
+                weapon.rarity,
+                weapon.weapon,
+                if owned { ", owned" } else { "" }
+            ))
+            .child(
+                div()
+                    .v_flex()
+                    .w_full()
+                    .rounded(theme.radius_lg)
+                    .bg(if owned { parchment } else { theme.muted })
+                    .child(picture)
+                    .child(
+                        div()
+                            .w_full()
+                            .px_2()
+                            .py_1p5()
+                            .text_sm()
+                            .font_weight(FontWeight::BOLD)
+                            .text_center()
+                            .truncate()
+                            .text_color(if owned { ink } else { theme.muted_foreground })
+                            .child(weapon.name.clone()),
+                    ),
+            )
+            .on_click(cx.listener(move |this, _, _, cx| this.show_weapon(&key, cx)))
             .into_any_element()
     }
 
@@ -414,6 +572,12 @@ impl WeaponsView {
             .action(back)
             .into_any_element();
         };
+        // What the account has of it, under the banner.
+        let refinable = page
+            .passive
+            .as_ref()
+            .is_some_and(|p| p.refinements.len() > 1);
+        let copies = self.my_copies(weapon, refinable, cx);
         let theme = cx.theme();
         let width = crate::shell::content_width(window);
 
@@ -529,6 +693,7 @@ impl WeaponsView {
                     .pt_2()
                     .pb_6()
                     .child(hero)
+                    .child(copies)
                     .child(
                         div()
                             .grid()
@@ -566,17 +731,22 @@ impl WeaponsView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let goal = WeaponGoal::full(rarity);
-        let target = PlanTarget::Weapon { key, goal };
         let account = self.session.read(cx).account();
+        // From its most levelled copy that can still go up, else level 1.
+        let goal = self
+            .library
+            .read(cx)
+            .owned(account)
+            .weapon_goal(&key, rarity);
+        let target = PlanTarget::Weapon { key, goal };
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
         });
         cx.spawn_in(window, async move |_, cx| {
             let message = match task.await {
                 Ok(_) => crate::app::notices::Notice::done(format!(
-                    "{name} is in the planner, from level 1 to {}.",
-                    goal.to.level
+                    "{name} is in the planner, from level {} to {}.",
+                    goal.from.level, goal.to.level
                 )),
                 Err(err) => crate::app::notices::Notice::failed(format!(
                     "{name} was not added to the planner: {err:#}"

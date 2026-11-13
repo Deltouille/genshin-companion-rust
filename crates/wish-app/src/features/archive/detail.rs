@@ -9,10 +9,10 @@ use std::collections::BTreeMap;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::slider::Slider;
-use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, ImageSource, InteractiveElement as _, IntoElement,
@@ -238,24 +238,16 @@ impl CharactersView {
     }
 }
 
-/// A section of a character's page: its title after a gold diamond, then
-/// its content.
-fn section(title: &str, content: AnyElement, cx: &App) -> Div {
-    let gold = theme::palette(cx).gold;
+/// A section of a character's page: its title, then its content.
+fn section(title: &str, content: AnyElement, _: &App) -> Div {
     div()
         .v_flex()
         .gap_3()
         .child(
             div()
-                .h_flex()
-                .gap_2()
-                .child(Icon::new(IconName::Diamond).size_4().text_color(gold))
-                .child(
-                    div()
-                        .text_xl()
-                        .font_weight(FontWeight::BOLD)
-                        .child(title.to_owned()),
-                ),
+                .text_xl()
+                .font_weight(FontWeight::BOLD)
+                .child(title.to_owned()),
         )
         .child(content)
 }
@@ -712,14 +704,7 @@ impl CharactersView {
         cx: &mut Context<Self>,
     ) {
         let account = self.session.read(cx).account();
-        let goal = match self.owned_character(&key, cx) {
-            Some(owned) => CharacterGoal {
-                from: owned.level,
-                to: Level::MAX,
-                talents: owned.talents.map(|t| (t, t.max(10))),
-            },
-            None => CharacterGoal::FULL,
-        };
+        let goal = self.library.read(cx).owned(account).character_goal(&key);
         let target = wish_core::planner::PlanTarget::Character { key, goal };
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
