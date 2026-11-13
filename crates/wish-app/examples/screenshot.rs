@@ -393,6 +393,20 @@ fn main() -> Result<()> {
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
+        // The resin estimate's options.
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.open_resin_options(window, cx))
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("planner-resin-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
 
         // The open-source licences, over the Credits page.
         cx.update_window(window, |_, window, cx| {

@@ -13,6 +13,7 @@ mod add;
 pub(crate) use add::Kind as AddKind;
 mod custom;
 mod inventory;
+mod resin;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -32,7 +33,7 @@ use gpui_kit::{
 };
 use wish_core::planner::{
     CharacterGoal, CustomItem, EntryShare, Inventory, Level, Material, MaterialId, PlanEntry,
-    PlanTarget, PlanTotals, PlannerData, WeaponGoal, exp_series,
+    PlanTarget, PlanTotals, PlannerData, ResinOptions, WeaponGoal, exp_series,
 };
 
 use crate::app::images::Images;
@@ -392,6 +393,7 @@ impl Render for PlannerView {
         let library = self.library.read(cx);
         let (planner, images) = (library.planner().clone(), library.images().clone());
         let inventory = library.inventory(account).clone();
+        let resin_options = library.settings().resin.clone();
         let plan = self.live_plan(cx);
         let allocation = planner.allocate(&plan, &inventory);
         // As many cards a row as fit, a rem apart.
@@ -403,6 +405,7 @@ impl Render for PlannerView {
             planner: &planner,
             images: &images,
             inventory: &inventory,
+            resin: &resin_options,
             card_width: (content - gaps) / f32::from(columns),
         };
 
@@ -443,6 +446,12 @@ impl Render for PlannerView {
                 &allocation.crafted,
                 Count::Plan,
                 shared,
+                cx,
+            ))
+            .child(resin::plan_resin(
+                &planner.resin_estimate(&allocation.missing.materials, &resin_options),
+                &resin_options,
+                &images,
                 cx,
             ));
 
@@ -540,16 +549,28 @@ impl PlannerView {
     ) -> AnyElement {
         let id = entry.id;
         let scope = format!("entry-{id}");
+        let estimate = (shared.planner).resin_estimate(&share.missing.materials, shared.resin);
         let tiles = || {
-            materials(
-                &scope,
-                &share.needed,
-                &share.missing,
-                &share.crafted,
-                Count::Entry,
-                shared,
-                cx,
-            )
+            div()
+                .v_flex()
+                .gap_3()
+                .child(materials(
+                    &scope,
+                    &share.needed,
+                    &share.missing,
+                    &share.crafted,
+                    Count::Entry,
+                    shared,
+                    cx,
+                ))
+                .children(resin::entry_resin(
+                    id,
+                    &estimate,
+                    shared.resin,
+                    shared.images,
+                    cx,
+                ))
+                .into_any_element()
         };
         let preview = |portrait, name: &str, detail, goal| {
             CardPreview::new(portrait, name, detail, goal, share, shared)
@@ -1251,6 +1272,8 @@ struct Shared<'a> {
     planner: &'a PlannerData,
     images: &'a Images,
     inventory: &'a Inventory,
+    /// How the resin estimate counts.
+    resin: &'a ResinOptions,
     /// A character card's width, for the copy that follows the pointer.
     card_width: Pixels,
 }

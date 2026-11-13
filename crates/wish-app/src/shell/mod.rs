@@ -366,6 +366,14 @@ impl Shell {
             .update(cx, |planner, cx| planner.open_inventory_of(id, window, cx));
     }
 
+    /// Opens the options of the planner's resin estimate (the screenshot tool
+    /// uses it).
+    pub fn open_resin_options(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.navigate(Page::Planner, cx);
+        self.planner
+            .update(cx, |planner, cx| planner.open_resin_options(window, cx));
+    }
+
     /// The window's messages (snackbars), for the screenshot tool and tests.
     /// The selected account and the flow in progress.
     pub fn session(&self) -> &Entity<Session> {

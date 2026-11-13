@@ -291,6 +291,11 @@ impl Images {
         self.get(Remote::primogem())
     }
 
+    /// Original Resin's icon.
+    pub fn resin(&self) -> Option<ImageSource> {
+        self.get(Remote::resin())
+    }
+
     /// A character's wish art, by the game's file name.
     pub fn splash(&self, file: Option<&str>) -> Option<ImageSource> {
         self.get(Remote::amber(file?))

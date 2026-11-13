@@ -26,7 +26,7 @@ use wish_core::collection::{
     Collection as Owned, OwnedCharacter, OwnedWeapon, SyncPlan, plan_sync,
 };
 use wish_core::hoyolab;
-use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
+use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData, ResinOptions};
 
 use super::images::Images;
 use wish_core::engine::{self, Analysis};
@@ -911,6 +911,15 @@ impl Library {
     /// Turns the controls to count wishes by hand on or off.
     pub fn set_manual_counting(&mut self, on: bool, cx: &mut Context<Self>) -> Task<Result<()>> {
         self.change_settings(|settings| settings.manual_counting = on, cx)
+    }
+
+    /// Changes how the planner estimates the resin farming takes.
+    pub fn set_resin_options(
+        &mut self,
+        options: ResinOptions,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.change_settings(|settings| settings.resin = options, cx)
     }
 
     /// Deletes wishes entered by hand (after a backup).

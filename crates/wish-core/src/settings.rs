@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 use crate::paths::{AppPaths, write_atomic};
+use crate::planner::ResinOptions;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -26,6 +27,9 @@ pub struct Settings {
     /// Show the controls to count wishes by hand, like paimon.moe's manual mode.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub manual_counting: bool,
+    /// How the planner estimates the resin farming takes.
+    #[serde(default, skip_serializing_if = "ResinOptions::is_default")]
+    pub resin: ResinOptions,
 }
 
 impl Settings {
@@ -86,6 +90,10 @@ mod tests {
             mirror_folder: Some(dir.path().join("Sync")),
             game_folder: None,
             manual_counting: true,
+            resin: ResinOptions {
+                world_level: 9,
+                ..ResinOptions::default()
+            },
         };
         settings.save(&paths).unwrap();
         assert_eq!(Settings::load(&paths).unwrap(), settings);

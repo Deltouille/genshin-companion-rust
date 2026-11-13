@@ -11,6 +11,7 @@ mod custom;
 mod data;
 mod inventory;
 mod plan;
+mod resin;
 
 use std::collections::BTreeMap;
 
@@ -21,6 +22,9 @@ pub use data::{
 };
 pub use inventory::Inventory;
 pub use plan::{CustomCost, CustomItem, PlanEntry, PlanTarget, PlanTotals};
+pub use resin::{
+    MAX_WORLD_LEVEL, RESIN_PER_DAY, ResinEstimate, ResinOptions, ResinSource, SourceRuns,
+};
 
 /// Mora's material id.
 pub const MORA: MaterialId = 202;
