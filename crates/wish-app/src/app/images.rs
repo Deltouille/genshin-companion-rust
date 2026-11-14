@@ -430,7 +430,11 @@ mod tests {
         let data = wish_core::planner::PlannerData::embedded();
         let without: Vec<&str> = (data.characters().iter().filter(|c| c.icon.is_none()))
             .map(|c| c.key.as_str())
-            .chain((data.materials().iter().filter(|m| m.icon.is_none())).map(|m| m.key.as_str()))
+            .chain(
+                (data.materials().iter())
+                    .filter(|m| m.icon.is_none() && !m.is_placeholder())
+                    .map(|m| m.key.as_str()),
+            )
             .collect();
         assert!(without.is_empty(), "without an icon name: {without:?}");
     }

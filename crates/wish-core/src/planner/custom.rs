@@ -8,6 +8,11 @@
 //! elite drop and a common drop. So a custom one costs what the first such
 //! character (or weapon of its rarity) of the data costs, with its own
 //! materials in place of that one's.
+//!
+//! A material not known yet can be a placeholder: each role has one, "?"
+//! (`Unknown talent book (2★)`…), a series made after the model's (its
+//! kind, rarities and crafting), so its costs, crafting and resin count as
+//! a real one's would.
 
 use std::collections::BTreeMap;
 
@@ -19,6 +24,10 @@ use crate::model::text_enum;
 
 /// The Crown of Insight, which every character's last talent level takes.
 const CROWN_OF_INSIGHT: MaterialId = 104319;
+
+/// The placeholders' ids start here, far above the game's (six digits). They
+/// never change: plans, inventories and snapshots store them.
+pub(super) const PLACEHOLDER_IDS: MaterialId = 9_000_000;
 
 text_enum! {
     /// What a material is for in a character's or a weapon's costs, besides
@@ -59,6 +68,36 @@ impl Role {
             Role::WeaponMaterial => "Weapon material",
             Role::EliteDrop => "Elite drop",
         }
+    }
+
+    /// The name of its placeholder, a material not known yet.
+    pub fn placeholder_name(self) -> &'static str {
+        match self {
+            Role::Common => "Unknown common drop",
+            Role::LocalSpecialty => "Unknown local specialty",
+            Role::BossMaterial => "Unknown boss material",
+            Role::ElementalGem => "Unknown gem",
+            Role::TalentBook => "Unknown talent book",
+            Role::WeeklyMaterial => "Unknown weekly boss material",
+            Role::WeaponMaterial => "Unknown weapon material",
+            Role::EliteDrop => "Unknown elite drop",
+        }
+    }
+
+    /// The id of its placeholder's lowest tier; each tier above it, the next
+    /// one.
+    fn placeholder_id(self) -> MaterialId {
+        let rank = match self {
+            Role::Common => 1,
+            Role::LocalSpecialty => 2,
+            Role::BossMaterial => 3,
+            Role::ElementalGem => 4,
+            Role::TalentBook => 5,
+            Role::WeeklyMaterial => 6,
+            Role::WeaponMaterial => 7,
+            Role::EliteDrop => 8,
+        };
+        PLACEHOLDER_IDS + 100 * rank
     }
 
     /// How many tiers its materials come in: a common or elite drop or a
@@ -203,6 +242,60 @@ impl PlannerData {
         self.families = families;
         self.template = template;
         self.weapon_templates = weapon_templates;
+        self.add_placeholders();
+    }
+
+    /// Adds each role's placeholder, first among its series: a copy of the
+    /// model's series (the character's, the highest weapon's for a weapon's
+    /// roles) with no icon, no domain days, its own ids, names and inventory
+    /// rank (after the game's), crafted like the model's.
+    fn add_placeholders(&mut self) {
+        let character = self.template.as_ref().map(|(_, roles)| roles);
+        let weapon = self
+            .weapon_templates
+            .values()
+            .next_back()
+            .map(|(_, roles)| roles);
+        let models: Vec<(Role, Vec<MaterialId>)> = (Role::ALL.iter())
+            .filter_map(|&role| {
+                let roles = if Role::CHARACTER.contains(&role) {
+                    character
+                } else {
+                    weapon
+                };
+                Some((role, roles?.get(&role)?.clone()))
+            })
+            .collect();
+        let after_the_game = self.materials().iter().map(|m| m.sort).max().unwrap_or(0);
+        for (rank, (role, model)) in (1..).zip(models) {
+            let mut series = Vec::new();
+            for (tier, id) in (0..).zip(&model) {
+                let Some(model) = self.material(*id).cloned() else {
+                    return;
+                };
+                let id = role.placeholder_id() + tier;
+                let name = if role.tiers() == 1 {
+                    role.placeholder_name().to_owned()
+                } else {
+                    format!("{} ({}★)", role.placeholder_name(), model.rarity)
+                };
+                self.add_material(Material {
+                    id,
+                    key: format!("unknown-{role}-{}", tier + 1),
+                    name,
+                    sort: after_the_game.saturating_add(rank),
+                    days: Vec::new(),
+                    domain: None,
+                    icon: None,
+                    ..model
+                });
+                series.push(id);
+            }
+            if series.len() > 1 {
+                self.add_craft_family(series.clone());
+            }
+            self.families.entry(role).or_default().insert(0, series);
+        }
     }
 
     /// The series of materials a custom character or weapon can take for

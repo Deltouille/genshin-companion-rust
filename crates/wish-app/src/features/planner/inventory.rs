@@ -90,10 +90,15 @@ impl InventoryForm {
             .into_iter()
             .map(|material| {
                 let owned = plan.inventory.owned(&material.item);
+                // None owned leaves the field empty, its placeholder saying 0
+                // (an empty field reads as 0): a count is typed without
+                // erasing a 0 first.
                 let have = cx.new(|cx| {
-                    InputState::new(window, cx)
-                        .placeholder("0")
-                        .default_value(format::count(owned))
+                    let state = InputState::new(window, cx).placeholder("0");
+                    match owned {
+                        0 => state,
+                        owned => state.default_value(format::count(owned)),
+                    }
                 });
                 let change = cx.new(|cx| InputState::new(window, cx).placeholder(hint));
                 // The figures under the fields follow what is typed.

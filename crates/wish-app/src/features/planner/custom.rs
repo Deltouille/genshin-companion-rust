@@ -1,8 +1,9 @@
 //! The custom character dialog, after genshin-center's: a character the game
 //! data does not have yet (a leak), given a name, its stars and the material
 //! of each of the six roles. Clicking a role shows the series the game data
-//! has for it; one it does not have yet can be typed by name. The character
-//! then costs what any character costs (`PlannerData::custom_character_cost`).
+//! has for it, its placeholder "?" first (a material not known yet); one the
+//! data does not have yet can also be typed by name. The character then costs
+//! what any character costs (`PlannerData::custom_character_cost`).
 
 use std::sync::Arc;
 
@@ -105,7 +106,7 @@ impl CustomForm {
         let editing = entry.is_some();
         let name = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("Name (a leak…)")
+                .placeholder("Name")
                 .default_value(name)
         });
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search…"));
@@ -133,7 +134,7 @@ impl CustomForm {
         }
     }
 
-    fn pick(&mut self, role: Role, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn pick(&mut self, role: Role, window: &mut Window, cx: &mut Context<Self>) {
         self.picking = Some(role);
         self.error = None;
         self.search
@@ -215,6 +216,10 @@ impl CustomForm {
                     .and_then(|tiers| tiers.last().copied())
                     .unwrap_or(*first);
                 match self.planner.material(top) {
+                    // "?", by the role's name, without a tier.
+                    Some(material) if material.is_placeholder() => {
+                        (None, material.rarity, role.placeholder_name().to_owned())
+                    }
                     Some(material) => (
                         self.images.material(material),
                         material.rarity,
@@ -437,13 +442,13 @@ impl Render for CustomForm {
 
 impl PlannerView {
     /// Opens the dialog for a new custom character or weapon, or to edit
-    /// `entry`.
-    pub(crate) fn open_custom(
+    /// `entry`, and gives its form.
+    pub(super) fn open_custom(
         &mut self,
         entry: Option<PlanEntry>,
         window: &mut Window,
         cx: &mut Context<Self>,
-    ) {
+    ) -> Entity<CustomForm> {
         let library = self.library.read(cx);
         let (planner, images) = (library.planner().clone(), library.images().clone());
         let form = cx.new(|cx| {
@@ -468,8 +473,9 @@ impl PlannerView {
                 (self.weapon_goal(entry.id, cx)).or(entry.target.weapon_goal().copied());
             (entry.id, goal, weapon_goal)
         });
+        let dialog_form = form.clone();
         window.open_dialog(cx, move |dialog, window, _| {
-            let (form, view) = (form.clone(), view.clone());
+            let (form, view) = (dialog_form.clone(), view.clone());
             dialog
                 .title(title)
                 .w(window.rem_size() * 34.)
@@ -522,5 +528,6 @@ impl PlannerView {
                     true
                 })
         });
+        form
     }
 }

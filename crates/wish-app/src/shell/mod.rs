@@ -345,6 +345,20 @@ impl Shell {
             .update(cx, |planner, cx| planner.open_custom_entry(id, window, cx));
     }
 
+    /// Opens a new custom character's dialog on the choice of its `role`'s
+    /// material (the screenshot tool uses it).
+    pub fn open_custom_picker(
+        &mut self,
+        role: wish_core::planner::Role,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate(Page::Planner, cx);
+        self.planner.update(cx, |planner, cx| {
+            planner.open_custom_picker(role, window, cx)
+        });
+    }
+
     /// Opens the planner's "Add a character" (or, with `weapons`, "Add a
     /// weapon") dialog (the screenshot tool uses it).
     pub fn open_planner_add(&mut self, weapons: bool, window: &mut Window, cx: &mut Context<Self>) {

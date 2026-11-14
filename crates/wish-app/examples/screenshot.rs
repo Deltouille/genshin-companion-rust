@@ -227,16 +227,19 @@ fn main() -> Result<()> {
         // is empty).
         let account = cx.update(|cx| shell.read(cx).session().read(cx).account());
         if cx.update(|cx| library.read(cx).plan(account).is_empty()) {
-            // A leak: the first series of each role, a local specialty the
-            // game data doesn't have yet.
+            // A leak: the first series of each role (after the placeholder),
+            // a local specialty the game data doesn't have yet, and a weekly
+            // boss material not known yet ("?").
             let data = PlannerData::embedded();
-            let mut materials: CustomMaterials = Role::CHARACTER
-                .iter()
-                .map(|role| (*role, CustomItem::Material(data.families(*role)[0][0])))
-                .collect();
+            let first = |role: &Role| (*role, CustomItem::Material(data.families(*role)[1][0]));
+            let mut materials: CustomMaterials = Role::CHARACTER.iter().map(first).collect();
             materials.insert(
                 Role::LocalSpecialty,
                 CustomItem::Named("Moonfall Lily".to_owned()),
+            );
+            materials.insert(
+                Role::WeeklyMaterial,
+                CustomItem::Material(data.families(Role::WeeklyMaterial)[0][0]),
             );
             let example = [
                 PlanTarget::Character {
@@ -256,10 +259,7 @@ fn main() -> Result<()> {
                 PlanTarget::CustomWeapon {
                     name: "Leaked sword".to_owned(),
                     stars: 5,
-                    materials: Role::WEAPON
-                        .iter()
-                        .map(|role| (*role, CustomItem::Material(data.families(*role)[0][0])))
-                        .collect(),
+                    materials: Role::WEAPON.iter().map(first).collect(),
                     goal: WeaponGoal::full(5),
                 },
                 PlanTarget::Weapon {
@@ -358,6 +358,22 @@ fn main() -> Result<()> {
             cx.run_until_parked();
         }
         shoot(&mut cx, format!("planner-custom-new-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
+        // Choosing a role's material: its placeholder "?" first.
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_custom_picker(Role::TalentBook, window, cx)
+            })
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("planner-custom-pick-{mode_name}"))?;
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();

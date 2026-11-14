@@ -345,7 +345,7 @@ mod custom_characters {
     use wish_core::Store;
     use wish_core::planner::{
         CharacterGoal, CustomItem, CustomMaterials, Inventory, Level, PlanEntry, PlanTarget,
-        PlannerData, Role,
+        PlannerData, ResinOptions, ResinSource, Role,
     };
 
     fn data() -> &'static PlannerData {
@@ -401,8 +401,9 @@ mod custom_characters {
     #[test]
     fn each_role_offers_the_series_characters_use() {
         let data = data();
-        // The seven elements; the Traveler's Brilliant Diamond is not offered.
-        assert_eq!(data.families(Role::ElementalGem).len(), 7);
+        // The seven elements and the placeholder; the Traveler's Brilliant
+        // Diamond is not offered.
+        assert_eq!(data.families(Role::ElementalGem).len(), 8);
         for role in Role::ALL {
             let families = data.families(*role);
             assert!(families.len() > 5, "{role}");
@@ -429,6 +430,93 @@ mod custom_characters {
             assert!(named.is_empty());
             assert_eq!(need, data.character_cost(ganyu, &goal));
         }
+    }
+
+    #[test]
+    fn each_role_offers_its_placeholder_first() {
+        let data = data();
+        let ganyu = data.roles(data.character("ganyu").unwrap()).unwrap();
+        for role in Role::ALL {
+            let series = &data.families(*role)[0];
+            assert_eq!(series.len(), role.tiers(), "{role}");
+            for id in series {
+                let material = data.material(*id).unwrap();
+                assert!(material.is_placeholder(), "{role}");
+                assert!(material.icon.is_none() && material.days.is_empty());
+                assert!(material.name.starts_with(role.placeholder_name()));
+            }
+            // The tiers of the series it stands for.
+            if let Some(model) = ganyu.get(role) {
+                let rarities = |ids: &[u32]| -> Vec<u8> {
+                    ids.iter()
+                        .map(|id| data.material(*id).unwrap().rarity)
+                        .collect()
+                };
+                assert_eq!(rarities(series), rarities(model), "{role}");
+            }
+        }
+        // Plans and inventories store the ids: they never change.
+        assert_eq!(
+            data.families(Role::TalentBook)[0],
+            [9_000_500, 9_000_501, 9_000_502]
+        );
+        assert_eq!(
+            data.material(9_000_501).unwrap().name,
+            "Unknown talent book (3★)"
+        );
+        assert_eq!(data.families(Role::BossMaterial)[0], [9_000_300]);
+        assert_eq!(
+            data.craft_family(9_000_502),
+            Some([9_000_500, 9_000_501, 9_000_502].as_slice())
+        );
+        // A name typed finds the placeholder too.
+        assert_eq!(data.material_named("unknown gem (5★)"), Some(9_000_403));
+    }
+
+    #[test]
+    fn a_placeholder_costs_and_farms_as_the_material_it_stands_for() {
+        let data = data();
+        let unknown: CustomMaterials = Role::CHARACTER
+            .iter()
+            .map(|role| (*role, CustomItem::Material(data.families(*role)[0][0])))
+            .collect();
+        let (need, named) = data.custom_character_cost(&unknown, &CharacterGoal::FULL);
+        assert!(named.is_empty());
+        let (ganyu, _) = data.custom_character_cost(&ganyus_materials(), &CharacterGoal::FULL);
+        // The same counts, under the placeholders' ids.
+        let counts = |need: &wish_core::planner::Requirement| -> Vec<u64> {
+            let mut counts: Vec<u64> = need.materials.values().copied().collect();
+            counts.sort_unstable();
+            counts
+        };
+        assert_eq!(counts(&need), counts(&ganyu));
+        assert_eq!(need.materials[&9_000_200], 168);
+        assert_eq!(need.materials[&9_000_300], 46);
+        assert_eq!(need.materials[&9_000_502], 114);
+        assert_eq!(need.materials[&9_000_600], 18);
+        // Farmed with the same resin.
+        let options = ResinOptions::default();
+        let farm = |need: &wish_core::planner::Requirement| {
+            data.resin_estimate(&need.materials_with_exp(), &options)
+        };
+        assert_eq!(farm(&need), farm(&ganyu));
+        assert!(farm(&need).runs(ResinSource::TalentBooks) > 0);
+        // Crafted the same: 27 of the lowest tier make 9 of the next.
+        let entries = [PlanEntry {
+            id: 1,
+            target: PlanTarget::CustomCharacter {
+                name: "New".to_owned(),
+                stars: 5,
+                materials: unknown,
+                goal: CharacterGoal::FULL,
+            },
+        }];
+        let mut inventory = Inventory::default();
+        inventory.set(&CustomItem::Material(9_000_500), 9 + 27);
+        let allocation = data.allocate(&entries, &inventory);
+        let missing = |id| allocation.missing.materials.get(&id).copied().unwrap_or(0);
+        assert_eq!(missing(9_000_500), 0);
+        assert_eq!(missing(9_000_501), 63 - 9);
     }
 
     #[test]

@@ -133,7 +133,11 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     from weekly by ascension vs talents) in the same amounts. `PlannerData::roles` reads a character's,
     `families(role)` lists the series the characters use (picker options), and `custom_character_cost` costs the
     first regular character's goal with the custom materials in place of its own (a typed name for a tiered role
-    becomes "Name (2★)"…). `inventory.rs`: `Inventory`, what the player has, by material id or name.
+    becomes "Name (2★)"…). Each role also has a placeholder, "?" (`Role::placeholder_name`: "Unknown talent book
+    (2★)"…), for a material not known yet: `add_placeholders` copies the model's series (kind, rarities, crafting)
+    under ids from `PLACEHOLDER_IDS` (9,000,000 + 100 per role + the tier; stored in plans, inventories and
+    snapshots, so they never change; `Material::is_placeholder`, no icon, no domain days) and puts it first in
+    `families(role)`, so its costs, crafting and resin count as the real one's. `inventory.rs`: `Inventory`, what the player has, by material id or name.
     `allocate.rs`: `PlannerData::allocate` shares the inventory out over the plan in its order, like
     genshin-center: each `EntryShare` has what the entry needs and what it still lacks after the entries before
     it; `Allocation::missing` is the plan's. A tier short is crafted 3 for 1 from the tiers below (after the
@@ -369,13 +373,13 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       the fields, what the plan needs, crafts from below and still lacks of each, shared out again as the player
       types. `custom.rs`: the custom character or weapon dialog (Character | Weapon when new, name, stars, one material per
       role; clicking a role swaps
-      the form for a searchable grid of its series, or a typed name). Custom characters get the same sliders. The
+      the form for a searchable grid of its series, its placeholder "?" first, or a typed name). Custom characters get the same sliders. The
       plan and inventory are the `Library`'s (`plan`, `add_plan_entry`, `update_plan_entry`, `remove_plan_entry`,
       `inventory`, `set_owned`); removing asks first. A character's archive page has "Add to the planner".
       `resin.rs`: the resin estimate, one line on each card (its runs by source in a tooltip) and the plan's under
       "Still needed" by source, with "Resin options…" (`ResinForm`: world level, resin a day, sources counted; saved
       with `Library::set_resin_options`). Original Resin's icon is `images::Remote::resin`.
-      `Shell::open_custom_entry`, `open_inventory` and `open_resin_options` open the dialogs (the screenshot tool uses
+      `Shell::open_custom_entry`, `open_custom_picker` (a role's choice), `open_inventory` and `open_resin_options` open the dialogs (the screenshot tool uses
       them).
     - `archive/`: the character archive, like Project Amber's (`Page::Archive(ArchivePage::Characters)`,
       group "Archive"). `CharactersView` (entity: filters, sort and its direction, open character, level sliders;
@@ -503,12 +507,12 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
 - What the game tells us about stored wishes is recorded beside them, never written into them.
   The game id of a migrated wish goes in `wish_links`.
 - Every row an import adds carries its `import_id` (wishes, links, manual counters), so `Store::undo_import` can remove it.
+  A snapshot's characters, weapons, plan and inventory don't (they are merged, not just added): undoing its import
+  removes its wishes, and the `before-import` backup undoes the rest.
   Undo takes a backup first and marks the import undone rather than deleting the log entry.
 - Never hold the store lock during network requests.
 - Importers never guess. An unknown item or an unparseable time fails the import with a clear message,
   because a wrong rarity corrupts every pity count after it.
-  A snapshot's characters, weapons, plan and inventory don't (they are merged, not just added): undoing its import
-  removes its wishes, and the `before-import` backup undoes the rest.
 - Take a SQLite backup before any import, migration, restore or bulk edit.
   The exceptions are counting by hand and editing the plan: at most one `before-counting` / `before-planning`
   backup an hour each (`Store::backup_for_counting` / `backup_for_planning`; any other backup starts the hour

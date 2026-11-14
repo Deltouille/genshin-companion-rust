@@ -17,7 +17,7 @@ use serde::Deserialize;
 use crate::data::DataSource;
 use crate::error::{Error, Result};
 
-use super::custom::{Role, Roles};
+use super::custom::{PLACEHOLDER_IDS, Role, Roles};
 
 pub const PLANNER_FILE: &str = "planner.json";
 
@@ -60,6 +60,14 @@ pub struct Material {
     pub domain: Option<String>,
     /// The game's file name for its icon (`UI_ItemIcon_104315`).
     pub icon: Option<String>,
+}
+
+impl Material {
+    /// Whether it is a role's placeholder, "?", which a custom character or
+    /// weapon takes for a material not known yet (see `custom.rs`).
+    pub fn is_placeholder(&self) -> bool {
+        self.id >= PLACEHOLDER_IDS
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -219,6 +227,21 @@ impl PlannerData {
         Some(&self.craft_families[index])
     }
 
+    /// Adds a material the file doesn't have (a placeholder).
+    pub(super) fn add_material(&mut self, material: Material) {
+        self.material_by_id
+            .insert(material.id, self.materials.len());
+        self.materials.push(material);
+    }
+
+    /// Adds a series crafted three for one, lowest tier first.
+    pub(super) fn add_craft_family(&mut self, family: Vec<MaterialId>) {
+        let index = self.craft_families.len();
+        self.craft_family_of
+            .extend(family.iter().map(|&id| (id, index)));
+        self.craft_families.push(family);
+    }
+
     /// Groups the materials crafted at the alchemy table into their series:
     /// those the game files under one kind and one inventory rank, one per
     /// rarity. A group whose rarities don't follow each other is left out.
@@ -271,6 +294,12 @@ impl PlannerData {
         }
         if self.weapon_exp.len() != 5 || self.weapon_exp.iter().any(|t| t.len() != levels) {
             return bad("the weapon EXP tables are incomplete".to_owned());
+        }
+        if let Some(material) = self.materials.iter().find(|m| m.is_placeholder()) {
+            return bad(format!(
+                "material id {} is kept for placeholders",
+                material.id
+            ));
         }
         let costs = |owner: &str, steps: &[Vec<Cost>]| -> Result<()> {
             for cost in steps.iter().flatten() {

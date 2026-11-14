@@ -101,8 +101,9 @@ Like [genshin-center](https://genshin-center.com/planner)'s planner.
   you type.
 - A **custom character or weapon** covers one the game data doesn't have yet, such as a leak: give it a name,
   its stars and its materials (a character's six: common, local specialty, boss, gem, talent book, weekly boss;
-  a weapon's three: domain material, elite and common drops), picked from the game's or typed by name. It then
-  costs what any character, or weapon of its stars, costs.
+  a weapon's three: domain material, elite and common drops), picked from the game's or typed by name. A material
+  not known yet can be its role's placeholder, "?" (an unknown talent book, boss material…): it is counted, crafted
+  and farmed like the real one. It then costs what any character, or weapon of its stars, costs.
 - **Resin:** how much Original Resin farming what is still lacking takes on average, and how many days, as on
   genshin-center: on each card, and for the whole plan by source (talent books and weapon materials from domains,
   boss materials, Hero's Wit and Mora from ley lines). *Resin options…* sets your world level, the resin you spend
@@ -164,9 +165,9 @@ yourself once you've checked that everything is there.
 The app goes online for three things only:
 
 - importing from the game, through HoYoverse's API;
-- downloading the game's images the first time a page shows them, from the fan sites that already serve them:
 - syncing your characters from HoYoLAB, when you ask: your cookie goes to HoYoLAB's servers
   (`api-os-takumi.mihoyo.com`, `sg-public-api.hoyolab.com`), for those requests only;
+- downloading the game's images the first time a page shows them, from the fan sites that already serve them:
   paimon.moe (item icons, banner art) and Project Amber (everything else). They are kept in `cache/images/`, so
   each is downloaded once. Without a connection, pages show an empty space where an image would be. To use the
   app offline, Settings → Images downloads them all at once: every icon (about 35 MB), or everything with the

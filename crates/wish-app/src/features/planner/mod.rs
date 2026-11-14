@@ -33,7 +33,7 @@ use gpui_kit::{
 };
 use wish_core::planner::{
     CharacterGoal, CustomItem, EntryShare, Inventory, Level, Material, MaterialId, PlanEntry,
-    PlanTarget, PlanTotals, PlannerData, ResinOptions, WeaponGoal, exp_series,
+    PlanTarget, PlanTotals, PlannerData, ResinOptions, Role, WeaponGoal, exp_series,
 };
 
 use crate::app::images::Images;
@@ -137,6 +137,18 @@ impl PlannerView {
             plan.iter().find(|entry| entry.id == id).cloned()
         });
         self.open_custom(entry, window, cx);
+    }
+
+    /// Opens the dialog for a new custom character on the choice of its
+    /// `role`'s material (the screenshot tool uses it).
+    pub(crate) fn open_custom_picker(
+        &mut self,
+        role: Role,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let form = self.open_custom(None, window, cx);
+        form.update(cx, |form, cx| form.pick(role, window, cx));
     }
 
     /// Asks how many of material `id` (and the rest of its series) the
@@ -528,9 +540,9 @@ impl Render for PlannerView {
                         "For a character or a weapon the game data does not have yet: a name and \
                          its materials",
                     )
-                    .on_click(
-                        cx.listener(|this, _, window, cx| this.open_custom(None, window, cx)),
-                    ),
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.open_custom(None, window, cx);
+                    })),
             );
         PageFrame::new("Ascension planner", body)
             .subtitle("What raising your characters and weapons costs")
@@ -628,7 +640,9 @@ impl PlannerView {
                 .ghost()
                 .on_click(cx.listener({
                     let entry = entry.clone();
-                    move |this, _, window, cx| this.open_custom(Some(entry.clone()), window, cx)
+                    move |this, _, window, cx| {
+                        this.open_custom(Some(entry.clone()), window, cx);
+                    }
                 }));
                 let detail = Some(format!("Custom character · {stars}★"));
                 let header = entry_header(
@@ -650,7 +664,9 @@ impl PlannerView {
                 .ghost()
                 .on_click(cx.listener({
                     let entry = entry.clone();
-                    move |this, _, window, cx| this.open_custom(Some(entry.clone()), window, cx)
+                    move |this, _, window, cx| {
+                        this.open_custom(Some(entry.clone()), window, cx);
+                    }
                 }));
                 let steps = Level::weapon_steps(*stars);
                 let goal = Ranges {
