@@ -2,9 +2,10 @@
 //! Windows have no console, so a message printed there is lost and a
 //! double-click seems to do nothing.
 //!
-//! Every such failure goes to a file in the temporary folder
-//! ([`record_error`]); one before the main window (the data folder, the app
-//! already open) is also shown in a small window of its own.
+//! Every such failure goes to a file in this user's cache folder (the
+//! temporary folder when there is none; [`record_error`]); one before the
+//! main window (the data folder, the app already open) is also shown in a
+//! small window of its own.
 
 use std::io::Write as _;
 use std::path::PathBuf;
@@ -20,19 +21,33 @@ use wish_ui::button;
 
 use crate::{APP_ID, APP_TITLE, AppAssets};
 
-/// Where startup failures and panics are written.
+/// Past this size the error file starts over, the older lines kept once in
+/// `…-errors.old.txt`.
+const ERROR_FILE_LIMIT: u64 = 256 * 1024;
+
+/// Where startup failures and panics are written: this user's cache folder,
+/// not the temporary folder, which on Linux every user of the machine shares.
 fn error_file() -> PathBuf {
-    std::env::temp_dir().join(format!("{APP_ID}-errors.txt"))
+    let folder = wish_core::paths::user_cache_dir()
+        .filter(|folder| std::fs::create_dir_all(folder).is_ok())
+        .unwrap_or_else(std::env::temp_dir);
+    folder.join(format!("{APP_ID}-errors.txt"))
 }
 
 /// Adds `message` to the error file, with the time, and prints it.
 pub fn record_error(message: &str) {
     eprintln!("{APP_ID}: {message}");
     let line = format!("{} {message}\n", chrono::Local::now().format("%F %T"));
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(error_file());
+    let path = error_file();
+    if std::fs::metadata(&path).is_ok_and(|m| m.len() > ERROR_FILE_LIMIT) {
+        let _ = std::fs::rename(&path, path.with_extension("old.txt"));
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.create(true).append(true);
+    // Readable by this user only: it holds paths and error messages.
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let file = options.open(path);
     // Nowhere else to report a failure to write it.
     if let Ok(mut file) = file {
         let _ = file.write_all(line.as_bytes());

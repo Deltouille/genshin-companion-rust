@@ -34,6 +34,8 @@ static LICENSE_LINES: LazyLock<Vec<SharedString>> = LazyLock::new(|| {
 const PAIMON_MOE_LICENSE: &str = include_str!("../../../licenses/paimon-moe-MIT.txt");
 /// genshin-db's licence, for the planner's data (MIT).
 const GENSHIN_DB_LICENSE: &str = include_str!("../../../licenses/genshin-db-MIT.txt");
+/// genshin.py's licence, for the HoYoLAB sync's requests (MIT).
+const GENSHIN_PY_LICENSE: &str = include_str!("../../../licenses/genshin-py-MIT.txt");
 
 /// The Credits page. It has no state of its own, so it is a plain component
 /// (`RenderOnce`), built afresh each time it is shown.
@@ -75,6 +77,15 @@ impl RenderOnce for Credits {
         )
         .child(license(GENSHIN_DB_LICENSE));
 
+        let genshin_py = section(
+            "genshin.py",
+            "The HoYoLAB sync's requests, their signing and the meaning of HoYoLAB's error codes \
+             follow genshin.py, by thesadru and seriaati, used under the MIT License below.",
+            Some(("genshin.py", "https://github.com/seriaati/genshin.py")),
+            cx,
+        )
+        .child(license(GENSHIN_PY_LICENSE));
+
         let hoyoverse = section(
             "HoYoverse",
             "Genshin Impact, its characters, weapons and banner art, and all other game content \
@@ -104,12 +115,6 @@ impl RenderOnce for Credits {
                     "The average drops of domains, bosses and ley lines behind the planner's resin \
                      estimate, gathered by the Genshin Data Gathering team.",
                     "https://genshin-impact.fandom.com",
-                ),
-                (
-                    "genshin.py",
-                    "The HoYoLAB sync's requests and their signing follow genshin.py, by thesadru \
-                     and seriaati, under the MIT License.",
-                    "https://github.com/seriaati/genshin.py",
                 ),
                 (
                     "UIGF",
@@ -188,6 +193,7 @@ impl RenderOnce for Credits {
             .gap_6()
             .child(paimon)
             .child(genshin_db)
+            .child(genshin_py)
             .child(hoyoverse)
             .child(
                 div()

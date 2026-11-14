@@ -11,6 +11,7 @@ use crate::app::notices::{Notice, notify};
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{ActiveTheme as _, IconName, WindowExt as _};
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     App, AppContext as _, Context, Entity, Focusable as _, FontWeight, IntoElement,
     ParentElement as _, PathPromptOptions, SharedString, Styled as _, Subscription, Window, div,
@@ -210,6 +211,21 @@ impl ImportFlow {
                 format::plural(added, "wish", "wishes")
             )
         };
+        // What a snapshot's characters, weapons, plan and inventory changed.
+        let extras = report
+            .accounts
+            .iter()
+            .map(|a| a.extras.changes())
+            .sum::<u32>();
+        let headline = if extras > 0 {
+            format!(
+                "{headline} {} {} to your characters, weapons, plan or inventory.",
+                format::count(extras),
+                format::plural(extras, "change", "changes")
+            )
+        } else {
+            headline
+        };
         if report.warnings.is_empty() {
             notify(Notice::done(headline), cx);
         } else {
@@ -235,11 +251,36 @@ fn preview(prepared: &PreparedImport, cx: &App) -> impl IntoElement {
         if let Some(uid) = &account.uid {
             heading = format!("{heading} · UID {uid}");
         }
+        // A snapshot's characters, weapons, plan and inventory.
+        let extras = &account.extras;
+        let carried: Vec<String> = [
+            (extras.characters.len(), "character", "characters"),
+            (extras.weapons.len(), "weapon", "weapons"),
+            (extras.plan.len(), "plan entry", "plan entries"),
+            (
+                extras.inventory.materials.len() + extras.inventory.named.len(),
+                "material",
+                "materials",
+            ),
+        ]
+        .into_iter()
+        .filter(|(n, _, _)| *n > 0)
+        .map(|(n, one, many)| {
+            format!(
+                "{} {}",
+                format::count(n as u64),
+                format::plural(n as u32, one, many)
+            )
+        })
+        .collect();
         div()
             .v_flex()
             .gap_1()
             .child(div().font_weight(FontWeight::SEMIBOLD).child(heading))
             .child(div().text_sm().child(pools))
+            .when(!carried.is_empty(), |this| {
+                this.child(div().text_sm().child(format!("And {}", carried.join(", "))))
+            })
     });
 
     let check = prepared.paimon_check.as_ref().map(|check| {
@@ -277,11 +318,11 @@ fn preview(prepared: &PreparedImport, cx: &App) -> impl IntoElement {
                 .text_color(theme.warning)
                 .child(warning.clone())
         }))
-        .child(
-            div().text_sm().text_color(theme.muted_foreground).child(
-                "Wishes that are already stored stay unchanged, and a backup is taken first.",
-            ),
-        )
+        .child(div().text_sm().text_color(theme.muted_foreground).child(
+            "Wishes that are already stored stay unchanged, and a backup is taken first. \
+                 Characters and weapons are added or raised, never lowered; plan entries and \
+                 materials you already have are kept as they are.",
+        ))
 }
 
 /// A dialog that reports something and only needs acknowledging.

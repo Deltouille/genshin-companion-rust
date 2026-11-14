@@ -54,7 +54,7 @@ jobs:
       # No build cache: a release starts clean, from Cargo.lock alone.
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
         with:
-          toolchain: stable
+          toolchain: 1.100.0 # as rust-toolchain.toml: raise both together
           targets: ${{ matrix.target }}
 
       - name: Check the tag matches the version

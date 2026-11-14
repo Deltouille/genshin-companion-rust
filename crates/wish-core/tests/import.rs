@@ -150,6 +150,190 @@ fn snapshot_round_trip_is_lossless() {
     assert!(merged.warnings.is_empty(), "{:?}", merged.warnings);
 }
 
+/// Since version 2 a snapshot also keeps each account's characters, weapons,
+/// plan and inventory, so the mirror gives them back (review BUG-15).
+#[test]
+fn a_snapshot_keeps_the_collection_the_plan_and_the_inventory() {
+    use wish_core::collection::{OwnedCharacter, OwnedWeapon};
+    use wish_core::planner::{CharacterGoal, CustomItem, Level, PlanTarget, WeaponGoal};
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut original = open_store(&dir.path().join("a"));
+    original.apply_import(sample_batch()).unwrap();
+    let main = original.accounts().unwrap()[0].id;
+    let ganyu = OwnedCharacter {
+        level: Level::MAX,
+        constellation: 2,
+        talents: [9, 10, 8],
+        favourite: true,
+        ..OwnedCharacter::new("ganyu")
+    };
+    original.save_owned_character(main, &ganyu).unwrap();
+    let amos = OwnedWeapon {
+        level: Level::new(80, 5).unwrap(),
+        refinement: 2,
+        holder: Some("ganyu".to_owned()),
+        ..OwnedWeapon::new("amosbow")
+    };
+    original.add_owned_weapon(main, &amos).unwrap();
+    original
+        .add_owned_weapon(main, &OwnedWeapon::new("favoniussword"))
+        .unwrap();
+    let plan = [
+        PlanTarget::Character {
+            key: "bennett".to_owned(),
+            goal: CharacterGoal::FULL,
+        },
+        PlanTarget::Weapon {
+            key: "amosbow".to_owned(),
+            goal: WeaponGoal::full(5),
+        },
+    ];
+    for target in &plan {
+        original.add_plan_entry(main, target).unwrap();
+    }
+    original
+        .set_owned_many(
+            main,
+            &[
+                (CustomItem::Material(104003), 40),
+                (CustomItem::Named("Leaked Flower".to_owned()), 3),
+            ],
+        )
+        .unwrap();
+
+    let exported = Snapshot::from_store(&original).unwrap();
+    assert_eq!(exported.version, 2);
+    let json = exported.to_json();
+    let read_back = Snapshot::from_json(&json).unwrap();
+    assert_eq!(read_back, exported);
+
+    // Into a new install: everything comes back.
+    let mut restored = open_store(&dir.path().join("b"));
+    let report = restored.apply_import(read_back.into_batch()).unwrap();
+    let extras = report.accounts[0].extras;
+    assert_eq!(
+        (
+            extras.characters_added,
+            extras.weapons_added,
+            extras.plan_added,
+            extras.inventory_added
+        ),
+        (1, 2, 2, 2)
+    );
+    let back = restored.accounts().unwrap()[0].id;
+    assert_eq!(
+        restored.collection(back).unwrap().characters,
+        original.collection(main).unwrap().characters
+    );
+    let weapons = |store: &Store, account| {
+        let mut weapons: Vec<_> = (store.collection(account).unwrap().weapons.into_iter())
+            .map(|w| (w.key, w.level, w.refinement, w.holder))
+            .collect();
+        weapons.sort();
+        weapons
+    };
+    assert_eq!(weapons(&restored, back), weapons(&original, main));
+    let targets = |store: &Store, account| -> Vec<PlanTarget> {
+        (store.plan(account).unwrap().into_iter())
+            .map(|e| e.target)
+            .collect()
+    };
+    assert_eq!(targets(&restored, back), plan);
+    assert_eq!(
+        restored.inventory(back).unwrap(),
+        original.inventory(main).unwrap()
+    );
+    assert_eq!(
+        Snapshot::from_store(&restored).unwrap().accounts,
+        exported.accounts
+    );
+
+    // Imported again: nothing is added twice.
+    let again = restored
+        .apply_import(Snapshot::from_json(&json).unwrap().into_batch())
+        .unwrap();
+    assert_eq!(again.accounts[0].extras.changes(), 0);
+    assert_eq!(restored.collection(back).unwrap().weapons.len(), 2);
+}
+
+/// Merging an older snapshot lowers nothing: levels stay, counts the
+/// account has stay, a planned character isn't planned twice.
+#[test]
+fn a_snapshot_merge_never_lowers_what_is_stored() {
+    use wish_core::collection::OwnedCharacter;
+    use wish_core::planner::{CharacterGoal, CustomItem, Level, PlanTarget};
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = open_store(dir.path());
+    store.apply_import(sample_batch()).unwrap();
+    let main = store.accounts().unwrap()[0].id;
+    let old = OwnedCharacter {
+        level: Level::new(60, 3).unwrap(),
+        talents: [1, 6, 6],
+        ..OwnedCharacter::new("ganyu")
+    };
+    store.save_owned_character(main, &old).unwrap();
+    store
+        .add_plan_entry(
+            main,
+            &PlanTarget::Character {
+                key: "ganyu".to_owned(),
+                goal: CharacterGoal::FULL,
+            },
+        )
+        .unwrap();
+    store
+        .set_owned(main, &CustomItem::Material(104003), 10)
+        .unwrap();
+    let older = Snapshot::from_store(&store).unwrap();
+
+    // Since then: Ganyu went up, a Hero's Wit was spent, the plan moved on.
+    let now = OwnedCharacter {
+        level: Level::MAX,
+        constellation: 1,
+        talents: [6, 9, 8],
+        ..old.clone()
+    };
+    store.save_owned_character(main, &now).unwrap();
+    store
+        .set_owned(main, &CustomItem::Material(104003), 9)
+        .unwrap();
+    let entry = store.plan(main).unwrap().remove(0);
+    let mut raised = entry.clone();
+    raised.target.goal_mut().unwrap().from = Level::new(80, 6).unwrap();
+    store.update_plan_entry(&raised).unwrap();
+
+    let report = store.apply_import(older.into_batch()).unwrap();
+    assert_eq!(report.accounts[0].extras.changes(), 0);
+    assert_eq!(store.collection(main).unwrap().characters, [now]);
+    assert_eq!(
+        store
+            .inventory(main)
+            .unwrap()
+            .owned(&CustomItem::Material(104003)),
+        9
+    );
+    assert_eq!(store.plan(main).unwrap(), [raised]);
+}
+
+/// A snapshot written before version 2 still reads: the same file, with no
+/// characters, weapons, plan or inventory.
+#[test]
+fn a_version_1_snapshot_still_reads() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = open_store(dir.path());
+    store.apply_import(sample_batch()).unwrap();
+    let mut json: Value =
+        serde_json::from_slice(&Snapshot::from_store(&store).unwrap().to_json()).unwrap();
+    json["version"] = Value::from(1);
+    let v1 = Snapshot::from_json(json.to_string().as_bytes()).unwrap();
+    assert_eq!(v1.version, 1);
+    assert!(v1.accounts.iter().all(|a| a.characters.is_empty()));
+    let report = store.apply_import(v1.into_batch()).unwrap();
+    assert_eq!(report.added(), 0);
+}
+
 #[test]
 fn unknown_items_fail_the_whole_import() {
     let save = SAMPLE.replace("\"venti\"", "\"brand_new_character\"");

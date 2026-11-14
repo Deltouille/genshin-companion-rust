@@ -38,7 +38,8 @@ Commands:
                           the cookie)
   hoyolab-fetch [--uid U] Read your HoYoLAB cookie from stdin and show what a sync of your characters
                           and their weapons would change (U: which game account; else the highest AR)
-  hoyolab-sync [--uid U]  The same, then write it (into the account of that UID, made if needed)
+  hoyolab-sync [--uid U]  The same, then write it (into the account of that UID; else the only one
+                          without a UID, which takes it; else a new one)
                           (--from F: read the details hoyolab-check --raw saved, with --uid, instead
                           of asking HoYoLAB)
 
@@ -53,6 +54,31 @@ fn main() -> Result<()> {
     let raw = take_option(&mut args, "--raw")?;
     let uid = take_option(&mut args, "--uid")?;
     let from = take_option(&mut args, "--from")?;
+
+    // One process at a time writes to a data folder: a command that writes
+    // takes its lock, as the app does, and stops while the app has it.
+    let writes = matches!(
+        args.first().map(String::as_str),
+        Some(
+            "import-paimon"
+                | "import-snapshot"
+                | "import-game"
+                | "undo"
+                | "backup"
+                | "hoyolab-sync"
+        )
+    );
+    let _lock = if writes {
+        let lock = paths.lock()?;
+        Some(lock.with_context(|| {
+            format!(
+                "the app is open on this data folder ({}): close it first",
+                paths.root().display()
+            )
+        })?)
+    } else {
+        None
+    };
 
     match args.iter().map(String::as_str).collect::<Vec<_>>()[..] {
         ["import-paimon", file] => import_paimon(&paths, Path::new(file)),
@@ -635,7 +661,6 @@ fn hoyolab_sync(
 ) -> Result<()> {
     use wish_core::archive::ArchiveData;
     use wish_core::collection::{Change, Collection, SyncNote, plan_sync};
-    use wish_core::model::Server;
     use wish_core::planner::{Level, PlannerData};
 
     let (account, details) = match from {
@@ -645,15 +670,24 @@ fn hoyolab_sync(
     let account = &account;
 
     let mut store = Store::open(paths.clone())?;
-    let existing = store.account_with_uid(&account.uid)?;
+    // Into the suggested account, as `import-game`: the one with the UID,
+    // else the only account without a UID, else a new one.
+    let targets = store.sync_targets(&account.uid, None)?;
+    let existing = targets.targets[targets.suggested].clone();
+    let others = targets.targets.len() - 1;
     println!(
-        "HoYoLAB: {} ({}, AR {}) → {}",
+        "HoYoLAB: {} ({}, AR {}) → {}{}",
         account.uid,
         account.nickname,
         account.level,
         existing
             .as_ref()
-            .map_or("a new account".to_owned(), |a| format!("“{}”", a.label))
+            .map_or("a new account".to_owned(), |a| format!("“{}”", a.label)),
+        if others > 0 {
+            format!(" (suggested; {others} other choices in the app)")
+        } else {
+            String::new()
+        }
     );
     let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
     let current = match &existing {
@@ -768,19 +802,8 @@ fn hoyolab_sync(
         println!("\nNothing was written. `hoyolab-sync` writes it, after a backup.");
         return Ok(());
     }
-    let target = match existing {
-        Some(existing) => existing.id,
-        None => {
-            store
-                .add_account(
-                    &account.nickname,
-                    Some(&account.uid),
-                    Server::from_api_region(&account.region),
-                )?
-                .id
-        }
-    };
-    let (applied, backup) = store.apply_sync(target, &details, planner, archive)?;
+    let target = existing.map(|existing| existing.id);
+    let (_, applied, backup) = store.apply_sync(target, account, &details, planner, archive)?;
     println!(
         "\nWritten: {} changes. Backup: {}",
         applied.changes(),

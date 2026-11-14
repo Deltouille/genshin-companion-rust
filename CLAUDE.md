@@ -44,7 +44,7 @@ starting a milestone, and tick its checkboxes when a step is done.
   - `hoyolab-check [--raw DIR]` reads a HoYoLAB cookie from stdin and prints what HoYoLAB tells of the account
     (accounts, characters, talents, the authkey), writing nothing and never printing the cookie or the authkey.
   - `hoyolab-fetch [--uid U]` shows what a HoYoLAB sync would change in the collection, writing nothing;
-    `hoyolab-sync` writes it. `--from FILE --uid U` reads the details `hoyolab-check --raw` saved, offline.
+    `hoyolab-sync` writes it, into the account `Store::sync_targets` suggests (the app lets the player choose). `--from FILE --uid U` reads the details `hoyolab-check --raw` saved, offline.
   - `summary` lists import ids for `undo`.
   Without `--data-dir` it uses the real app data folder, so point it at a scratch folder when experimenting.
 - `node tools/extract-paimon-data.mjs`: regenerates `crates/wish-core/data/*.json` from `reference/`.
@@ -81,6 +81,8 @@ starting a milestone, and tick its checkboxes when a step is done.
   every push, every Monday and before each release. An unmaintained crate fails it only when it is a direct
   dependency (those under GPUI Kit wait for its updates); an advisory to live with goes in `ignore`, with a reason.
   Locally: `nix shell nixpkgs#cargo-deny -c cargo-deny --locked check advisories sources`.
+  Rust is pinned (`rust-toolchain.toml` and each workflow's `toolchain:`, 1.100.0) so two builds of a commit are
+  the same; Dependabot doesn't raise it: raise both together. The Nix dev shell brings its own Rust.
 
 ## Layout
 
@@ -152,11 +154,16 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     material per role); `Store::plan`, `add_plan_entry`, `update_plan_entry`, `remove_plan_entry`.
     `store/inventory.rs`: `inventory` (one row per material owned) with `Store::inventory` and `set_owned` (0
     removes the row). Each write is one transaction after at most one `before-planning` backup an hour. Costs are
-    never stored. The plan and the inventory are app-wide (not per account) for now, and not yet in the snapshot
-    export or the mirror.
+    never stored. Each account has its own plan and inventory (migration 007); the snapshot and the mirror carry
+    them.
   - `store/`: SQLite (`Store`), migrations in `store/schema/`, backups.
   - `import/`: parsers that build an in-memory `ImportBatch`; only `Store::apply_import` writes.
-  - `snapshot.rs`: the app's lossless JSON export. `uigf.rs`: UIGF v4 export and parsing.
+  - `snapshot.rs`: the app's lossless JSON export, and the mirror's file. Version 2: each account's wishes,
+    characters, weapons, plan and inventory, the last four as records of the format's own (`SnapshotCharacter`,
+    `SnapshotPlanEntry`…), not the app's types; version 1 files still read. Importing one merges them
+    (`AccountBatch::extras`, `store/merge.rs`, in the import's transaction): characters and weapon copies added or
+    raised, never lowered; plan entries for a character, weapon or custom name not planned yet, and materials the
+    account has none of, added. So the same snapshot twice changes nothing. `uigf.rs`: UIGF v4 export and parsing.
     `excel.rs`: paimon.moe's v3 spreadsheet, export and import.
   - `import/manual.rs`: batches for counting by hand (`+1`/`+10`, one 4★/5★), each an `ImportSource::Manual` import.
   - `engine.rs`: banners, pity, 50/50, guarantees (`engine::analyze`). `stats.rs`: summary numbers and monthly counts.
@@ -172,8 +179,12 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     doesn't send, counted as not ascended; levels above 90 counted as 90/90; characters, weapons or talents the
     data lacks, left out). Characters by game id (the Traveler 10000005/10000007 by element), talents by their
     names in `archive.json`, less the +3 an active C3/C5 gives; a weapon copy is the one its holder has, else one
-    without a holder, else a new one. `Store::apply_sync` works the plan out again against the stored collection
-    and writes it in one transaction after a `before-sync` backup; `Store::account_with_uid`.
+    without a holder, else one a character of the sync let go of (it holds another weapon in the game: a swap
+    moves the copies), else a new one. `Store::sync_targets(uid, shown)`: where a sync can go, as the game import
+    offers it: the account with that UID; without one, a new account, then each account without a UID (the one shown
+    suggested when it has none, else the only one without). `Store::apply_sync(target, game, …)` gives the chosen
+    account the UID (and the server) or makes the new one, works the plan out again against the stored collection,
+    and writes it all in one transaction after a `before-sync` backup.
   - `import/paimon_check.rs`: compares the engine with the values paimon.moe stored in a save.
   - `import/api.rs` (link parsing, fetching behind a `Transport` trait), `import/game_cache.rs`
     (finding the link on disk), `import/api_plan.rs` (new wishes vs links vs held back).
@@ -266,11 +277,12 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       Every database write goes through `Library::write`, which runs it on the background executor. Writes queue
       on the store lock and run detached, so they finish even if the caller drops the returned task. The state is
       reloaded after a failed write too, which undoes what a page showed at once (the planner's sliders, order and
-      inventory); a panic in a write becomes its error (the lock it poisoned is taken back: each write is one
-      transaction); quitting waits up to 5 s for the writes under way (`on_app_quit`). Report a write's error to the
+      inventory), and after a panic in a write, which becomes its error (the lock it poisoned is taken back: each
+      write is one transaction). Every write but a backup by hand refreshes the mirror folder (`changes_data`):
+      the collection, the plan and the inventory are in its snapshot too; quitting waits up to 5 s for the writes under way (`on_app_quit`). Report a write's error to the
       user (the planner's `report_errors`); never `.detach()` it silently. Settings change through
       `change_settings` only: at once in memory, saved in order (an older save never overwrites a newer one). A
-      `settings.json` that doesn't parse is renamed `settings.json.damaged` and Settings says so
+      `settings.json` that doesn't parse is renamed `settings.json.<UTC time>.damaged` and Settings says so
       (`Settings::load_or_set_aside`).
     - `session.rs`: the `Session` entity: selected account (kept valid when the data changes) and the one flow.
     - `images.rs`: `Images`, the game's images by what they show (`item`, `banner`, `character`, `material`,
@@ -401,13 +413,14 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       from the clipboard (then cleared); `Library::fetch_from_hoyolab` (every Genshin account behind the cookie,
       each a `HoyolabAccount` with its `SyncPlan`; the fields are emptied when it starts, the cookie dropped when
       its requests end), a preview (account choice, counts, each change, the notes), then
-      `Library::apply_hoyolab_sync` (into the account of that UID, made from the nickname if none; the session
-      selects it). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
+      `Library::apply_hoyolab_sync` (into the account the player picks among `HoyolabAccount::choices`, each with
+      its own `SyncPlan`; the session selects it). A weapon that only changes hands shows as moved (⇄). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
     - `settings/`: `SettingsPage` (entity) and its rows, in a centred column, or two on a page at least
       `TWO_COLUMNS_REMS` wide (your data and recent imports on the left, the rest on the right); `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
       `images.rs` (the image cache: size, empty, download all for offline use).
-    - `credits/`: `Credits` (`RenderOnce`). It must keep paimon.moe's and genshin-db's MIT notices
-      (`licenses/paimon-moe-MIT.txt`, `licenses/genshin-db-MIT.txt`)
+    - `credits/`: `Credits` (`RenderOnce`). It must keep paimon.moe's, genshin-db's and genshin.py's MIT notices
+      (`licenses/paimon-moe-MIT.txt`, `licenses/genshin-db-MIT.txt`, `licenses/genshin-py-MIT.txt`; the `hoyolab`
+      crate has its own `LICENSE` and genshin.py's notice, to be published alone)
       and state that the game's art and names are HoYoverse's. Credit any new third-party asset there.
       "Open-source components" shows `THIRD-PARTY-LICENSES.txt` in a dialog (`open_licenses`, a uniform list of its
       lines wrapped at 96 characters; `Shell::open_licenses` for the screenshot tool).
@@ -494,6 +507,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
 - Never hold the store lock during network requests.
 - Importers never guess. An unknown item or an unparseable time fails the import with a clear message,
   because a wrong rarity corrupts every pity count after it.
+  A snapshot's characters, weapons, plan and inventory don't (they are merged, not just added): undoing its import
+  removes its wishes, and the `before-import` backup undoes the rest.
 - Take a SQLite backup before any import, migration, restore or bulk edit.
   The exceptions are counting by hand and editing the plan: at most one `before-counting` / `before-planning`
   backup an hour each (`Store::backup_for_counting` / `backup_for_planning`; any other backup starts the hour
@@ -502,9 +517,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   (`…-123Z-reason.db`); the older local-time names still read, and backups sort by the instant, not the name.
 - A restored file may hold no trigger or view (the app makes none): it would act on the next import.
 - One process at a time uses a data folder (`AppPaths::lock`, `<data dir>/.lock`); a second start says the app
-  is already open. A failure before the main window (and every panic) goes to `genshin-companion-errors.txt` in the
-  temporary folder, and before the window also to a small window (`startup_error.rs`): release builds on Windows
-  have no console.
+  is already open, and `wishctl`'s writing commands stop while the app has it. A failure before the main window (and every panic) goes to `genshin-companion-errors.txt` in the
+  user's cache folder (`paths::user_cache_dir`; the temporary folder only without one, since on Linux every user
+  shares it; readable by the user only, started over past 256 KiB), and before the window also to a small window
+  (`startup_error.rs`): release builds on Windows have no console.
 - Every write that changes several rows happens in a single transaction.
   A fetch is staged in memory and written only after the user confirms.
 - Never persist computed values (pity, banner, 50/50, guarantee). Recompute them from raw rows.

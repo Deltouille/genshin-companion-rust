@@ -107,11 +107,23 @@ impl WeaponsView {
                 )
                 .footer(dialog_footer(button("confirm").danger().label("Remove")))
                 .on_ok(move |_, _, cx| {
-                    library
-                        .update(cx, |library, cx| {
-                            library.remove_owned_weapon(account, id, cx).detach()
+                    let task = library.update(cx, |library, cx| {
+                        library.remove_owned_weapon(account, id, cx)
+                    });
+                    if let Ok(task) = task {
+                        // A failed removal brings the copy back: say why.
+                        cx.spawn(async move |cx| {
+                            if let Err(err) = task.await {
+                                cx.update(|cx| {
+                                    notify(
+                                        Notice::failed(format!("The copy wasn’t removed: {err:#}")),
+                                        cx,
+                                    );
+                                });
+                            }
                         })
-                        .ok();
+                        .detach();
+                    }
                     true
                 })
         });

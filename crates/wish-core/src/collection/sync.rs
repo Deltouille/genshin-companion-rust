@@ -99,6 +99,7 @@ pub fn plan_sync(
     let mut plan = SyncPlan::default();
     // Copies without a holder that a character of the sync took.
     let mut claimed: HashSet<i64> = HashSet::new();
+    let moving = moving_holders(details, current, planner);
     for detail in details {
         let base = &detail.base;
         let Some(key) = character_key(detail, planner) else {
@@ -164,7 +165,7 @@ pub fn plan_sync(
             Some(weapon) => {
                 let synced = held_weapon(&weapon.key, &key, &detail.weapon);
                 plan.weapons
-                    .push(weapon_change(synced, current, &mut claimed));
+                    .push(weapon_change(synced, current, &moving, &mut claimed));
             }
             None => plan.notes.push(SyncNote::UnknownWeapon {
                 name: detail.weapon.name.clone(),
@@ -274,24 +275,47 @@ fn held_weapon(key: &str, holder: &str, weapon: &EquippedWeapon) -> OwnedWeapon 
     }
 }
 
+/// The characters of the sync who hold another weapon in the game than the
+/// one the collection gives them: they let go of their copy, which another
+/// character of the sync may have taken (two characters swapped weapons).
+fn moving_holders(
+    details: &[CharacterDetail],
+    current: &Collection,
+    planner: &PlannerData,
+) -> HashSet<String> {
+    (details.iter())
+        .filter_map(|detail| {
+            let key = character_key(detail, planner)?;
+            let weapon = planner
+                .weapons()
+                .iter()
+                .find(|w| w.id == detail.weapon.id)?;
+            let held = current.weapon_of(&key)?;
+            (held.key != weapon.key).then_some(key)
+        })
+        .collect()
+}
+
 /// Where `synced` goes: the copy its holder already holds, else one of that
-/// weapon without a holder (each taken once), else a new copy.
+/// weapon without a holder, else one a character of the sync let go of
+/// (`moving`; each copy taken once), else a new copy.
 fn weapon_change(
     synced: OwnedWeapon,
     current: &Collection,
+    moving: &HashSet<String>,
     claimed: &mut HashSet<i64>,
 ) -> Change<OwnedWeapon> {
     let held = current
         .weapons
         .iter()
         .find(|w| w.key == synced.key && w.holder == synced.holder);
-    let free = || {
-        current
-            .weapons
-            .iter()
-            .find(|w| w.key == synced.key && w.holder.is_none() && !claimed.contains(&w.id))
+    let take = |free: &dyn Fn(&OwnedWeapon) -> bool| {
+        (current.weapons.iter())
+            .find(|w| w.key == synced.key && !claimed.contains(&w.id) && free(w))
     };
-    let Some(before) = held.or_else(free) else {
+    let unheld = || take(&|w| w.holder.is_none());
+    let let_go = || take(&|w| w.holder.as_ref().is_some_and(|h| moving.contains(h)));
+    let Some(before) = held.or_else(unheld).or_else(let_go) else {
         return Change::Added(synced);
     };
     claimed.insert(before.id);

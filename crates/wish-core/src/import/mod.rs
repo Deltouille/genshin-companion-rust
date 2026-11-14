@@ -14,9 +14,11 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::collection::{OwnedCharacter, OwnedWeapon};
 use crate::data::GameData;
 use crate::error::{Error, Result};
 use crate::model::{Account, AccountId, ManualCounters, Pool, Server, Wish, WishId, text_enum};
+use crate::planner::{Inventory, PlanTarget};
 use crate::snapshot::Snapshot;
 use crate::store::Store;
 
@@ -173,6 +175,56 @@ pub struct AccountBatch {
     pub links: Vec<WishLink>,
     /// An existing account (without a UID yet) chosen by the user.
     pub merge_into: Option<AccountId>,
+    /// What a snapshot carries besides the wishes.
+    pub extras: AccountExtras,
+}
+
+/// What an account owns, its plan and its inventory, as a snapshot carries
+/// them. Merged into the account without lowering anything stored
+/// (`Store::apply_import`). These rows don't carry the import's id:
+/// undoing the import removes its wishes, and restoring the backup taken
+/// before it undoes the rest.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct AccountExtras {
+    pub characters: Vec<OwnedCharacter>,
+    /// Copies, their ids unused.
+    pub weapons: Vec<OwnedWeapon>,
+    /// In the plan's order.
+    pub plan: Vec<PlanTarget>,
+    pub inventory: Inventory,
+}
+
+impl AccountExtras {
+    pub fn is_empty(&self) -> bool {
+        self.characters.is_empty()
+            && self.weapons.is_empty()
+            && self.plan.is_empty()
+            && self.inventory.materials.is_empty()
+            && self.inventory.named.is_empty()
+    }
+}
+
+/// What merging an account's [`AccountExtras`] changed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ExtrasReport {
+    pub characters_added: u32,
+    pub characters_raised: u32,
+    pub weapons_added: u32,
+    pub weapons_raised: u32,
+    pub plan_added: u32,
+    /// Materials the account had none of.
+    pub inventory_added: u32,
+}
+
+impl ExtrasReport {
+    pub fn changes(&self) -> u32 {
+        self.characters_added
+            + self.characters_raised
+            + self.weapons_added
+            + self.weapons_raised
+            + self.plan_added
+            + self.inventory_added
+    }
 }
 
 /// The game's id for a wish stored without one (migrated from paimon.moe).
@@ -191,7 +243,8 @@ pub struct OriginalFile {
 /// What applying a batch changed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImportReport {
-    /// Backup taken just before writing (none when the database was empty).
+    /// Backup taken just before writing (none when the database had no
+    /// account yet).
     pub backup: Option<PathBuf>,
     /// Where the original file was archived.
     pub archived: Option<PathBuf>,
@@ -217,6 +270,8 @@ pub struct AccountReport {
     pub pools: BTreeMap<Pool, PoolCounts>,
     /// Game ids newly recorded for stored wishes.
     pub linked: u32,
+    /// What a snapshot's characters, weapons, plan and inventory changed.
+    pub extras: ExtrasReport,
 }
 
 /// One entry of the import log.

@@ -1,0 +1,8 @@
+# The Rust the CI checks with and the releases are built with, so two builds of
+# one commit are the same. Dependabot doesn't raise it: raise it by hand, with
+# the `toolchain:` of the workflows. (The Nix dev shell brings its own Rust and
+# ignores this file.)
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

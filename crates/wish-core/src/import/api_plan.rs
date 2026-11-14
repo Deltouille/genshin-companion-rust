@@ -416,6 +416,81 @@ mod tests {
         );
     }
 
+    /// A history without a UID (a paimon.moe save of the manual counter),
+    /// then a HoYoLAB sync into its account: that account takes the UID, and
+    /// the next import from the game goes there, its wishes recognised,
+    /// rather than to a second account (review BUG-16).
+    #[test]
+    fn a_sync_into_an_account_without_uid_keeps_the_game_import_there() {
+        use crate::archive::ArchiveData;
+        use crate::planner::PlannerData;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let mut save: serde_json::Value = serde_json::from_str(SAMPLE).unwrap();
+        save.as_object_mut().unwrap().remove("wish-uid");
+        let batch = paimon::parse(save.to_string().as_bytes(), GameData::embedded()).unwrap();
+        store.apply_import(batch).unwrap();
+        let accounts = store.accounts().unwrap();
+        let main = accounts.iter().find(|a| a.label == "Main").unwrap().clone();
+        assert!(accounts.iter().all(|a| a.uid.is_none()));
+
+        // A new account, then each account without a UID; the one shown is
+        // suggested, and with none shown, a new account (two have no UID).
+        let targets = store.sync_targets("700000001", Some(main.id)).unwrap();
+        assert_eq!(targets.targets[0], None);
+        assert_eq!(targets.targets.len(), accounts.len() + 1);
+        assert_eq!(targets.targets[targets.suggested], Some(main.clone()));
+        assert_eq!(store.sync_targets("700000001", None).unwrap().suggested, 0);
+
+        let game = hoyolab::GameAccount {
+            uid: "700000001".to_owned(),
+            region: "os_euro".to_owned(),
+            nickname: "Lumine".to_owned(),
+            level: 60,
+            game_biz: "hk4e_global".to_owned(),
+        };
+        let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
+        let (synced, _, _) = store
+            .apply_sync(Some(main.id), &game, &[], planner, archive)
+            .unwrap();
+        assert_eq!(synced, main.id);
+        let after = store.accounts().unwrap();
+        assert_eq!(after.len(), accounts.len(), "no account was made");
+        let main_now = after.iter().find(|a| a.id == main.id).unwrap();
+        assert_eq!(main_now.uid.as_deref(), Some("700000001"));
+        assert_eq!(main_now.server, Some(Server::Europe));
+
+        // The game's history now goes to "Main", its wishes recognised.
+        let api = FakeApi::default().with_type("301", main_character_history());
+        let next = plan(fetch_from(&api, &store), &store, GameData::embedded()).unwrap();
+        assert_eq!(next.targets.len(), 1);
+        assert!(matches!(&next.targets[0].target, Target::Existing(a) if a.id == main.id));
+        assert_eq!(next.targets[0].linked, 13);
+
+        // From now on a sync of that UID goes only there, and no other
+        // account can take the UID.
+        let again = store.sync_targets("700000001", None).unwrap();
+        assert_eq!(again.targets, [Some(main_now.clone())]);
+        let other = after.iter().find(|a| a.id != main.id).unwrap();
+        let taken = store.apply_sync(Some(other.id), &game, &[], planner, archive);
+        assert!(matches!(taken, Err(Error::UidTaken { .. })), "{taken:?}");
+        // A new account asked for meanwhile goes to the account with the UID.
+        let (into, _, _) = store
+            .apply_sync(None, &game, &[], planner, archive)
+            .unwrap();
+        assert_eq!(into, main.id);
+        assert_eq!(store.accounts().unwrap().len(), accounts.len());
+        // An account with another UID is refused.
+        let mut stranger = game.clone();
+        stranger.uid = "800000002".to_owned();
+        let wrong = store.apply_sync(Some(main.id), &stranger, &[], planner, archive);
+        assert!(
+            matches!(wrong, Err(Error::AccountMismatch { .. })),
+            "{wrong:?}"
+        );
+    }
+
     #[test]
     fn a_new_uid_can_go_to_a_new_account_or_one_without_uid() {
         let dir = tempfile::tempdir().unwrap();

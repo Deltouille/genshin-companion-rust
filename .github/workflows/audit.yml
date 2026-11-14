@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch
         with:
-          toolchain: stable
+          toolchain: 1.100.0 # as rust-toolchain.toml: raise both together
       - name: Install cargo-deny 0.20.2
         run: |
           curl -sSfL -o cargo-deny.tar.gz \

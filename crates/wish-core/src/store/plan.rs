@@ -2,7 +2,7 @@
 //! after at most one backup an hour (`before-planning`).
 
 use chrono::{Local, SecondsFormat};
-use rusqlite::{Row, Transaction, params};
+use rusqlite::{Connection, Row, Transaction, params};
 
 use super::Store;
 use crate::error::Result;
@@ -30,71 +30,7 @@ struct EntryRow {
 impl Store {
     /// `account`'s plan, in the order the player put its entries.
     pub fn plan(&self, account: AccountId) -> Result<Vec<PlanEntry>> {
-        let mut stmt = self.conn.prepare(&format!(
-            "SELECT {ENTRY_COLUMNS} FROM plan_entries WHERE account_id = ?1 ORDER BY position, id"
-        ))?;
-        let rows: Vec<EntryRow> = stmt
-            .query_map([account.0], read_entry)?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut costs = self.conn.prepare(
-            "SELECT material_id, name, count FROM plan_custom_costs \
-             WHERE entry_id = ?1 ORDER BY position",
-        )?;
-        let mut materials = self.conn.prepare(
-            "SELECT role, material_id, name FROM plan_custom_materials WHERE entry_id = ?1",
-        )?;
-        let mut plan = Vec::with_capacity(rows.len());
-        for row in rows {
-            let weapon_goal = WeaponGoal {
-                from: row.goal.from,
-                to: row.goal.to,
-            };
-            let custom_materials = |materials: &mut rusqlite::Statement| {
-                materials
-                    .query_map([row.id], |r| {
-                        Ok((r.get::<_, Role>(0)?, read_item(r, 1, 2)?))
-                    })?
-                    .collect::<rusqlite::Result<CustomMaterials>>()
-            };
-            let target = match (row.key, row.stars, row.weapon_key) {
-                (_, _, Some(key)) => PlanTarget::Weapon {
-                    key,
-                    goal: WeaponGoal {
-                        from: row.goal.from,
-                        to: row.goal.to,
-                    },
-                },
-                (Some(key), _, None) => PlanTarget::Character {
-                    key,
-                    goal: row.goal,
-                },
-                (None, Some(stars), None) if row.custom_weapon => PlanTarget::CustomWeapon {
-                    name: row.name.unwrap_or_default(),
-                    stars,
-                    materials: custom_materials(&mut materials)?,
-                    goal: weapon_goal,
-                },
-                (None, Some(stars), None) => PlanTarget::CustomCharacter {
-                    name: row.name.unwrap_or_default(),
-                    stars,
-                    materials: custom_materials(&mut materials)?,
-                    goal: row.goal,
-                },
-                (None, None, None) => PlanTarget::Custom {
-                    name: row.name.unwrap_or_default(),
-                    costs: costs
-                        .query_map([row.id], |r| {
-                            Ok(CustomCost {
-                                item: read_item(r, 0, 1)?,
-                                count: r.get(2)?,
-                            })
-                        })?
-                        .collect::<rusqlite::Result<_>>()?,
-                },
-            };
-            plan.push(PlanEntry { id: row.id, target });
-        }
-        Ok(plan)
+        read_plan(&self.conn, account)
     }
 
     /// Adds an entry at the end of `account`'s plan; returns its id.
@@ -151,6 +87,74 @@ impl Store {
     }
 }
 
+/// `account`'s plan, read through `conn` (a transaction too).
+pub(super) fn read_plan(conn: &Connection, account: AccountId) -> Result<Vec<PlanEntry>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {ENTRY_COLUMNS} FROM plan_entries WHERE account_id = ?1 ORDER BY position, id"
+    ))?;
+    let rows: Vec<EntryRow> = stmt
+        .query_map([account.0], read_entry)?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut costs = conn.prepare(
+        "SELECT material_id, name, count FROM plan_custom_costs \
+         WHERE entry_id = ?1 ORDER BY position",
+    )?;
+    let mut materials = conn
+        .prepare("SELECT role, material_id, name FROM plan_custom_materials WHERE entry_id = ?1")?;
+    let mut plan = Vec::with_capacity(rows.len());
+    for row in rows {
+        let weapon_goal = WeaponGoal {
+            from: row.goal.from,
+            to: row.goal.to,
+        };
+        let custom_materials = |materials: &mut rusqlite::Statement| {
+            materials
+                .query_map([row.id], |r| {
+                    Ok((r.get::<_, Role>(0)?, read_item(r, 1, 2)?))
+                })?
+                .collect::<rusqlite::Result<CustomMaterials>>()
+        };
+        let target = match (row.key, row.stars, row.weapon_key) {
+            (_, _, Some(key)) => PlanTarget::Weapon {
+                key,
+                goal: WeaponGoal {
+                    from: row.goal.from,
+                    to: row.goal.to,
+                },
+            },
+            (Some(key), _, None) => PlanTarget::Character {
+                key,
+                goal: row.goal,
+            },
+            (None, Some(stars), None) if row.custom_weapon => PlanTarget::CustomWeapon {
+                name: row.name.unwrap_or_default(),
+                stars,
+                materials: custom_materials(&mut materials)?,
+                goal: weapon_goal,
+            },
+            (None, Some(stars), None) => PlanTarget::CustomCharacter {
+                name: row.name.unwrap_or_default(),
+                stars,
+                materials: custom_materials(&mut materials)?,
+                goal: row.goal,
+            },
+            (None, None, None) => PlanTarget::Custom {
+                name: row.name.unwrap_or_default(),
+                costs: costs
+                    .query_map([row.id], |r| {
+                        Ok(CustomCost {
+                            item: read_item(r, 0, 1)?,
+                            count: r.get(2)?,
+                        })
+                    })?
+                    .collect::<rusqlite::Result<_>>()?,
+            },
+        };
+        plan.push(PlanEntry { id: row.id, target });
+    }
+    Ok(plan)
+}
+
 fn read_entry(row: &Row) -> rusqlite::Result<EntryRow> {
     let level = |level: usize, phase: usize| -> rusqlite::Result<Level> {
         let (level, phase): (u8, u8) = (row.get(level)?, row.get(phase)?);
@@ -192,7 +196,7 @@ pub(super) fn item_columns(item: &CustomItem) -> (Option<i64>, Option<&str>) {
     }
 }
 
-fn insert_entry(
+pub(super) fn insert_entry(
     tx: &Transaction,
     account: AccountId,
     position: i64,

@@ -6,6 +6,7 @@
 mod backup;
 mod collection;
 mod inventory;
+mod merge;
 mod plan;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -17,6 +18,7 @@ use chrono::{Local, SecondsFormat};
 use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 
 pub use backup::{BackupFile, BackupReason, KEEP_BACKUPS, KEEP_HOURLY_BACKUPS};
+pub use collection::SyncTargets;
 
 use crate::error::{Error, Result};
 use crate::import::{
@@ -369,7 +371,9 @@ impl Store {
     /// same batch twice adds nothing. Existing data is never modified, except
     /// for filling in an account's missing UID or server.
     pub fn apply_import(&mut self, batch: ImportBatch) -> Result<ImportReport> {
-        let backup = if self.wish_count()? == 0 {
+        // A store with no account yet has nothing to back up; one with only
+        // characters or a plan does.
+        let backup = if self.wish_count()? == 0 && self.accounts()?.is_empty() {
             None
         } else if batch.source == ImportSource::Manual {
             self.backup_for_counting()?
@@ -407,11 +411,13 @@ impl Store {
                 insert_manual_counters(&tx, &account, import_id, counters, &mut warnings)?;
             }
             let linked = insert_links(&tx, &account, import_id, &incoming.links, &mut warnings)?;
+            let extras = merge::merge_extras(&tx, account.id, &incoming.extras, &now)?;
             accounts.push(AccountReport {
                 account,
                 created,
                 pools,
                 linked,
+                extras,
             });
         }
         tx.commit()?;

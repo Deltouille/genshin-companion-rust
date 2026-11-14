@@ -3,7 +3,7 @@
 //! (`before-planning`, like the plan's).
 
 use chrono::{Local, SecondsFormat};
-use rusqlite::{Transaction, params};
+use rusqlite::{Connection, Transaction, params};
 
 use super::Store;
 use super::plan::item_columns;
@@ -14,20 +14,7 @@ use crate::planner::{CustomItem, Inventory};
 impl Store {
     /// Everything the player has entered for `account`.
     pub fn inventory(&self, account: AccountId) -> Result<Inventory> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT material_id, name, count FROM inventory WHERE account_id = ?1")?;
-        let mut rows = stmt.query([account.0])?;
-        let mut inventory = Inventory::default();
-        while let Some(row) = rows.next()? {
-            let count = u64::try_from(row.get::<_, i64>(2)?).unwrap_or(0);
-            let item = match row.get::<_, Option<i64>>(0)? {
-                Some(id) => CustomItem::Material(id as u32),
-                None => CustomItem::Named(row.get(1)?),
-            };
-            inventory.set(&item, count);
-        }
-        Ok(inventory)
+        read_inventory(&self.conn, account)
     }
 
     /// Records that `account` has `count` of `item`; none forgets it.
@@ -53,7 +40,24 @@ impl Store {
     }
 }
 
-fn set_owned(
+/// `account`'s inventory, read through `conn` (a transaction too).
+pub(super) fn read_inventory(conn: &Connection, account: AccountId) -> Result<Inventory> {
+    let mut stmt =
+        conn.prepare("SELECT material_id, name, count FROM inventory WHERE account_id = ?1")?;
+    let mut rows = stmt.query([account.0])?;
+    let mut inventory = Inventory::default();
+    while let Some(row) = rows.next()? {
+        let count = u64::try_from(row.get::<_, i64>(2)?).unwrap_or(0);
+        let item = match row.get::<_, Option<i64>>(0)? {
+            Some(id) => CustomItem::Material(id as u32),
+            None => CustomItem::Named(row.get(1)?),
+        };
+        inventory.set(&item, count);
+    }
+    Ok(inventory)
+}
+
+pub(super) fn set_owned(
     tx: &Transaction,
     account: AccountId,
     item: &CustomItem,

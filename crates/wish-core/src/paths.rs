@@ -97,6 +97,14 @@ impl AppPaths {
     }
 }
 
+/// This user's cache folder for the app (`~/.cache/genshin-companion` on
+/// Linux, `~/Library/Caches/genshin-companion` on macOS,
+/// `%LOCALAPPDATA%\genshin-companion\cache` on Windows), if the OS has one:
+/// where the error file goes, out of the temporary folder other users share.
+pub fn user_cache_dir() -> Option<PathBuf> {
+    directories::ProjectDirs::from("", "", APP_FOLDER).map(|dirs| dirs.cache_dir().to_path_buf())
+}
+
 /// The data folder's name under the OS data folder.
 const APP_FOLDER: &str = "genshin-companion";
 /// Its name when the app was called Genshin Wishes.

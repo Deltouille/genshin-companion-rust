@@ -23,6 +23,7 @@ use gpui_kit::{
 };
 use wish_core::collection::{Change, OwnedCharacter, OwnedWeapon, SyncPlan};
 use wish_core::hoyolab::{Cookie, Secret};
+use wish_core::model::Account;
 use wish_core::planner::{Level, PlannerData};
 
 use crate::app::library::{FetchControl, HoyolabAccount, Library, is_cancelled};
@@ -37,7 +38,11 @@ enum Step {
     Fetching,
     Preview {
         accounts: Vec<HoyolabAccount>,
+        /// The game account shown.
         choice: usize,
+        /// For each game account, the index of the app account it goes to
+        /// (into its `choices`).
+        targets: Vec<usize>,
     },
     Failed(SharedString),
 }
@@ -83,7 +88,9 @@ impl HoyolabSync {
     }
 
     /// Reads a whole cookie from the clipboard (a `Cookie` header or
-    /// `name=value; …` pairs), then clears the clipboard so it doesn't linger.
+    /// `name=value; …` pairs), then empties the clipboard. A clipboard
+    /// history (Win+V, Klipper…) keeps its own copy, which the dialog asks the
+    /// player to delete.
     fn paste_cookie(&mut self, cx: &mut Context<Self>) {
         let text = cx
             .read_from_clipboard()
@@ -156,8 +163,9 @@ impl HoyolabSync {
         self.control = Arc::new(FetchControl::default());
         self.step = Step::Fetching;
         cx.notify();
+        let shown = self.session.read(cx).account();
         let fetch = self.library.update(cx, |library, cx| {
-            library.fetch_from_hoyolab(cookie, self.control.clone(), cx)
+            library.fetch_from_hoyolab(cookie, shown, self.control.clone(), cx)
         });
         self.task = Some(cx.spawn_in(window, async move |this, cx| {
             let result = fetch.await;
@@ -168,7 +176,12 @@ impl HoyolabSync {
                         let choice = (0..accounts.len())
                             .max_by_key(|&i| accounts[i].account.level)
                             .unwrap_or(0);
-                        Step::Preview { accounts, choice }
+                        let targets = accounts.iter().map(|a| a.suggested).collect();
+                        Step::Preview {
+                            accounts,
+                            choice,
+                            targets,
+                        }
                     }
                     Err(err) if is_cancelled(&err) => Step::Form,
                     Err(err) => Step::Failed(format!("{err:#}").into()),
@@ -180,16 +193,23 @@ impl HoyolabSync {
     }
 
     fn apply(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Step::Preview { accounts, choice } = &self.step else {
+        let Step::Preview {
+            accounts,
+            choice,
+            targets,
+        } = &self.step
+        else {
             return;
         };
         let Some(fetched) = accounts.get(*choice).cloned() else {
             return;
         };
+        let target = (fetched.choices.get(targets[*choice]))
+            .and_then(|choice| choice.target.as_ref().map(|account| account.id));
         let nickname = fetched.account.nickname.clone();
-        let apply = self
-            .library
-            .update(cx, |library, cx| library.apply_hoyolab_sync(fetched, cx));
+        let apply = self.library.update(cx, |library, cx| {
+            library.apply_hoyolab_sync(fetched, target, cx)
+        });
         self.task = Some(cx.spawn_in(window, async move |this, cx| {
             let result = apply.await;
             this.update_in(cx, |this, window, cx| match result {
@@ -246,6 +266,16 @@ impl HoyolabSync {
                  HoYoverse only. Nothing is written before you confirm.",
             ))
             .child(
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .text_color(theme.warning)
+                    .child(
+                        "These values let whoever has them use your HoYoLAB account. Give them \
+                         to this app only: never to a website, a Discord bot or another person.",
+                    ),
+            )
+            .child(
                 div().v_flex().gap_1().text_sm().text_color(muted).children(
                     steps
                         .iter()
@@ -261,7 +291,9 @@ impl HoyolabSync {
                         .text_sm()
                         .child(Icon::new(IconName::Check).small())
                         .child(format!(
-                            "Cookie read from the clipboard ({}); the clipboard was cleared.",
+                            "Cookie read from the clipboard ({}); the clipboard was emptied. If \
+                             your system keeps a clipboard history (Win+V, Klipper…), delete the \
+                             entry there too.",
                             cookie.names().join(", ")
                         ))
                         .child(
@@ -295,8 +327,11 @@ impl HoyolabSync {
                 ),
             )
             .child(div().text_xs().text_color(muted).child(
-                "HoYoLAB doesn’t show the weapons in your bag or your materials. Characters at \
-                 a level cap (20, 40 … 80) count as not yet ascended, since HoYoLAB doesn’t say.",
+                "Typing the three values is safer than pasting: a clipboard history keeps what \
+                 is copied. HoYoLAB doesn’t show the weapons in your bag or your materials. \
+                 Characters at a level cap (20, 40 … 80) count as not yet ascended, since \
+                 HoYoLAB doesn’t say. HoYoLAB has no public API: this uses the one its website \
+                 uses, which HoYoverse may change or block.",
             ))
             .when_some(self.note.clone(), |this, note| {
                 this.child(div().text_sm().text_color(theme.danger).child(note))
@@ -344,10 +379,19 @@ impl HoyolabSync {
         let muted = theme.muted_foreground;
         let library = self.library.read(cx);
         let (busy, planner) = (library.is_busy(), library.planner().clone());
-        let Step::Preview { accounts, choice } = &self.step else {
+        let Step::Preview {
+            accounts,
+            choice,
+            targets,
+        } = &self.step
+        else {
             return div().into_any_element();
         };
         let Some(fetched) = accounts.get(*choice) else {
+            return div().into_any_element();
+        };
+        let target = targets[*choice];
+        let Some(chosen) = fetched.choices.get(target) else {
             return div().into_any_element();
         };
         let choices = (accounts.len() > 1).then(|| {
@@ -365,17 +409,49 @@ impl HoyolabSync {
                 }))
         });
         let game = &fetched.account;
-        let into = match &fetched.target {
+        let label = |target: &Option<Account>| match target {
+            Some(account) => format!("“{}”", account.label),
+            None => format!("A new account, “{}”", game.nickname),
+        };
+        // No account has the UID yet: the player picks where it goes, the
+        // account whose wish history is theirs first.
+        let destinations = (fetched.choices.len() > 1).then(|| {
+            let segments = (fetched.choices.iter())
+                .fold(Segmented::new("hoyolab-target"), |segments, choice| {
+                    segments.option(label(&choice.target))
+                })
+                .selected(target)
+                .on_select(cx.listener(|this, ix: &usize, _, cx| {
+                    if let Step::Preview {
+                        choice, targets, ..
+                    } = &mut this.step
+                    {
+                        targets[*choice] = *ix;
+                        cx.notify();
+                    }
+                }));
+            div()
+                .v_flex()
+                .gap_2()
+                .child(div().text_sm().child(format!(
+                    "No account here has UID {} yet. Choose the one whose wish history is this \
+                     player’s: it takes the UID, so the next import from the game goes there too.",
+                    game.uid
+                )))
+                .child(div().h_flex().child(segments))
+        });
+        let into = match &chosen.target {
             Some(account) => format!("into “{}”", account.label),
             None => format!("into a new account, “{}”", game.nickname),
         };
-        let plan = &fetched.plan;
+        let plan = &chosen.plan;
         let lines = change_lines(plan, &planner);
         let changes = plan.changes();
         div()
             .v_flex()
             .gap_3()
             .children(choices.map(|choices| div().h_flex().child(choices)))
+            .children(destinations)
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
@@ -471,23 +547,37 @@ impl Drop for HoyolabSync {
     }
 }
 
-/// "112 characters to add, 3 to raise · 112 weapons to add".
+/// "Characters: 112 to add, 3 to raise · Weapons: 110 to add, 2 to move".
 fn summary(plan: &SyncPlan) -> String {
-    let count = |added: usize, raised: usize, what: &str| -> Option<String> {
-        let mut parts = Vec::new();
-        if added > 0 {
-            parts.push(format!("{} to add", format::count(added as u64)));
-        }
-        if raised > 0 {
-            parts.push(format!("{} to raise", format::count(raised as u64)));
-        }
+    let count = |counts: [(usize, &str); 3], what: &str| -> Option<String> {
+        let parts: Vec<String> = (counts.iter())
+            .filter(|(n, _)| *n > 0)
+            .map(|(n, verb)| format!("{} to {verb}", format::count(*n as u64)))
+            .collect();
         (!parts.is_empty()).then(|| format!("{what}: {}", parts.join(", ")))
     };
     let (characters_added, characters_raised) = tally(&plan.characters);
     let (weapons_added, weapons_raised) = tally(&plan.weapons);
+    let weapons_moved = (plan.weapons.iter())
+        .filter(|change| moved(change).is_some())
+        .count();
     let parts: Vec<String> = [
-        count(characters_added, characters_raised, "Characters"),
-        count(weapons_added, weapons_raised, "Weapons"),
+        count(
+            [
+                (characters_added, "add"),
+                (characters_raised, "raise"),
+                (0, ""),
+            ],
+            "Characters",
+        ),
+        count(
+            [
+                (weapons_added, "add"),
+                (weapons_raised - weapons_moved, "raise"),
+                (weapons_moved, "move"),
+            ],
+            "Weapons",
+        ),
     ]
     .into_iter()
     .flatten()
@@ -542,8 +632,24 @@ fn change_lines(plan: &SyncPlan, planner: &PlannerData) -> Vec<Div> {
         )),
         Change::Unchanged(_) => None,
     });
+    let holder = |holder: &Option<String>| holder.as_deref().map_or("nobody".to_owned(), name);
     let weapons = plan.weapons.iter().filter_map(|change| match change {
         Change::Added(w) => Some(line("+", weapon(w))),
+        Change::Raised { .. } if let Some((before, after)) = moved(change) => {
+            let name = planner
+                .weapon(&after.key)
+                .map_or(after.key.as_str(), |w| w.name.as_str());
+            Some(line(
+                "⇄",
+                format!(
+                    "{name} · {} · R{}: from {} to {}",
+                    level(after.level),
+                    after.refinement,
+                    holder(&before.holder),
+                    holder(&after.holder)
+                ),
+            ))
+        }
         Change::Raised { before, after } => Some(line(
             "↑",
             format!("{}  (was {})", weapon(after), weapon(before)),
@@ -551,6 +657,21 @@ fn change_lines(plan: &SyncPlan, planner: &PlannerData) -> Vec<Div> {
         Change::Unchanged(_) => None,
     });
     characters.chain(weapons).collect()
+}
+
+/// A weapon copy that only changes hands: another character of the sync
+/// holds it in the game now (two characters swapped weapons).
+fn moved(change: &Change<OwnedWeapon>) -> Option<(&OwnedWeapon, &OwnedWeapon)> {
+    match change {
+        Change::Raised { before, after }
+            if before.level == after.level
+                && before.refinement == after.refinement
+                && before.holder != after.holder =>
+        {
+            Some((before, after))
+        }
+        _ => None,
+    }
 }
 
 fn footer() -> Div {

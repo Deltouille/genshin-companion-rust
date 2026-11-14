@@ -155,7 +155,18 @@ pub enum ExportKind {
 pub struct HoyolabAccount {
     pub account: hoyolab::GameAccount,
     pub details: Vec<hoyolab::CharacterDetail>,
-    /// The app's account with that UID; without one, the sync makes it.
+    /// Where the sync can go, each with what it would change there: the
+    /// app's account with that UID; without one, a new account first, then
+    /// each account without a UID (`Store::sync_targets`).
+    pub choices: Vec<SyncChoice>,
+    /// Index into `choices` of the suggested one.
+    pub suggested: usize,
+}
+
+/// One place a HoYoLAB sync can go, and what it would change there.
+#[derive(Clone, Debug)]
+pub struct SyncChoice {
+    /// `None`: a new account, named after the game's nickname.
     pub target: Option<Account>,
     pub plan: SyncPlan,
 }
@@ -551,7 +562,7 @@ impl Library {
     ) -> Task<Result<i64>> {
         self.write(
             cx,
-            false,
+            true,
             move |store, _| {
                 let account = account_for_writing(store, account)?;
                 Ok(store.add_plan_entry(account, &target)?)
@@ -575,7 +586,7 @@ impl Library {
         }
         self.write(
             cx,
-            false,
+            true,
             move |store, _| Ok(store.update_plan_entry(&entry)?),
             |_, ()| (),
         )
@@ -612,7 +623,7 @@ impl Library {
         cx.notify();
         self.write(
             cx,
-            false,
+            true,
             move |store, _| Ok(store.reorder_plan(account, &ids)?),
             |_, ()| (),
         )
@@ -621,7 +632,7 @@ impl Library {
     pub fn remove_plan_entry(&mut self, id: i64, cx: &mut Context<Self>) -> Task<Result<()>> {
         self.write(
             cx,
-            false,
+            true,
             move |store, _| Ok(store.remove_plan_entry(id)?),
             |_, ()| (),
         )
@@ -654,7 +665,7 @@ impl Library {
         }
         self.write(
             cx,
-            false,
+            true,
             move |store, _| {
                 let account = account_for_writing(store, account)?;
                 Ok(store.set_owned_many(account, &counts)?)
@@ -685,7 +696,7 @@ impl Library {
         }
         self.write(
             cx,
-            false,
+            true,
             move |store, _| {
                 let account = account_for_writing(store, account)?;
                 Ok(store.save_owned_character(account, &character)?)
@@ -703,7 +714,7 @@ impl Library {
     ) -> Task<Result<()>> {
         self.write(
             cx,
-            false,
+            true,
             move |store, _| Ok(store.remove_owned_character(account, &key)?),
             |_, ()| (),
         )
@@ -719,7 +730,7 @@ impl Library {
         let weapon = weapon.clamped();
         self.write(
             cx,
-            false,
+            true,
             move |store, _| {
                 let account = account_for_writing(store, account)?;
                 Ok(store.add_owned_weapon(account, &weapon)?)
@@ -751,7 +762,7 @@ impl Library {
         }
         self.write(
             cx,
-            false,
+            true,
             move |store, _| Ok(store.update_owned_weapon(account, &weapon)?),
             |_, ()| (),
         )
@@ -766,7 +777,7 @@ impl Library {
     ) -> Task<Result<()>> {
         self.write(
             cx,
-            false,
+            true,
             move |store, _| Ok(store.remove_owned_weapon(account, id)?),
             |_, ()| (),
         )
@@ -979,16 +990,16 @@ impl Library {
         })
     }
 
-    /// Writes a prepared batch (backup first, one transaction), then
-    /// recomputes every account and refreshes the mirror folder.
     /// Asks HoYoLAB, with the player's `cookie`, for the characters of every
     /// Genshin account behind it, and works out what a sync would change in
-    /// the app's account of each UID. The cookie is dropped as soon as the
+    /// each app account it can go to (`shown`, the account on screen, is
+    /// suggested when it has no UID). The cookie is dropped as soon as the
     /// requests are done, and nothing is written. The store isn't locked
     /// during the requests.
     pub fn fetch_from_hoyolab(
         &self,
         cookie: hoyolab::Cookie,
+        shown: Option<AccountId>,
         control: Arc<FetchControl>,
         cx: &mut Context<Self>,
     ) -> Task<Result<Vec<HoyolabAccount>>> {
@@ -1025,31 +1036,38 @@ impl Library {
             fetched
                 .into_iter()
                 .map(|(account, details)| {
-                    let target = store.account_with_uid(&account.uid)?;
-                    let current = match &target {
-                        Some(target) => store.collection(target.id)?,
-                        None => Owned::default(),
-                    };
-                    let plan = plan_sync(&details, &current, &planner, &archive);
+                    let targets = store.sync_targets(&account.uid, shown)?;
+                    let choices = (targets.targets.into_iter())
+                        .map(|target| {
+                            let current = match &target {
+                                Some(target) => store.collection(target.id)?,
+                                None => Owned::default(),
+                            };
+                            let plan = plan_sync(&details, &current, &planner, &archive);
+                            Ok(SyncChoice { target, plan })
+                        })
+                        .collect::<Result<_>>()?;
                     Ok(HoyolabAccount {
                         account,
                         details,
-                        target,
-                        plan,
+                        choices,
+                        suggested: targets.suggested,
                     })
                 })
                 .collect()
         })
     }
 
-    /// Writes a HoYoLAB sync the player confirmed into the app's account of
-    /// its UID, made if there is none (named after the game's nickname): the
-    /// plan is worked out again against the stored collection, then written
-    /// in one transaction after a backup. Returns the account and what
-    /// changed.
+    /// Writes a HoYoLAB sync the player confirmed into `target`, the account
+    /// they chose (`None`: a new one, named after the game's nickname); an
+    /// account without a UID takes the game's, so the next import from the
+    /// game goes there too. The plan is worked out again against the stored
+    /// collection, then written in one transaction after a backup. Returns
+    /// the account and what changed.
     pub fn apply_hoyolab_sync(
         &mut self,
         fetched: HoyolabAccount,
+        target: Option<AccountId>,
         cx: &mut Context<Self>,
     ) -> Task<Result<(AccountId, SyncPlan)>> {
         let (planner, archive) = (self.planner.clone(), self.archive.clone());
@@ -1058,25 +1076,21 @@ impl Library {
             cx,
             true,
             move |store, _| {
-                let game = &fetched.account;
-                let account = match store.account_with_uid(&game.uid)? {
-                    Some(account) => account.id,
-                    None => {
-                        let label = match game.nickname.trim() {
-                            "" => game.uid.as_str(),
-                            nickname => nickname,
-                        };
-                        let server = Server::from_api_region(&game.region);
-                        store.add_account(label, Some(&game.uid), server)?.id
-                    }
-                };
-                let (plan, _) = store.apply_sync(account, &fetched.details, &planner, &archive)?;
+                let (account, plan, _) = store.apply_sync(
+                    target,
+                    &fetched.account,
+                    &fetched.details,
+                    &planner,
+                    &archive,
+                )?;
                 Ok((account, plan))
             },
             |_, applied| applied,
         )
     }
 
+    /// Writes a prepared batch (backup first, one transaction), then
+    /// recomputes every account and refreshes the mirror folder.
     pub fn apply_import(
         &mut self,
         batch: ImportBatch,
@@ -1262,8 +1276,14 @@ impl Library {
                         let loaded = load(&store, &data);
                         (value, mirror, loaded, generation)
                     }))
-                    .map_err(|panic| {
-                        anyhow!("an internal error stopped it: {}", panic_text(&*panic))
+                    .or_else(|panic| -> Result<_> {
+                        let error =
+                            anyhow!("an internal error stopped it: {}", panic_text(&*panic));
+                        // Reload all the same: the page may show a change
+                        // the rolled-back write never made.
+                        let store = lock(&store);
+                        let generation = generations.fetch_add(1, Ordering::Relaxed) + 1;
+                        Ok((Err(error), None, load(&store, &data), generation))
                     });
                     unfinished.fetch_sub(1, Ordering::SeqCst);
                     outcome

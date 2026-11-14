@@ -5,37 +5,20 @@
 use std::path::PathBuf;
 
 use chrono::{Local, SecondsFormat};
-use rusqlite::{Row, Transaction, params};
+use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 
-use super::Store;
+use super::{Store, account_from_row, account_label};
 use crate::archive::ArchiveData;
 use crate::collection::{Change, Collection, OwnedCharacter, OwnedWeapon, SyncPlan, plan_sync};
-use crate::error::Result;
-use crate::model::AccountId;
+use crate::error::{Error, Result};
+use crate::model::{Account, AccountId, Server};
 use crate::planner::{Level, PlannerData};
 use crate::store::BackupReason;
 
 impl Store {
     /// What `account` owns.
     pub fn collection(&self, account: AccountId) -> Result<Collection> {
-        let mut characters = self.conn.prepare(
-            "SELECT character_key, level, phase, constellation, talent1, talent2, talent3, \
-             favourite FROM owned_characters WHERE account_id = ?1 ORDER BY character_key",
-        )?;
-        let characters = characters
-            .query_map([account.0], read_character)?
-            .collect::<rusqlite::Result<_>>()?;
-        let mut weapons = self.conn.prepare(
-            "SELECT id, weapon_key, level, phase, refinement, holder_key, favourite \
-             FROM owned_weapons WHERE account_id = ?1 ORDER BY id",
-        )?;
-        let weapons = weapons
-            .query_map([account.0], read_weapon)?
-            .collect::<rusqlite::Result<_>>()?;
-        Ok(Collection {
-            characters,
-            weapons,
-        })
+        read_collection(&self.conn, account)
     }
 
     /// Adds `character` to `account`, or replaces what was entered for it.
@@ -116,22 +99,56 @@ impl Store {
         Ok(())
     }
 
-    /// Applies a HoYoLAB sync to `account`, once the player confirmed its
-    /// preview: a backup first, then the plan worked out again against the
-    /// collection as it is now (so what was entered meanwhile is never
-    /// lowered either), written in one transaction. Returns what it changed
-    /// and the backup.
+    /// The accounts a HoYoLAB sync of `uid` can go to, as the game import
+    /// offers them: the account with that UID; without one, a new account
+    /// first, then each account without a UID yet (its history may be this
+    /// player's, from a file without a UID or counted by hand). Suggested:
+    /// the account `shown` when it has no UID, else the only account without
+    /// one, else a new account.
+    pub fn sync_targets(&self, uid: &str, shown: Option<AccountId>) -> Result<SyncTargets> {
+        let accounts = self.accounts()?;
+        if let Some(account) = accounts.iter().find(|a| a.uid.as_deref() == Some(uid)) {
+            return Ok(SyncTargets {
+                targets: vec![Some(account.clone())],
+                suggested: 0,
+            });
+        }
+        let free: Vec<Account> = accounts.into_iter().filter(|a| a.uid.is_none()).collect();
+        let suggested = match free.iter().position(|a| Some(a.id) == shown) {
+            Some(ix) => ix + 1,
+            None if free.len() == 1 => 1,
+            None => 0,
+        };
+        Ok(SyncTargets {
+            targets: std::iter::once(None)
+                .chain(free.into_iter().map(Some))
+                .collect(),
+            suggested,
+        })
+    }
+
+    /// Applies a HoYoLAB sync of `game` once the player confirmed its
+    /// preview, into `target` (one of [`Store::sync_targets`]; `None` for a
+    /// new account, named after the game's nickname). An account without a
+    /// UID takes the game's, and its server if it has none, in the same
+    /// transaction; if another sync gave the UID to an account meanwhile,
+    /// a new account goes there instead. A backup first, then the plan worked
+    /// out again against the collection as it is now (so what was entered
+    /// meanwhile is never lowered either), written in one transaction.
+    /// Returns the account, what changed and the backup.
     pub fn apply_sync(
         &mut self,
-        account: AccountId,
+        target: Option<AccountId>,
+        game: &hoyolab::GameAccount,
         details: &[hoyolab::CharacterDetail],
         planner: &PlannerData,
         archive: &ArchiveData,
-    ) -> Result<(SyncPlan, PathBuf)> {
+    ) -> Result<(AccountId, SyncPlan, PathBuf)> {
         let backup = self.backup(BackupReason::BeforeSync)?;
-        let plan = plan_sync(details, &self.collection(account)?, planner, archive);
         let tx = self.conn.transaction()?;
         let now = now();
+        let account = sync_account(&tx, target, game, &now)?;
+        let plan = plan_sync(details, &read_collection(&tx, account)?, planner, archive);
         for change in plan.characters.iter().filter(|c| c.changes()) {
             save_character(&tx, account, change.after(), &now)?;
         }
@@ -151,15 +168,122 @@ impl Store {
             }
         }
         tx.commit()?;
-        Ok((plan, backup))
+        Ok((account, plan, backup))
     }
 }
 
-fn now() -> String {
+/// Where a HoYoLAB sync can go: `None` is a new account.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SyncTargets {
+    pub targets: Vec<Option<Account>>,
+    /// Index into `targets` of the suggested choice.
+    pub suggested: usize,
+}
+
+/// The account a sync of `game` writes into, given the player's choice:
+/// `target` takes the game's UID if it has none, or a new account is made
+/// (unless an account has the UID by now).
+fn sync_account(
+    tx: &Transaction,
+    target: Option<AccountId>,
+    game: &hoyolab::GameAccount,
+    now: &str,
+) -> Result<AccountId> {
+    let uid = game.uid.trim();
+    if !(9..=10).contains(&uid.len()) || !uid.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(Error::InvalidUid(uid.to_owned()));
+    }
+    let server = Server::from_api_region(&game.region);
+    let find = |condition: &str, value: &dyn rusqlite::ToSql| -> Result<Option<Account>> {
+        let sql = format!(
+            "SELECT id, label, uid, server FROM accounts WHERE {condition} ORDER BY id LIMIT 1"
+        );
+        Ok(tx.query_row(&sql, [value], account_from_row).optional()?)
+    };
+    let holder = find("uid = ?1", &uid)?;
+    let account = match target {
+        Some(id) => {
+            let mut account = find("id = ?1", &id.0)?.ok_or(Error::UnknownAccount(id))?;
+            match (account.uid.as_deref(), holder) {
+                (Some(theirs), _) if theirs != uid => {
+                    return Err(Error::AccountMismatch {
+                        account: account.label,
+                        uid: uid.to_owned(),
+                    });
+                }
+                (Some(_), _) => {}
+                (None, Some(holder)) => {
+                    return Err(Error::UidTaken {
+                        uid: uid.to_owned(),
+                        account: holder.label,
+                    });
+                }
+                (None, None) => {
+                    tx.execute(
+                        "UPDATE accounts SET uid = ?1 WHERE id = ?2",
+                        params![uid, account.id],
+                    )?;
+                    account.uid = Some(uid.to_owned());
+                }
+            }
+            account
+        }
+        None => match holder {
+            Some(holder) => holder,
+            None => {
+                let label = account_label(match game.nickname.trim() {
+                    "" => uid,
+                    nickname => nickname,
+                })?;
+                tx.execute(
+                    "INSERT INTO accounts (label, uid, server, created_at) VALUES (?1, ?2, ?3, ?4)",
+                    params![label, uid, server, now],
+                )?;
+                Account {
+                    id: AccountId(tx.last_insert_rowid()),
+                    label,
+                    uid: Some(uid.to_owned()),
+                    server,
+                }
+            }
+        },
+    };
+    if account.server.is_none() && server.is_some() {
+        tx.execute(
+            "UPDATE accounts SET server = ?1 WHERE id = ?2",
+            params![server, account.id],
+        )?;
+    }
+    Ok(account.id)
+}
+
+/// What `account` owns, read through `conn` (a transaction too).
+pub(super) fn read_collection(conn: &Connection, account: AccountId) -> Result<Collection> {
+    let mut characters = conn.prepare(
+        "SELECT character_key, level, phase, constellation, talent1, talent2, talent3, \
+         favourite FROM owned_characters WHERE account_id = ?1 ORDER BY character_key",
+    )?;
+    let characters = characters
+        .query_map([account.0], read_character)?
+        .collect::<rusqlite::Result<_>>()?;
+    let mut weapons = conn.prepare(
+        "SELECT id, weapon_key, level, phase, refinement, holder_key, favourite \
+         FROM owned_weapons WHERE account_id = ?1 ORDER BY id",
+    )?;
+    let weapons = weapons
+        .query_map([account.0], read_weapon)?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(Collection {
+        characters,
+        weapons,
+    })
+}
+
+pub(super) fn now() -> String {
     Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
 }
 
-fn save_character(
+pub(super) fn save_character(
     tx: &Transaction,
     account: AccountId,
     character: &OwnedCharacter,
@@ -191,7 +315,7 @@ fn save_character(
     Ok(())
 }
 
-fn write_weapon(
+pub(super) fn write_weapon(
     tx: &Transaction,
     account: AccountId,
     id: i64,

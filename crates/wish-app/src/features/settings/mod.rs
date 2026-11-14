@@ -197,9 +197,10 @@ impl SettingsPage {
                             this.child(path_text(folder.display().to_string()))
                         })
                         .child(help(
-                            "A copy of all your wishes, updated after every change. Choose a \
-                             folder synced by Syncthing, Nextcloud, Dropbox or similar to keep \
-                             a copy off this computer.",
+                            "A copy of all your wishes, characters, weapons, plan and \
+                             inventory, updated after every change. Choose a folder synced by \
+                             Syncthing, Nextcloud, Dropbox or similar to keep a copy off this \
+                             computer.",
                             cx,
                         ))
                         .when_some(mirror_status, |this, (line, failed)| {
@@ -289,8 +290,8 @@ impl SettingsPage {
                 export_row(
                     ExportKind::Snapshot,
                     "Snapshot",
-                    "Every account, with nothing left out. Import it back here, on this or \
-                     another computer.",
+                    "Every account, with nothing left out: wishes, characters, weapons, plan and \
+                     inventory. Import it back here, on this or another computer.",
                     true,
                 ),
                 export_row(

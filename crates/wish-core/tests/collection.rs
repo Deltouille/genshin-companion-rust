@@ -374,6 +374,17 @@ mod hoyolab_sync {
         }
     }
 
+    /// The game account the syncs below read.
+    fn game() -> hoyolab::GameAccount {
+        hoyolab::GameAccount {
+            uid: "712345678".to_owned(),
+            region: "os_euro".to_owned(),
+            nickname: "Lumine".to_owned(),
+            level: 60,
+            game_biz: "hk4e_global".to_owned(),
+        }
+    }
+
     #[test]
     fn a_sync_adds_raises_and_never_lowers() {
         let dir = tempfile::tempdir().unwrap();
@@ -416,7 +427,10 @@ mod hoyolab_sync {
             ),
         ];
         let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
-        let (plan, backup) = store.apply_sync(main, &details, planner, archive).unwrap();
+        let (into, plan, backup) = store
+            .apply_sync(Some(main), &game(), &details, planner, archive)
+            .unwrap();
+        assert_eq!(into, main);
         assert!(backup.exists());
         assert!(
             backup.to_string_lossy().contains("before-sync"),
@@ -446,8 +460,103 @@ mod hoyolab_sync {
         );
 
         // Synced again: nothing changes, no copy is added twice.
-        let (again, _) = store.apply_sync(main, &details, planner, archive).unwrap();
+        let (_, again, _) = store
+            .apply_sync(Some(main), &game(), &details, planner, archive)
+            .unwrap();
         assert_eq!(again.changes(), 0);
         assert_eq!(store.collection(main).unwrap().weapons.len(), 2);
+    }
+
+    /// Two characters swapped weapons in the game: the next sync moves the
+    /// copies rather than adding two more (review BUG-17).
+    #[test]
+    fn a_weapon_swap_moves_the_copies() {
+        const FAVONIUS: u32 = 11401;
+        const SACRIFICIAL: u32 = 11403;
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let main = store
+            .add_account("Main", Some("712345678"), Some(Server::Europe))
+            .unwrap()
+            .id;
+        let party = |bennett: u32, xingqiu: u32| {
+            [
+                detail(
+                    (10000032, "Bennett", 80),
+                    [
+                        ("Strike of Fortune", 1),
+                        ("Passion Overload", 8),
+                        ("Fantastic Voyage", 8),
+                    ],
+                    (bennett, 90, 6),
+                ),
+                detail(
+                    (10000025, "Xingqiu", 80),
+                    [
+                        ("Guhua Style", 1),
+                        ("Guhua Sword: Fatal Rainscreen", 8),
+                        ("Guhua Sword: Raincutter", 8),
+                    ],
+                    (xingqiu, 90, 6),
+                ),
+            ]
+        };
+        let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
+        store
+            .apply_sync(
+                Some(main),
+                &game(),
+                &party(FAVONIUS, SACRIFICIAL),
+                planner,
+                archive,
+            )
+            .unwrap();
+        let (_, swap, _) = store
+            .apply_sync(
+                Some(main),
+                &game(),
+                &party(SACRIFICIAL, FAVONIUS),
+                planner,
+                archive,
+            )
+            .unwrap();
+        assert!(
+            swap.weapons
+                .iter()
+                .all(|change| !matches!(change, wish_core::collection::Change::Added(_))),
+            "{swap:?}"
+        );
+        let collection = store.collection(main).unwrap();
+        let mut copies: Vec<(&str, Option<&str>)> = (collection.weapons.iter())
+            .map(|w| (w.key.as_str(), w.holder.as_deref()))
+            .collect();
+        copies.sort();
+        assert_eq!(
+            copies,
+            [
+                ("favoniussword", Some("xingqiu")),
+                ("sacrificialsword", Some("bennett")),
+            ]
+        );
+
+        // Bennett takes a weapon the collection lacks: it is added, and the
+        // copy he held is kept, held by nobody.
+        store
+            .apply_sync(
+                Some(main),
+                &game(),
+                &party(11501, FAVONIUS),
+                planner,
+                archive,
+            )
+            .unwrap();
+        let collection = store.collection(main).unwrap();
+        assert_eq!(collection.weapons.len(), 3);
+        assert_eq!(
+            (collection.weapons.iter())
+                .find(|w| w.key == "sacrificialsword")
+                .map(|w| w.holder.clone()),
+            Some(None)
+        );
     }
 }

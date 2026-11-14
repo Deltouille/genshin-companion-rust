@@ -8,8 +8,8 @@
 //! updates this crate follows when HoYoverse changes something.
 //!
 //! The cookie is the player's: it is never stored. [`Cookie`] keeps only
-//! the fields HoYoLAB needs, each a [`Secret`] wiped from memory when
-//! dropped and hidden from `Debug` and `Display`, and the client sends it to
+//! the fields HoYoLAB needs, each a [`Secret`] (its own copy wiped when
+//! dropped, hidden from `Debug` and `Display`), and the client sends it to
 //! HoYoverse's hosts only ([`transport::is_hoyoverse`]), over https.
 //!
 //! Nothing here knows the app: `wish-core` turns what this returns into an

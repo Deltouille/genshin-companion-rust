@@ -92,8 +92,8 @@ impl SettingsPage {
                     .gap_3()
                     .child(div().text_sm().text_color(muted).child(
                         "Restoring replaces everything with what the backup holds: your \
-                             wishes, and the planner's plan and inventory. The current state is \
-                             backed up first.",
+                             accounts and wishes, your characters and weapons, and the planner's \
+                             plan and inventory. The current state is backed up first.",
                     ))
                     .child(
                         div()
@@ -150,9 +150,9 @@ impl SettingsPage {
             alert
                 .title(title.clone())
                 .description(
-                    "Everything is replaced by what the backup holds: your wishes, and the \
-                     planner's plan and inventory too. The current state is backed up first, so \
-                     you can restore it if needed.",
+                    "Everything is replaced by what the backup holds: your accounts and \
+                     wishes, your characters and weapons, and the planner's plan and inventory. \
+                     The current state is backed up first, so you can restore it if needed.",
                 )
                 .footer(dialog_footer(button("confirm").danger().label("Restore")))
                 .on_ok(move |_, window, cx| {
@@ -196,7 +196,7 @@ fn backup_reason(reason: Option<BackupReason>) -> &'static str {
         Some(BackupReason::BeforeRestore) => "Before restoring a backup",
         Some(BackupReason::BeforeDelete) => "Before deleting wishes",
         Some(BackupReason::BeforeCounting) => "Before counting wishes",
-        Some(BackupReason::BeforePlanning) => "Before changing the plan",
+        Some(BackupReason::BeforePlanning) => "Before changing your collection or plan",
         Some(BackupReason::BeforeSync) => "Before a HoYoLAB sync",
         None => "Backup",
     }

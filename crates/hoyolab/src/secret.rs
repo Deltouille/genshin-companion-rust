@@ -4,10 +4,16 @@ use std::fmt;
 
 use zeroize::Zeroize;
 
-/// Text that is wiped from memory when dropped and never shown: `Debug` and
-/// `Display` print a placeholder, so a secret in an error, a log or a panic
-/// message stays hidden. Read it with [`Secret::expose`], only to send it.
-#[derive(Clone, PartialEq, Eq)]
+/// Text that is never shown and whose own copy is wiped when dropped:
+/// `Debug` and `Display` print a placeholder, so a secret in an error, a log
+/// or a panic message stays hidden. Read it with [`Secret::expose`], only to
+/// send it.
+///
+/// Only this copy is wiped: the text it was made from (a text field's
+/// buffer, a request's header) and the copies the HTTP client makes are
+/// ordinary memory, freed but not wiped. Nor does it compare: comparing
+/// secrets the ordinary way takes longer the more they share.
+#[derive(Clone)]
 pub struct Secret(String);
 
 impl Secret {

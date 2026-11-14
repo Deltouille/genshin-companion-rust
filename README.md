@@ -42,14 +42,16 @@ The app opens on your account in figures, one tab each:
 - **From a file:**
   - a paimon.moe save (JSON) or spreadsheet (Excel);
   - a [UIGF](https://uigf.org) v4 file from another tracker;
-  - this app's own snapshot.
+  - this app's own snapshot (wishes, characters, weapons, plan and inventory: those you already have are kept,
+    nothing is lowered).
 - **Characters from HoYoLAB.** Your characters as they are in the game (level, constellations, talents) and the
   weapon each holds, into your collection: it only adds or raises, never lowers, and shows what would change
   first. It reads them with your HoYoLAB cookie, which you copy from the browser (F12 → Storage → Cookies →
   hoyolab.com: `ltuid_v2`, `ltoken_v2`, `ltmid_v2`) for that sync only: the app never saves it and sends it to
   HoYoverse only. HoYoLAB doesn't show the weapons in your bag, nor your materials, nor whether a character at a
   level cap ascended (counted as not yet).
-- **Exports:** the lossless snapshot, UIGF v4 and paimon.moe's spreadsheet.
+- **Exports:** the lossless snapshot (every account: wishes, characters, weapons, plan and inventory), UIGF v4 and
+  paimon.moe's spreadsheet.
 All of these are on the Import page; the wish imports are also on the Overview.
 
 ### Your history is never lost
@@ -57,13 +59,13 @@ All of these are on the Import page; the wish imports are also on the Overview.
 - Imports only add wishes. Nothing already stored is replaced or deleted, so importing the same file twice is safe.
 - A backup of the database is taken before every import, undo, restore or bulk change, and once a day; the last
   30 are kept. Counting by hand and editing the plan back up once an hour, and the last 10 of those are kept apart,
-  so they never push out the others. A backup can be restored from Settings: it replaces everything, the plan and
-  the inventory too, after a backup of the current state.
+  so they never push out the others. A backup can be restored from Settings: it replaces everything (accounts,
+  wishes, characters, weapons, the plan and the inventory) after a backup of the current state.
 - Every imported file is kept as it was received.
 - Every import can be undone, from Settings → Recent imports.
-- A **mirror folder** (optional): after every change, a snapshot of your history is written to a folder that you
-  sync with your own tool, such as Syncthing or a cloud drive. It holds your UID and wishes, so a synced folder
-  sends them to that service. Give each computer its own mirror folder: the file has one name, and two computers
+- A **mirror folder** (optional): after every change, a snapshot of everything (wishes, characters, weapons, plan
+  and inventory) is written to a folder that you sync with your own tool, such as Syncthing or a cloud drive. It
+  holds your UID and wishes, so a synced folder sends them to that service. Give each computer its own mirror folder: the file has one name, and two computers
   writing it would replace each other's copy.
 
 ### Character and weapon archive
@@ -151,25 +153,35 @@ Settings shows this folder and can open it in your file manager. To run the app 
 to try something on a copy, set `GENSHIN_COMPANION_DATA_DIR=<folder>`. One copy of the app at a time can use a
 folder; starting a second one says the app is already open.
 
-If the app can't start, it says why in a small window and in `genshin-companion-errors.txt` in the system's
-temporary folder, where crashes are written too.
+If the app can't start, it says why in a small window and in `genshin-companion-errors.txt`, where crashes are
+written too. That file is in your cache folder: `~/.cache/genshin-companion/` on Linux,
+`~/Library/Caches/genshin-companion/` on macOS, `%LOCALAPPDATA%\genshin-companion\cache\` on Windows.
 
 The app used to be called *Genshin Wishes*. On its first start under the new name, it copies the old
 `genshin-wishes` folder to `genshin-companion` and then uses the copy. The old folder is left as it was: delete it
 yourself once you've checked that everything is there.
 
-The app goes online for two things only:
+The app goes online for three things only:
 
 - importing from the game, through HoYoverse's API;
 - downloading the game's images the first time a page shows them, from the fan sites that already serve them:
+- syncing your characters from HoYoLAB, when you ask: your cookie goes to HoYoLAB's servers
+  (`api-os-takumi.mihoyo.com`, `sg-public-api.hoyolab.com`), for those requests only;
   paimon.moe (item icons, banner art) and Project Amber (everything else). They are kept in `cache/images/`, so
   each is downloaded once. Without a connection, pages show an empty space where an image would be. To use the
   app offline, Settings → Images downloads them all at once: every icon (about 35 MB), or everything with the
   banner and wish art (about 350 MB). It can also empty the cache.
 
 Like any website, these sites see your IP address and which files are asked for. The app sends nothing about you or
-your wishes anywhere. It is an unofficial tool: it reads the game's files without changing them and asks
-HoYoverse's API what the game's own history page shows, but using it is your choice.
+your wishes anywhere else: the wish history link and the HoYoLAB cookie go to HoYoverse alone. It is an unofficial
+tool: it reads the game's files without changing them and asks HoYoverse's API what the game's own history page
+shows, but using it is your choice. HoYoLAB has no public API: the sync uses the one its website uses, which
+HoYoverse may change or block. The app only asks when you sync, never on its own.
+
+The HoYoLAB cookie values let whoever has them use your HoYoLAB account. Give them to this app only, never to a
+website, a Discord bot or another person. Typing them in the three fields is safer than pasting the whole cookie:
+the app empties the clipboard after reading it, but a clipboard history (Windows' Win+V, KDE's Klipper…) keeps its
+own copy, which you should delete there too.
 
 ## Building from source
 
