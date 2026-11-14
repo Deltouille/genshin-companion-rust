@@ -3377,7 +3377,7 @@ dependencies = [
 
 [[package]]
 name = "hoyolab"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "fastrand",
  "md-5",
@@ -8848,7 +8848,7 @@ dependencies = [
 
 [[package]]
 name = "wish-app"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -8863,7 +8863,7 @@ dependencies = [
 
 [[package]]
 name = "wish-core"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "calamine",
@@ -8882,7 +8882,7 @@ dependencies = [
 
 [[package]]
 name = "wish-ui"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "gpui-kit",
