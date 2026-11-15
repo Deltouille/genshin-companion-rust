@@ -463,8 +463,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       in three masked fields (`ltuid_v2`, `ltoken_v2`, `ltmid_v2`, from the browser's Storage tab) or read whole
       from the clipboard (then cleared); `Library::fetch_from_hoyolab` (every Genshin account behind the cookie,
       each a `HoyolabAccount` with its `SyncPlan`; the fields are emptied when it starts, the cookie dropped when
-      its requests end), a preview (account choice, counts, each change; the `SyncPlan`'s notes aren't shown yet,
-      only `wishctl` prints them), then
+      its requests end), a preview (account choice, counts, each change, then the `SyncPlan`'s notes, worded by
+      `SyncNote`'s `Display`, which `wishctl` prints too), then
       `Library::apply_hoyolab_sync` (into the account the player picks among `HoyolabAccount::choices`, each with
       its own `SyncPlan`; the session selects it). A weapon that only changes hands shows as moved (⇄). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
     - `settings/`: `SettingsPage` (entity) and its rows, in a centred column, or two on a page at least
@@ -507,7 +507,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   For realistic volume, `node tools/sample-save.mjs <out.json>` writes a synthetic ~600-wish paimon.moe save to
   import into a scratch folder (never use it for engine tests).
   `SCREENSHOT_HEIGHT=1500` renders a taller window to see a whole page, `SCREENSHOT_WIDTH=2000` a wider one,
-  `SCREENSHOT_ONLY=overview,banners` only the captures whose names start with these; put `"manual_counting": true` in the
+  `SCREENSHOT_ONLY=overview,banners` only the captures whose names start with these. The HoYoLAB sync's preview
+  (`hoyolab-preview`) comes from a sample HoYoLAB in the tool (`SampleHoyolab`: Ganyu at 80 without her phase, a
+  character the data lacks), through `Shell::open_hoyolab_preview`; never the real one. Put `"manual_counting": true` in the
   data dir's `settings.json` to also shoot the counting controls and the add-item dialog.
   To try the real app on scratch data, set `GENSHIN_COMPANION_DATA_DIR=<dir>` (the former
   `GENSHIN_WISHES_DATA_DIR` still works).

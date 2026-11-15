@@ -73,6 +73,37 @@ pub enum SyncNote {
     TalentsUnread { name: String },
 }
 
+/// What the player reads of a note, in the sync's preview and `wishctl`.
+impl std::fmt::Display for SyncNote {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SyncNote::PhaseUnknown { name, level } => write!(
+                f,
+                "{name} is level {level}: HoYoLAB doesn't say whether they ascended, so they count \
+                 as not ascended yet. Set it on their page if they did."
+            ),
+            SyncNote::AboveMaxLevel { name, level } => write!(
+                f,
+                "{name} is level {level}: counted as 90/90, the highest this version knows."
+            ),
+            SyncNote::UnknownCharacter { name, .. } => write!(
+                f,
+                "{name} isn't in this version's game data: left out, with their weapon. Update the \
+                 app to sync them."
+            ),
+            SyncNote::UnknownWeapon { name, .. } => write!(
+                f,
+                "The weapon {name} isn't in this version's game data: left out. Update the app to \
+                 sync it."
+            ),
+            SyncNote::TalentsUnread { name } => write!(
+                f,
+                "{name}'s talents couldn't be read: left as they were. Set them on their page."
+            ),
+        }
+    }
+}
+
 /// What a sync would change.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SyncPlan {
@@ -517,5 +548,41 @@ mod tests {
             name: "Manekina".to_owned(),
             id: 10000118
         }));
+    }
+
+    #[test]
+    fn notes_say_what_happened_in_the_player_s_words() {
+        let notes = [
+            SyncNote::PhaseUnknown {
+                name: "Ganyu".to_owned(),
+                level: 80,
+            },
+            SyncNote::AboveMaxLevel {
+                name: "Ganyu".to_owned(),
+                level: 100,
+            },
+            SyncNote::UnknownCharacter {
+                name: "Someone New".to_owned(),
+                id: 10000999,
+            },
+            SyncNote::UnknownWeapon {
+                name: "A New Bow".to_owned(),
+                id: 15999,
+            },
+            SyncNote::TalentsUnread {
+                name: "Ganyu".to_owned(),
+            },
+        ];
+        let texts: Vec<String> = notes.iter().map(ToString::to_string).collect();
+        assert!(texts[0].starts_with("Ganyu is level 80: "), "{}", texts[0]);
+        assert!(texts[2].contains("Someone New") && texts[3].contains("A New Bow"));
+        for text in &texts {
+            // Sentences, without the game's internal ids.
+            assert!(text.ends_with('.'), "{text}");
+            assert!(
+                !text.contains("10000999") && !text.contains("15999"),
+                "{text}"
+            );
+        }
     }
 }

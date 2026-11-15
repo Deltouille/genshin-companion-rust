@@ -469,13 +469,35 @@ impl Shell {
     /// Opens the HoYoLAB sync: the cookie, the fetch, then what it changes
     /// (the screenshot tool opens it this way).
     pub fn open_hoyolab_sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_hoyolab_dialog(window, cx);
+    }
+
+    /// Opens the HoYoLAB dialog and fetches with `cookie` at once, for the
+    /// screenshot tool's preview (it gives a fake HoYoLAB).
+    pub fn open_hoyolab_preview(
+        &mut self,
+        cookie: wish_core::hoyolab::Cookie,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(view) = self.open_hoyolab_dialog(window, cx) {
+            view.update(cx, |view, cx| view.start_fetch(cookie, window, cx));
+        }
+    }
+
+    fn open_hoyolab_dialog(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<HoyolabSync>> {
         if !matches!(self.library.read(cx).state(), LoadState::Ready) {
-            return;
+            return None;
         }
         let (library, session) = (self.library.clone(), self.session.clone());
         let view = cx.new(|cx| HoyolabSync::new(library, session, window, cx));
         let first = view.read(cx).first_field().clone();
         let focus_once = std::cell::Cell::new(true);
+        let shown = view.clone();
         window.open_dialog(cx, move |dialog, window, cx| {
             if focus_once.replace(false) {
                 first.focus_handle(cx).focus(window, cx);
@@ -483,8 +505,9 @@ impl Shell {
             dialog
                 .title("Sync from HoYoLAB")
                 .w(window.rem_size() * 44.)
-                .child(view.clone())
+                .child(shown.clone())
         });
+        Some(view)
     }
 
     fn render_page(&mut self, cx: &mut Context<Self>) -> AnyElement {

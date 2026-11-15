@@ -160,6 +160,17 @@ impl HoyolabSync {
             }
         };
         self.forget_cookie(window, cx);
+        self.start_fetch(cookie, window, cx);
+    }
+
+    /// Asks HoYoLAB with `cookie`; the preview follows (the screenshot tool
+    /// calls it with a sample cookie and a fake HoYoLAB).
+    pub(crate) fn start_fetch(
+        &mut self,
+        cookie: Cookie,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.note = None;
         self.control = Arc::new(FetchControl::default());
         self.step = Step::Fetching;

@@ -42,7 +42,13 @@ fn main() -> Result<()> {
 
     let paths = AppPaths::at(data_dir);
     let manual_counting = wish_core::settings::Settings::load(&paths)?.manual_counting;
-    let library = cx.update(|cx| cx.new(|cx| Library::open(paths, Services::network(), cx)));
+    // The real network for the images; a sample HoYoLAB for the sync's
+    // preview (never the real one: no cookie here).
+    let services = Services {
+        hoyolab: Arc::new(SampleHoyolab),
+        ..Services::network()
+    };
+    let library = cx.update(|cx| cx.new(|cx| Library::open(paths, services, cx)));
     let (window, shell) = cx.update(|cx| {
         let library = library.clone();
         let mut options = wish_app::window_options(cx);
@@ -560,6 +566,25 @@ fn main() -> Result<()> {
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
+        // Its preview, from the sample HoYoLAB: a change of each kind and the
+        // notes (a level whose phase isn't sent, a character the data lacks).
+        cx.update_window(window, |_, window, cx| {
+            let cookie = wish_core::hoyolab::Cookie::parse("ltuid_v2=1; ltoken_v2=sample")
+                .expect("a sample cookie");
+            shell.update(cx, |shell, cx| {
+                shell.open_hoyolab_preview(cookie, window, cx)
+            })
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("hoyolab-preview-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
         // With counting by hand on: the "Add a 4★ or 5★" dialog.
         if manual_counting {
             cx.update(|cx| {
@@ -586,4 +611,68 @@ fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// HoYoLAB as the screenshot tool shows it: one Genshin account with Ganyu
+/// at level 80 (HoYoLAB doesn't say whether she ascended), Bennett, and a
+/// character the game data doesn't have.
+struct SampleHoyolab;
+
+impl wish_core::hoyolab::Transport for SampleHoyolab {
+    fn send(&self, request: &wish_core::hoyolab::Request) -> wish_core::hoyolab::Result<String> {
+        let amos = serde_json::json!({ "id": 15502, "name": "Amos' Bow", "rarity": 5,
+            "level": 80, "affix_level": 1, "promote_level": 6, "type": 12 });
+        let favonius = serde_json::json!({ "id": 11401, "name": "Favonius Sword", "rarity": 4,
+            "level": 90, "affix_level": 3, "promote_level": 6, "type": 1 });
+        let base =
+            |id: u32, name: &str, element: &str, rarity: u8, level: u8, constellation: u8| {
+                serde_json::json!({ "id": id, "name": name, "element": element, "rarity": rarity,
+                "level": level, "actived_constellation_num": constellation })
+            };
+        let skills = |names: [&str; 3], levels: [u8; 3]| -> serde_json::Value {
+            (names.iter().zip(levels).enumerate())
+                .map(|(ix, (name, level))| {
+                    serde_json::json!({ "skill_id": ix + 1, "skill_type": 1, "name": name,
+                        "level": level })
+                })
+                .collect()
+        };
+        let sword = serde_json::json!({ "id": 11301, "name": "Harbinger of Dawn", "rarity": 3,
+            "level": 1, "affix_level": 1, "promote_level": 0, "type": 1 });
+        let data = if request.url.ends_with("getUserGameRolesByCookie") {
+            serde_json::json!({ "list": [{ "game_biz": "hk4e_global", "region": "os_euro",
+                "game_uid": "712345678", "nickname": "Traveler", "level": 60 }] })
+        } else if request.url.ends_with("character/list") {
+            let list = [
+                (10000037, "Ganyu", "Cryo", 5, 80, 1, amos.clone()),
+                (10000032, "Bennett", "Pyro", 4, 90, 6, favonius.clone()),
+                (10000999, "Someone New", "Anemo", 5, 90, 0, sword.clone()),
+            ]
+            .map(
+                |(id, name, element, rarity, level, constellation, weapon)| {
+                    let mut character = base(id, name, element, rarity, level, constellation);
+                    character["weapon"] = weapon;
+                    character
+                },
+            );
+            serde_json::json!({ "list": list })
+        } else if request.url.ends_with("character/detail") {
+            serde_json::json!({ "list": [
+                { "base": base(10000037, "Ganyu", "Cryo", 5, 80, 1), "weapon": amos,
+                  "constellations": [], "skills": skills(
+                      ["Liutian Archery", "Trail of the Qilin", "Celestial Shower"], [6, 9, 9]) },
+                { "base": base(10000032, "Bennett", "Pyro", 4, 90, 6), "weapon": favonius,
+                  "constellations": [], "skills": skills(
+                      ["Strike of Fortune", "Passion Overload", "Fantastic Voyage"], [6, 10, 10]) },
+                { "base": base(10000999, "Someone New", "Anemo", 5, 90, 0),
+                  "weapon": sword, "constellations": [], "skills": [] },
+            ] })
+        } else {
+            return Err(wish_core::hoyolab::Error::Network(format!(
+                "the sample HoYoLAB has no answer for {}",
+                request.url
+            )));
+        };
+        Ok(serde_json::json!({ "retcode": 0, "message": "OK", "data": data }).to_string())
+    }
 }

@@ -130,6 +130,20 @@ impl HoyolabSync {
                         .child("Your collection already has all of this."),
                 )
             })
+            // What HoYoLAB left unclear, or the game data lacks: said, so a
+            // character counted as not ascended, or left out, isn't a puzzle.
+            .when(!plan.notes.is_empty(), |this| {
+                this.child(div().v_flex().gap_1().text_sm().text_color(muted).children(
+                    plan.notes.iter().map(|note| {
+                        div()
+                            .h_flex()
+                            .items_start()
+                            .gap_2()
+                            .child(Icon::new(IconName::Info).small().flex_none().mt_0p5())
+                            .child(div().flex_1().min_w_0().child(note.to_string()))
+                    }),
+                ))
+            })
             .child(
                 footer()
                     .child(

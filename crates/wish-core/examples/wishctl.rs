@@ -662,7 +662,7 @@ fn hoyolab_sync(
     apply: bool,
 ) -> Result<()> {
     use wish_core::archive::ArchiveData;
-    use wish_core::collection::{Change, SyncNote};
+    use wish_core::collection::Change;
     use wish_core::planner::{Level, PlannerData};
 
     let (account, details) = match from {
@@ -778,24 +778,7 @@ fn hoyolab_sync(
         println!("\nNotes:");
     }
     for note in &plan.notes {
-        let text = match note {
-            SyncNote::PhaseUnknown { name, level } => format!(
-                "{name} is level {level}: HoYoLAB doesn't say whether they ascended; counted as not yet."
-            ),
-            SyncNote::AboveMaxLevel { name, level } => {
-                format!("{name} is level {level}: counted as 90/90, the highest the app knows.")
-            }
-            SyncNote::UnknownCharacter { name, id } => {
-                format!("{name} ({id}) isn't in the game data: left out.")
-            }
-            SyncNote::UnknownWeapon { name, id } => {
-                format!("The weapon {name} ({id}) isn't in the game data: left out.")
-            }
-            SyncNote::TalentsUnread { name } => {
-                format!("{name}'s talents couldn't be read: left as they were.")
-            }
-        };
-        println!("  ! {text}");
+        println!("  ! {note}");
     }
 
     if !apply {
