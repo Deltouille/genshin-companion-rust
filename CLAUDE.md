@@ -165,7 +165,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     removes the row). Each write is one transaction after at most one `before-planning` backup an hour. Costs are
     never stored. Each account has its own plan and inventory (migration 007); the snapshot and the mirror carry
     them.
-  - `store/`: SQLite (`Store`), migrations in `store/schema/`, backups.
+  - `store/`: SQLite (`Store`), migrations in `store/schema/`, backups. `Store::take_changed` says which accounts'
+    analyses the writes since the last call may have changed (`Changed`: their wishes, manual counters or server;
+    `All` once opened or a backup restored): a write that changes one of those must note it (`Store::changed`), so
+    the app's cached analysis is worked out again.
   - `import/`: parsers that build an in-memory `ImportBatch`; only `Store::apply_import` writes.
   - `snapshot.rs`: the app's lossless JSON export, and the mirror's file. Version 2: each account's wishes,
     characters, weapons, plan and inventory, the last four as records of the format's own (`SnapshotCharacter`,
@@ -296,8 +299,12 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       even if the caller drops the returned task. The state is
       reloaded after a failed write too, which undoes what a page showed at once (the planner's sliders, order and
       inventory), and after a panic in a write, which becomes its error (the lock it poisoned is taken back: each
-      write is one transaction). Every write but a backup by hand refreshes the mirror folder (`changes_data`):
-      the collection, the plan and the inventory are in its snapshot too; quitting waits up to 5 s for the writes under way (`on_app_quit`). Report a write's error to the
+      write is one transaction). The reload keeps each account's analysis (`analyses`, the costly part) unless the
+      store says the write changed what it reads (`Store::take_changed`), and works them all out again after a
+      failed or panicking write; plans, inventories and collections are read again whole. Every write but a backup by hand marks the mirror due (`changes_data`; the
+      collection, the plan and the inventory are in its snapshot too): `library/mirror.rs` writes it `MIRROR_DELAY`
+      (3 s) after the last change, each change starting the wait again, and at quit (the store stays locked while it
+      writes, so quitting waits for a write under way); choosing the folder writes it at once; quitting waits up to 5 s for the writes under way (`on_app_quit`). Report a write's error to the
       user with `notices::report` (or `report_outcome`, for a message either way; a feature wraps it with its words:
       `report_plan`, `report_characters`, `report_weapons`); never `.detach()` it silently, nor make its report a
       `Session` flow, which a later flow would cancel.

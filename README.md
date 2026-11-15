@@ -63,8 +63,10 @@ All of these are on the Import page; the wish imports are also on the Overview.
   wishes, characters, weapons, the plan and the inventory) after a backup of the current state.
 - Every imported file is kept as it was received.
 - Every import can be undone, from Settings → Recent imports.
-- A **mirror folder** (optional): after every change, a snapshot of everything (wishes, characters, weapons, plan
-  and inventory) is written to a folder that you sync with your own tool, such as Syncthing or a cloud drive. It
+- A **mirror folder** (optional): a few seconds after each change, and when the app closes, a snapshot of
+  everything (wishes, characters, weapons, plan and inventory) is written to a folder that you sync with your own
+  tool, such as Syncthing or a cloud drive. Changes made in a row are written once, so the synced file doesn't
+  change at every click; your data itself is saved at once, in the database. It
   holds your UID and wishes, so a synced folder sends them to that service. Give each computer its own mirror folder: the file has one name, and two computers
   writing it would replace each other's copy.
 

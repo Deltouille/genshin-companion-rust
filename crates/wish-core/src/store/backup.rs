@@ -140,6 +140,8 @@ impl Store {
             self.migrate(version)?;
         }
         prune(&self.paths.backups())?;
+        // Every account may differ now.
+        self.changed = super::Changed::All;
         Ok(safety)
     }
 

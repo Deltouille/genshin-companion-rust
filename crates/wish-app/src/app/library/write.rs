@@ -28,8 +28,12 @@ impl Library {
         };
         self.writes += 1;
         cx.notify();
-        let mirror_folder = (self.settings(cx).mirror_folder.clone()).filter(|_| changes_data);
+        // The mirror is written a little after the last change, not by each
+        // write (`Library::schedule_mirror`).
+        let mirrored = changes_data && self.settings(cx).mirror_folder.is_some();
+        let mirror_due = self.mirror_due.clone();
         let generations = self.generations.clone();
+        let analyses = self.analyses.clone();
         let unfinished = self.unfinished.clone();
         unfinished.fetch_add(1, Ordering::SeqCst);
 
@@ -53,20 +57,27 @@ impl Library {
                 // Taken under the lock, so it orders the reloads.
                 let generation = generations.fetch_add(1, Ordering::Relaxed) + 1;
                 let value = work(&mut store, &data);
-                let mirror = (mirror_folder.filter(|_| value.is_ok()))
-                    .map(|folder| write_mirror(&store, &folder));
+                if mirrored && value.is_ok() {
+                    // Under the lock, like the mirror's own write.
+                    mirror_due.store(true, Ordering::SeqCst);
+                }
                 // After a failed write too: it undoes what the page
                 // showed at once.
-                let loaded = load(&store, &data);
-                (value, mirror, loaded, generation)
+                if value.is_err() {
+                    // Prudent: everything is worked out again.
+                    forget(&analyses);
+                }
+                let loaded = load(&mut store, &data, &analyses);
+                (value, loaded, generation)
             }))
             .or_else(|panic| -> Result<_> {
                 let error = anyhow!("an internal error stopped it: {}", panic_text(&*panic));
                 // Reload all the same: the page may show a change
                 // the rolled-back write never made.
-                let store = lock(&store);
+                let mut store = lock(&store);
                 let generation = generations.fetch_add(1, Ordering::Relaxed) + 1;
-                Ok((Err(error), None, load(&store, &data), generation))
+                forget(&analyses);
+                Ok((Err(error), load(&mut store, &data, &analyses), generation))
             });
             unfinished.fetch_sub(1, Ordering::SeqCst);
             ran.send(()).ok();
@@ -80,19 +91,19 @@ impl Library {
                 .unwrap_or_else(|_| Err(anyhow!("the change was cut off before it was saved")));
             let result = this.update(cx, |this, cx| {
                 this.writes -= 1;
-                let result = outcome.and_then(|(value, mirror, loaded, generation)| {
+                let result = outcome.and_then(|(value, loaded, generation)| {
                     // A later write may have finished first; keep its state.
                     match loaded {
                         Ok(loaded) if generation > this.loaded_generation => {
                             this.loaded_generation = generation;
                             this.set_loaded(loaded);
-                            if let Some(mirror) = mirror {
-                                this.mirror = Some(mirror);
-                            }
                         }
                         Ok(_) => {}
                         Err(err) if value.is_ok() => return Err(err),
                         Err(_) => {}
+                    }
+                    if mirrored && value.is_ok() {
+                        this.schedule_mirror(cx);
                     }
                     value.map(|value| finish(this, value))
                 });
@@ -116,4 +127,12 @@ fn panic_text(panic: &(dyn std::any::Any + Send)) -> String {
     (panic.downcast_ref::<&str>().map(|s| s.to_string()))
         .or_else(|| panic.downcast_ref::<String>().cloned())
         .unwrap_or_else(|| "a panic".to_owned())
+}
+
+/// Drops every analysis kept, so the next reload works them all out again.
+fn forget(analyses: &Mutex<Analyses>) {
+    analyses
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clear();
 }

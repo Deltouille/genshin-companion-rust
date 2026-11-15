@@ -189,7 +189,8 @@ impl SettingsPage {
                         })
                         .child(help(
                             "A copy of all your wishes, characters, weapons, plan and \
-                             inventory, updated after every change. Choose a folder synced by \
+                             inventory, updated a few seconds after each change and when the \
+                             app closes. Choose a folder synced by \
                              Syncthing, Nextcloud, Dropbox or similar to keep a copy off this \
                              computer.",
                             cx,

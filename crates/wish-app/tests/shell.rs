@@ -163,7 +163,7 @@ fn importing_a_save_shows_its_accounts() {
 }
 
 #[test]
-fn the_mirror_folder_gets_a_snapshot_right_away_and_after_imports() {
+fn the_mirror_folder_gets_a_snapshot_right_away_and_after_changes() {
     let dir = tempfile::tempdir().unwrap();
     let mirror = dir.path().join("Sync");
     let mut app = App::open(&dir.path().join("data"));
@@ -181,10 +181,19 @@ fn the_mirror_folder_gets_a_snapshot_right_away_and_after_imports() {
     let written = app.cx.update(|cx| library.read(cx).mirror().cloned());
     assert!(matches!(written, Some(MirrorStatus::Written(_))));
 
+    // A change is mirrored a few seconds later, not at once.
+    let accounts = || {
+        let json = std::fs::read(&file).unwrap();
+        wish_core::snapshot::Snapshot::from_json(&json)
+            .unwrap()
+            .accounts
+            .len()
+    };
     app.import(SAMPLE);
-    let snapshot =
-        wish_core::snapshot::Snapshot::from_json(&std::fs::read(&file).unwrap()).unwrap();
-    assert_eq!(snapshot.accounts.len(), 2);
+    assert_eq!(accounts(), 0);
+    app.cx.advance_clock(std::time::Duration::from_secs(3));
+    app.cx.run_until_parked();
+    assert_eq!(accounts(), 2);
 
     // The setting survives a restart.
     drop(app);

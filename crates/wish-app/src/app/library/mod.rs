@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, anyhow};
@@ -149,6 +149,10 @@ pub struct Library {
     preferences: Entity<Preferences>,
     backups: BackupStatus,
     mirror: Option<MirrorStatus>,
+    /// A change the mirror doesn't hold yet (set under the store lock).
+    mirror_due: Arc<AtomicBool>,
+    /// Writes the mirror once the changes stop (`schedule_mirror`).
+    mirror_timer: Option<Task<()>>,
     /// Database writes queued or running.
     writes: usize,
     /// Writes not finished yet, counted where they run: quitting waits for
@@ -158,6 +162,10 @@ pub struct Library {
     _wait_on_quit: Subscription,
     /// Counts writes in the order they take the store lock.
     generations: Arc<AtomicU64>,
+    /// Each account's analysis, kept from one reload to the next: a write
+    /// works out again only those whose wishes, counters or server it
+    /// changed (`Store::take_changed`).
+    analyses: Arc<Mutex<Analyses>>,
     /// The write whose reload is installed.
     loaded_generation: u64,
     /// Done when the last write made so far has run: the next one waits for
@@ -174,10 +182,12 @@ impl Library {
         let preferences = cx.new(|_| Preferences::new(paths.clone()));
         let image_requests = images.read(cx).requests();
         let task_paths = paths.clone();
+        let analyses: Arc<Mutex<Analyses>> = Arc::default();
+        let cache = analyses.clone();
         let unfinished = Arc::new(AtomicUsize::new(0));
         cx.spawn(async move |this, cx| {
             let opened = cx
-                .background_spawn(async move { open(task_paths, image_requests) })
+                .background_spawn(async move { open(task_paths, image_requests, &cache) })
                 .await;
             this.update(cx, |this, cx| {
                 match opened {
@@ -221,22 +231,31 @@ impl Library {
             preferences: preferences.clone(),
             backups: BackupStatus::default(),
             mirror: None,
+            mirror_due: Arc::default(),
+            mirror_timer: None,
             writes: 0,
             unfinished: unfinished.clone(),
             // A setting can change what the pages show.
             _preferences_changes: cx.observe(&preferences, |_, _, cx| cx.notify()),
-            _wait_on_quit: cx.on_app_quit(move |_, _| {
+            _wait_on_quit: cx.on_app_quit(move |this, cx| {
                 // A write cut off by quitting is rolled back (one transaction
                 // each), but the change is lost: give it a few seconds.
                 let since = Instant::now();
                 while unfinished.load(Ordering::SeqCst) > 0 && since.elapsed() < QUIT_WAIT {
                     std::thread::sleep(Duration::from_millis(10));
                 }
+                // Then the mirror the last changes still wait for.
+                if let (Some(store), Some(folder)) =
+                    (this.store.clone(), this.settings(cx).mirror_folder.clone())
+                {
+                    write_mirror_if_due(&store, &folder, &this.mirror_due);
+                }
                 async {}
             }),
             generations: Arc::default(),
             loaded_generation: 0,
             last_write: None,
+            analyses,
         }
     }
 
@@ -383,7 +402,11 @@ struct Loaded {
     backups: BackupStatus,
 }
 
-fn open(paths: AppPaths, image_requests: Option<UnboundedSender<Job>>) -> Result<Opened> {
+fn open(
+    paths: AppPaths,
+    image_requests: Option<UnboundedSender<Job>>,
+    analyses: &Mutex<Analyses>,
+) -> Result<Opened> {
     // Nothing in the game-data folder may keep the wishes from opening: a
     // damaged (or, for the wish data, older) copy gives way to the built-in
     // data, and says so.
@@ -404,8 +427,8 @@ fn open(paths: AppPaths, image_requests: Option<UnboundedSender<Job>>) -> Result
         icons: images::catalog(&data, &planner, &archive, Collection::Icons),
         everything: images::catalog(&data, &planner, &archive, Collection::Everything),
     };
-    let store = Store::open(paths).context("opening the wish database")?;
-    let loaded = load(&store, &data)?;
+    let mut store = Store::open(paths).context("opening the wish database")?;
+    let loaded = load(&mut store, &data, analyses)?;
     Ok(Opened {
         store,
         data,
@@ -420,16 +443,33 @@ fn open(paths: AppPaths, image_requests: Option<UnboundedSender<Job>>) -> Result
     })
 }
 
-fn load(store: &Store, data: &GameData) -> Result<Loaded> {
+/// Each account's analysis, by account.
+type Analyses = HashMap<AccountId, Arc<Analysis>>;
+
+/// Everything the pages show, read again after a change. An account's
+/// analysis, the costly part, is kept from `analyses` unless the store says
+/// a write changed what it reads; plans, inventories and collections are
+/// read again whole (a few small queries).
+fn load(store: &mut Store, data: &GameData, analyses: &Mutex<Analyses>) -> Result<Loaded> {
+    let mut analyses = analyses.lock().unwrap_or_else(PoisonError::into_inner);
+    let changed = store.take_changed();
+    analyses.retain(|account, _| !changed.includes(*account));
     let mut accounts = Vec::new();
     let mut all_holdings = HashMap::new();
     for account in store.accounts()? {
-        let analysis = engine::analyze(
-            store.wishes(account.id)?,
-            account.server,
-            &store.manual_counters(account.id)?,
-            data,
-        );
+        let analysis = match analyses.get(&account.id) {
+            Some(analysis) => analysis.clone(),
+            None => {
+                let analysis = Arc::new(engine::analyze(
+                    store.wishes(account.id)?,
+                    account.server,
+                    &store.manual_counters(account.id)?,
+                    data,
+                ));
+                analyses.insert(account.id, analysis.clone());
+                analysis
+            }
+        };
         let holdings = Holdings {
             plan: store.plan(account.id)?,
             inventory: store.inventory(account.id)?,
@@ -441,10 +481,7 @@ fn load(store: &Store, data: &GameData) -> Result<Loaded> {
             continue;
         }
         all_holdings.insert(account.id, holdings);
-        accounts.push(AccountSummary {
-            account,
-            analysis: Arc::new(analysis),
-        });
+        accounts.push(AccountSummary { account, analysis });
     }
     let backups = store.backups()?;
     Ok(Loaded {
@@ -497,6 +534,7 @@ pub fn is_cancelled(err: &anyhow::Error) -> bool {
 mod collection;
 mod data;
 mod mirror;
+use mirror::write_mirror_if_due;
 mod plan;
 mod write;
 

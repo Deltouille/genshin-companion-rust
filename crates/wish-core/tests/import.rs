@@ -578,3 +578,62 @@ fn pulls_per_pool(bytes: &[u8]) -> BTreeMap<String, usize> {
     }
     counts
 }
+
+/// The app keeps each account's analysis from one reload to the next, and
+/// works out again those the store says a write changed: every write of
+/// wishes, counters or a server must say so, and the others must not.
+#[test]
+fn the_store_says_whose_analysis_a_write_changed() {
+    use std::collections::BTreeSet;
+    use wish_core::model::AccountId;
+    use wish_core::planner::{CharacterGoal, CustomItem, PlanTarget};
+    use wish_core::store::{BackupReason, Changed};
+
+    let none = || Changed::Accounts(BTreeSet::new());
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = open_store(dir.path());
+    // Just opened: nothing is known yet.
+    assert_eq!(store.take_changed(), Changed::All);
+    assert_eq!(store.take_changed(), none());
+
+    let report = store.apply_import(sample_batch()).unwrap();
+    let accounts: BTreeSet<AccountId> = report.accounts.iter().map(|a| a.account.id).collect();
+    assert_eq!(accounts.len(), 2);
+    assert_eq!(store.take_changed(), Changed::Accounts(accounts.clone()));
+
+    // The plan, the inventory and the collection: no analysis reads them.
+    let main = *accounts.first().unwrap();
+    let ganyu = PlanTarget::Character {
+        key: "ganyu".to_owned(),
+        goal: CharacterGoal::FULL,
+    };
+    store.add_plan_entry(main, &ganyu).unwrap();
+    store
+        .set_owned(main, &CustomItem::Material(202), 10)
+        .unwrap();
+    store.rename_account(main, "Renamed").unwrap();
+    assert_eq!(store.take_changed(), none());
+
+    // Undoing an import: its account only.
+    let import = (store.recent_imports(10).unwrap().into_iter())
+        .find(|import| import.account == main)
+        .unwrap();
+    store.undo_import(import.id).unwrap();
+    assert_eq!(store.take_changed(), Changed::Accounts([main].into()));
+
+    // A wish counted by hand, then deleted: its account each time.
+    let account = store.account(main).unwrap();
+    let time = "2024-06-01 12:00:00".parse().unwrap();
+    let counted = wish_core::import::manual::three_stars(Some(&account), Pool::Standard, 1, time);
+    let id = counted.accounts[0].wishes[0].id.clone();
+    store.apply_import(counted).unwrap();
+    assert_eq!(store.take_changed(), Changed::Accounts([main].into()));
+    store.delete_manual_wishes(main, &[id]).unwrap();
+    assert_eq!(store.take_changed(), Changed::Accounts([main].into()));
+
+    // A backup restored: every account.
+    let backup = store.backup(BackupReason::Manual).unwrap();
+    assert_eq!(store.take_changed(), none());
+    store.restore(&backup).unwrap();
+    assert_eq!(store.take_changed(), Changed::All);
+}

@@ -168,6 +168,8 @@ impl Store {
             }
         }
         tx.commit()?;
+        // The account may be new, or have taken a server.
+        self.changed(account);
         Ok((account, plan, backup))
     }
 }

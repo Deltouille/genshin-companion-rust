@@ -222,6 +222,161 @@ fn quitting_knows_every_write_under_way_whatever_its_end() {
     assert!(app.finish(panicked).is_err());
 }
 
+/// Each account's analysis (pity, 50/50, the history's numbers) is kept from
+/// one reload to the next: a write works out again only those it changed.
+#[test]
+fn a_write_works_out_again_only_the_analyses_it_changed() {
+    use wish_core::data::GameData;
+    use wish_core::engine::Analysis;
+    use wish_core::import::{manual, paimon};
+    use wish_core::model::{AccountId, Pool};
+
+    const SAMPLE: &str = include_str!("../../../../wish-core/tests/fixtures/paimon-sample.json");
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = Harness::open(dir.path());
+    let batch = paimon::parse(SAMPLE.as_bytes(), GameData::embedded()).unwrap();
+    let task = app.update(|library, cx| library.apply_import(batch, cx));
+    app.finish(task).unwrap();
+    let analyses = |app: &mut Harness| -> Vec<(AccountId, Arc<Analysis>)> {
+        app.read(|library| {
+            (library.accounts().iter())
+                .map(|summary| (summary.account.id, summary.analysis.clone()))
+                .collect()
+        })
+    };
+    let kept = |before: &[(AccountId, Arc<Analysis>)], after: &[(AccountId, Arc<Analysis>)]| {
+        (before.iter().zip(after))
+            .map(|((_, a), (_, b))| Arc::ptr_eq(a, b))
+            .collect::<Vec<bool>>()
+    };
+    let before = analyses(&mut app);
+    assert_eq!(before.len(), 2);
+
+    // The plan: no analysis worked out again.
+    let task = app.update(|library, cx| library.add_plan_entry(None, character("ganyu"), cx));
+    app.finish(task).unwrap();
+    let after = analyses(&mut app);
+    assert_eq!(kept(&before, &after), [true, true]);
+
+    // A wish counted by hand: its account's only, with the wish in it.
+    let standard = |analysis: &Analysis| {
+        (analysis.pools.iter())
+            .find(|pool| pool.pool == Pool::Standard)
+            .map_or(0, |pool| pool.pulls.len())
+    };
+    let account = app.read(|library| library.accounts()[0].account.clone());
+    let time = "2024-06-01 12:00:00".parse().unwrap();
+    let counted = manual::three_stars(Some(&account), Pool::Standard, 1, time);
+    let task = app.update(|library, cx| library.apply_import(counted, cx));
+    app.finish(task).unwrap();
+    let counted = analyses(&mut app);
+    assert_eq!(kept(&after, &counted), [false, true]);
+    assert_eq!(standard(&counted[0].1), standard(&after[0].1) + 1);
+
+    // A failed write: every one, to be safe.
+    let task = app.update(|library, cx| {
+        library.write(
+            cx,
+            false,
+            |_, _| -> Result<()> { Err(anyhow!("no")) },
+            |_, ()| (),
+        )
+    });
+    app.finish(task).unwrap_err();
+    assert_eq!(kept(&counted, &analyses(&mut app)), [false, false]);
+}
+
+/// The mirror is written once the changes stop for a few seconds, and when
+/// the app quits; never by each write.
+mod mirror {
+    use std::time::Duration;
+
+    use wish_core::snapshot::{MIRROR_FILE, Snapshot};
+
+    use super::super::mirror::MIRROR_DELAY;
+    use super::*;
+
+    /// A library mirroring into `<dir>/Sync`, and the accounts the mirror
+    /// file holds.
+    fn mirrored(dir: &Path) -> (Harness, impl Fn() -> usize) {
+        let mut app = Harness::open(&dir.join("data"));
+        let folder = dir.join("Sync");
+        let set = app.update(|library, cx| library.set_mirror_folder(Some(folder.clone()), cx));
+        app.finish(set).unwrap();
+        let file = folder.join(MIRROR_FILE);
+        let accounts = move || {
+            let json = std::fs::read(&file).unwrap();
+            Snapshot::from_json(&json).unwrap().accounts.len()
+        };
+        (app, accounts)
+    }
+
+    /// A change of the data, as the app makes it.
+    fn add(app: &mut Harness, label: &str) {
+        let label = label.to_owned();
+        let task = app.update(|library, cx| library.add_account(label, None, None, cx));
+        app.finish(task).unwrap();
+    }
+
+    fn wait(app: &mut Harness, time: Duration) {
+        app.cx.advance_clock(time);
+        app.cx.run_until_parked();
+    }
+
+    #[test]
+    fn each_change_starts_the_wait_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, accounts) = mirrored(dir.path());
+        assert_eq!(accounts(), 0);
+
+        let second = Duration::from_secs(1);
+        add(&mut app, "First");
+        wait(&mut app, MIRROR_DELAY - second);
+        assert_eq!(accounts(), 0, "not yet");
+        // Another change before the wait ends: it starts again.
+        add(&mut app, "Second");
+        wait(&mut app, MIRROR_DELAY - second);
+        assert_eq!(accounts(), 0, "still not");
+        wait(&mut app, second);
+        assert_eq!(accounts(), 2, "both, in one write");
+        assert!(matches!(
+            app.read(|library| library.mirror().cloned()),
+            Some(super::super::MirrorStatus::Written(_))
+        ));
+    }
+
+    #[test]
+    fn quitting_writes_the_mirror_a_change_still_waits_for() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, accounts) = mirrored(dir.path());
+        add(&mut app, "Just now");
+        assert_eq!(accounts(), 0);
+        app.cx.update(|cx| cx.shutdown());
+        assert_eq!(accounts(), 1);
+    }
+
+    #[test]
+    fn a_backup_by_hand_or_a_failed_write_is_no_change_to_mirror() {
+        let dir = tempfile::tempdir().unwrap();
+        let (mut app, accounts) = mirrored(dir.path());
+        let task = app.update(|library, cx| library.back_up(cx));
+        app.finish(task).unwrap();
+        // A change of the data that fails: rolled back, nothing to mirror.
+        let task = app.update(|library, cx| {
+            library.write(
+                cx,
+                true,
+                |_, _| -> Result<()> { Err(anyhow!("no")) },
+                |_, ()| (),
+            )
+        });
+        app.finish(task).unwrap_err();
+        wait(&mut app, MIRROR_DELAY * 2);
+        assert!(app.read(|library| library.mirror().cloned()).is_some());
+        assert_eq!(accounts(), 0);
+    }
+}
+
 /// The two flows that bring data from the network, end to end through the
 /// library, the core's services and the store, on fake transports.
 mod flows {

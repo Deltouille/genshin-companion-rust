@@ -9,7 +9,7 @@ mod inventory;
 mod merge;
 mod plan;
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -48,6 +48,28 @@ const WISH_COLUMNS: &str =
 pub struct Store {
     conn: Connection,
     paths: AppPaths,
+    /// What the writes since the last [`Store::take_changed`] changed of what
+    /// an analysis reads.
+    changed: Changed,
+}
+
+/// The accounts whose analysis a write may have changed: their wishes,
+/// manual counters or server, what [`crate::engine::analyze`] reads. A cache
+/// of analyses works out these again and keeps the others.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Changed {
+    /// Every account (the store was just opened, or a backup restored).
+    All,
+    Accounts(BTreeSet<AccountId>),
+}
+
+impl Changed {
+    pub fn includes(&self, account: AccountId) -> bool {
+        match self {
+            Changed::All => true,
+            Changed::Accounts(accounts) => accounts.contains(&account),
+        }
+    }
 }
 
 impl Store {
@@ -80,7 +102,11 @@ impl Store {
         conn.pragma_update(None, "trusted_schema", false)?;
         conn.busy_timeout(Duration::from_secs(5))?;
 
-        let mut store = Self { conn, paths };
+        let mut store = Self {
+            conn,
+            paths,
+            changed: Changed::All,
+        };
         if version < latest {
             if existed && version > 0 {
                 store.backup(BackupReason::BeforeMigration)?;
@@ -298,6 +324,19 @@ impl Store {
         Ok(imports)
     }
 
+    /// What the writes since the last call changed of what an analysis
+    /// reads; from then on, nothing.
+    pub fn take_changed(&mut self) -> Changed {
+        std::mem::replace(&mut self.changed, Changed::Accounts(BTreeSet::new()))
+    }
+
+    /// Notes that `account`'s analysis may have changed.
+    pub(super) fn changed(&mut self, account: AccountId) {
+        if let Changed::Accounts(accounts) = &mut self.changed {
+            accounts.insert(account);
+        }
+    }
+
     /// Deletes wishes entered by hand in this app, after a backup. Wishes
     /// from any other source are refused: undo their import instead.
     pub fn delete_manual_wishes(&mut self, account: AccountId, ids: &[WishId]) -> Result<u32> {
@@ -324,6 +363,7 @@ impl Store {
             )?;
         }
         tx.commit()?;
+        self.changed(account);
         Ok(u32::try_from(deleted).unwrap_or(u32::MAX))
     }
 
@@ -331,19 +371,19 @@ impl Store {
     /// and its manual counters. A backup is taken first; the import stays in
     /// the log, marked as undone.
     pub fn undo_import(&mut self, import_id: i64) -> Result<UndoReport> {
-        let undone: Option<Option<String>> = self
+        let undone: Option<(AccountId, Option<String>)> = self
             .conn
             .query_row(
-                "SELECT undone_at FROM imports WHERE id = ?1",
+                "SELECT account_id, undone_at FROM imports WHERE id = ?1",
                 [import_id],
-                |row| row.get(0),
+                |row| Ok((AccountId(row.get(0)?), row.get(1)?)),
             )
             .optional()?;
-        match undone {
+        let account = match undone {
             None => return Err(Error::UnknownImport(import_id)),
-            Some(Some(_)) => return Err(Error::AlreadyUndone(import_id)),
-            Some(None) => {}
-        }
+            Some((_, Some(_))) => return Err(Error::AlreadyUndone(import_id)),
+            Some((account, None)) => account,
+        };
 
         let backup = self.backup(BackupReason::BeforeUndo)?;
         let now = Local::now().to_rfc3339_opts(SecondsFormat::Secs, false);
@@ -367,6 +407,7 @@ impl Store {
             params![now, import_id],
         )?;
         tx.commit()?;
+        self.changed(account);
 
         let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
         Ok(UndoReport {
@@ -433,6 +474,9 @@ impl Store {
             });
         }
         tx.commit()?;
+        for report in &accounts {
+            self.changed(report.account.id);
+        }
 
         Ok(ImportReport {
             backup,
