@@ -437,12 +437,14 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       the slider's level and phase, and what reaching it costs, from `PlannerData::character_cost`), Ascension (the
       stats at each phase's bounds, "20/20" then "20/40"), Talents (values at the talent-level slider, cost of one
       talent to it), Constellations.
-    - `archive/weapons.rs`: `WeaponsView` (entity, `Page::Archive(ArchivePage::Weapons)`, the shell calls
+    - `archive/weapons/`: `WeaponsView` (entity in `mod.rs`: filters, open weapon, level, refinement, actions;
+      `model.rs`: the list and a weapon's page as plain data from pure functions, tested alone; `list.rs` and
+      `page.rs` draw them; `Page::Archive(ArchivePage::Weapons)`, the shell calls
       `show_weapon`): the weapon list (the same filter bar: type, rarity, favourites; "Owned" first, a card
       showing the best refinement and the copies, "R3 · ×2", with ☆ (every copy) and + (add a copy), then "Not
       owned" faded) and a weapon's page (the same `detail::hero_banner` with its upright wish art, "My copies",
       stats at the level slider and their cost, the passive by refinement, "Add to the planner").
-      `weapon_copies.rs`: the copies, one row each (level picker over `Level::weapon_steps`, refinement, "Held
+      `weapons/copies.rs`: the copies, one row each (level picker over `Level::weapon_steps`, refinement, "Held
       by" among the owned characters of that weapon type, favourite, remove after asking), "Add a copy";
       `CopyControls` are each copy's pickers, kept in step with the stored copies (`sync_copies`, on every change
       of the library or the session). A character holds one copy: giving it another takes it from the first.

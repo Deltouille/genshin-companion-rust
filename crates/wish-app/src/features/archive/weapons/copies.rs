@@ -18,8 +18,8 @@ use wish_core::collection::{MAX_REFINEMENT, OwnedWeapon};
 use wish_core::model::{AccountId, Rarity};
 use wish_core::planner::{Level, Weapon};
 
-use super::level_options;
-use super::weapons::WeaponsView;
+use super::super::level_options;
+use super::WeaponsView;
 use crate::app::notices::{report, report_outcome};
 use wish_ui::{
     PickerEvent, PickerItem, PickerState, Segmented, button, card, card_title, dialog_footer,

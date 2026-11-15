@@ -15,7 +15,6 @@ mod collection;
 mod detail;
 mod filters;
 mod list;
-mod weapon_copies;
 mod weapons;
 
 pub use weapons::WeaponsView;
