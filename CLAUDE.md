@@ -387,7 +387,13 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       - `import/`: `ImportFlow` (entity, no view): pick a file, preview dialog, apply; `game.rs`: the
         "Import from the game" dialog; `import_file_button` / `import_game_button` send the actions.
     - `planner/`: the ascension planner, like genshin-center's (`Page::Planner`, group "Planner"). `PlannerView`
-      (entity): "Add a character…" and "Add a weapon…" are buttons opening a dialog of cards (`add.rs`, the
+      (entity; `mod.rs`: its state, sliders and actions). What the page shows is `model.rs`'s `PlannerModel`: plain
+      data built by pure functions (the inventory shared out, the resin, each card's name, picture, ranges, tiles and
+      their tooltips; pictures named by key or id), tested without GPUI, worked out again when the library, the account
+      or a slider changes (`PlannerView::rebuild`), never in `render`. `sections/` draw it, each a `RenderOnce` with
+      its props (`StillNeeded`, `EntryCard`, the material grid, the drag and drop in `drag.rs`), passing clicks back
+      through `Actions` (callbacks onto the view); none reads or writes the library. The same shape (an entity, a
+      model, sections) is the one to follow when a big page is split. "Add a character…" and "Add a weapon…" are buttons opening a dialog of cards (`add.rs`, the
       user's choice over pickers: the picture on its rarity tile over a parchment strip, a search, what the account
       owns first with its level and constellation or refinement; a character already planned is faded; a click adds
       and closes): a character from the levels and talents the account has (else `CharacterGoal::FULL`) to 90/90

@@ -1,51 +1,49 @@
-//! The ascension planner, after genshin-center's: the characters to raise,
-//! each with where it is and where it should go (range sliders for the level
-//! and the three talents), and custom characters for those the game data does
-//! not have yet (a leak: a name, its stars and its six materials). Each entry
-//! shows its materials; the "Still needed" card adds up the plan, less what
-//! the player has. Clicking a material asks how many they have.
+//! The ascension planner, after genshin-center's: the characters and weapons
+//! to raise, each with where it is and where it should go (range sliders for
+//! the level and the three talents), and custom ones for those the game data
+//! does not have yet (a name, the stars and the materials). Each entry shows
+//! its materials; the "Still needed" card adds up the plan, less what the
+//! player has. Clicking a material asks how many they have.
 //!
 //! An entity: the sliders of each entry are its state. The plan and the
 //! inventory are the [`Library`]'s; a slider saves its entry when released,
-//! and while it is dragged the costs follow it.
+//! and while it is dragged the costs follow it. What the page shows is the
+//! [`PlannerModel`](model::PlannerModel) (`model.rs`, plain data, tested
+//! alone), worked out again when the plan, the inventory, the account or a
+//! slider changes; the render only reads it, and `sections/` draw it.
 
 mod add;
 pub(crate) use add::Kind as AddKind;
 mod custom;
 mod inventory;
+mod model;
 mod resin;
+mod sections;
 
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::slider::{Slider, SliderEvent, SliderState, SliderValue};
-use gpui_kit::component::{Icon, WindowExt as _};
-use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::component::slider::{SliderEvent, SliderState, SliderValue};
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Context, CursorStyle, Div, Entity, FontWeight, ImageSource,
-    InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _, Pixels, Render,
-    SharedString, StatefulInteractiveElement as _, Styled as _, StyledImage as _, Subscription,
-    Window, div, img, px, relative,
+    AnyElement, App, AppContext as _, Context, Entity, FontWeight, InteractiveElement as _,
+    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Subscription, Window, div,
 };
 use wish_core::planner::{
-    CharacterGoal, CustomItem, EntryShare, Inventory, Level, Material, MaterialId, PlanEntry,
-    PlanTarget, PlanTotals, PlannerData, ResinOptions, Role, WeaponGoal, exp_series,
+    CharacterGoal, CustomItem, Level, MaterialId, PlanEntry, PlanTarget, Role, WeaponGoal,
+    exp_series,
 };
 
-use crate::app::images::Images;
 use crate::app::{Library, Session};
+use model::PlannerModel;
+use sections::{Actions, CardControls, EntryCard, Look, StillNeeded};
 use wish_core::model::AccountId;
-use wish_ui::{
-    MaterialTile, PageFrame, badge, button, card, card_title, dialog_footer, format, icon_button,
-    theme,
-};
-
-/// The talent rows' names, in the order of the goal's talents.
-const TALENTS: [&str; 3] = ["Normal Attack", "Elemental Skill", "Elemental Burst"];
+use wish_ui::{PageFrame, button, card, dialog_footer};
 
 pub struct PlannerView {
     session: Entity<Session>,
@@ -54,6 +52,9 @@ pub struct PlannerView {
     controls: HashMap<i64, Controls>,
     /// The entry whose card is being dragged, dimmed meanwhile.
     dragging: Option<i64>,
+    /// What the page shows, worked out again when the plan, the inventory,
+    /// the account or a slider changes; the render only reads it.
+    model: Rc<PlannerModel>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -74,11 +75,13 @@ impl PlannerView {
         let subscriptions = vec![
             cx.observe_in(&library, window, |this, _, window, cx| {
                 this.sync_controls(window, cx);
+                this.rebuild(cx);
                 cx.notify();
             }),
             // Another account: its plan.
             cx.observe_in(&session, window, |this, _, window, cx| {
                 this.sync_controls(window, cx);
+                this.rebuild(cx);
                 cx.notify();
             }),
         ];
@@ -87,9 +90,11 @@ impl PlannerView {
             library,
             controls: HashMap::new(),
             dragging: None,
+            model: Rc::default(),
             _subscriptions: subscriptions,
         };
         view.sync_controls(window, cx);
+        view.rebuild(cx);
         view
     }
 
@@ -273,10 +278,12 @@ impl PlannerView {
                 })
             })
             .collect();
+        // The costs follow a slider while it is dragged; released, it saves.
         let on_slide = move |this: &mut Self, event: &SliderEvent, cx: &mut Context<Self>| {
             if let SliderEvent::Release(_) = event {
                 this.save(id, cx);
             }
+            this.rebuild(cx);
             cx.notify();
         };
         let mut subscriptions =
@@ -363,6 +370,66 @@ impl PlannerView {
         }
     }
 
+    /// Works the page out again: the plan as the sliders show it, shared out
+    /// over the inventory, and the resin.
+    fn rebuild(&mut self, cx: &App) {
+        let account = self.account(cx);
+        let plan = self.live_plan(cx);
+        let library = self.library.read(cx);
+        let model = PlannerModel::build(
+            &plan,
+            library.inventory(account),
+            library.planner(),
+            &library.settings(cx).resin,
+        );
+        self.model = Rc::new(model);
+    }
+
+    /// Opens a custom entry's dialog, as its sliders show it.
+    fn edit_custom(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(entry) = self.model.entry(id).map(|entry| entry.entry.clone()) {
+            self.open_custom(Some(entry), window, cx);
+        }
+    }
+
+    /// What the page's pieces do when used.
+    fn actions(&self, cx: &Context<Self>) -> Actions {
+        let view = cx.entity().downgrade();
+        let (open, edit, remove) = (view.clone(), view.clone(), view.clone());
+        let (drag, drop, resin) = (view.clone(), view.clone(), view);
+        Actions {
+            open_material: Rc::new(move |item, window, cx| {
+                open.update(cx, |view, cx| view.open_inventory_for(item, window, cx))
+                    .ok();
+            }),
+            edit: Rc::new(move |id, window, cx| {
+                edit.update(cx, |view, cx| view.edit_custom(id, window, cx))
+                    .ok();
+            }),
+            remove: Rc::new(move |id, name, window, cx| {
+                remove
+                    .update(cx, |view, cx| view.confirm_remove(id, name, window, cx))
+                    .ok();
+            }),
+            start_drag: Rc::new(move |id, cx| {
+                drag.update(cx, |view, cx| {
+                    view.dragging = Some(id);
+                    cx.notify();
+                })
+                .ok();
+            }),
+            drop_onto: Rc::new(move |id, onto, cx| {
+                drop.update(cx, |view, cx| view.move_entry(id, onto, cx))
+                    .ok();
+            }),
+            resin_options: Rc::new(move |window, cx| {
+                resin
+                    .update(cx, |view, cx| view.open_resin_options(window, cx))
+                    .ok();
+            }),
+        }
+    }
+
     /// The plan with each entry's goal as its sliders show it.
     fn live_plan(&self, cx: &App) -> Vec<PlanEntry> {
         let mut plan = self.library.read(cx).plan(self.account(cx)).to_vec();
@@ -398,73 +465,40 @@ const MAX_COLUMNS: u16 = 4;
 
 impl Render for PlannerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let account = self.account(cx);
         let library = self.library.read(cx);
-        let (planner, images) = (library.planner().clone(), library.images(cx).clone());
-        let inventory = library.inventory(account).clone();
-        let resin_options = library.settings(cx).resin.clone();
-        let plan = self.live_plan(cx);
-        let allocation = planner.allocate(&plan, &inventory);
         // As many cards a row as fit, a rem apart.
         let content = crate::shell::content_width(window);
         let room = content / window.rem_size();
         let columns = (((room + 1.) / (CARD_REMS + 1.)).floor() as u16).clamp(1, MAX_COLUMNS);
         let gaps = window.rem_size() * (f32::from(columns) - 1.);
-        let shared = Shared {
-            planner: &planner,
-            images: &images,
-            inventory: &inventory,
-            resin: &resin_options,
+        let look = Look {
+            planner: library.planner().clone(),
+            images: library.images(cx).clone(),
+            resin: library.settings(cx).resin.clone(),
             card_width: (content - gaps) / f32::from(columns),
         };
+        let actions = self.actions(cx);
+        let model = self.model.clone();
 
-        let cards: Vec<AnyElement> = plan
-            .iter()
-            .zip(&allocation.entries)
-            .map(|(entry, share)| self.render_entry(entry, share, shared, cx))
+        let cards: Vec<AnyElement> = (model.entries.iter().enumerate())
+            .map(|(index, entry)| {
+                let id = entry.id();
+                EntryCard {
+                    model: model.clone(),
+                    index,
+                    controls: self.controls.get(&id).map(|controls| CardControls {
+                        level: controls.level.clone(),
+                        talents: controls.talents.clone(),
+                    }),
+                    dragged: self.dragging == Some(id),
+                    look: look.clone(),
+                    actions: actions.clone(),
+                }
+                .into_any_element()
+            })
             .collect();
-        let still_needed = card(cx)
-            .p_4()
-            .gap_3()
-            .child(
-                card_title("Still needed", cx).child(
-                    div()
-                        .text_sm()
-                        .text_color(cx.theme().muted_foreground)
-                        .child(format!(
-                            "{} {}",
-                            plan.len(),
-                            format::plural(plan.len() as u32, "entry", "entries")
-                        )),
-                ),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(
-                        "What the plan lacks once your inventory is shared out, in the plan's \
-                         order; lower tiers are crafted up. Click a material to enter how many \
-                         you have.",
-                    ),
-            )
-            .child(materials(
-                "total",
-                &allocation.needed,
-                &allocation.missing,
-                &allocation.crafted,
-                Count::Plan,
-                shared,
-                cx,
-            ))
-            .child(resin::plan_resin(
-                &planner.resin_estimate(&allocation.missing.materials, &resin_options),
-                &resin_options,
-                &images,
-                cx,
-            ));
 
-        let body: AnyElement = if plan.is_empty() {
+        let body: AnyElement = if model.entries.is_empty() {
             div()
                 .px_6()
                 .child(
@@ -496,7 +530,11 @@ impl Render for PlannerView {
                         .px_6()
                         .pt_2()
                         .pb_6()
-                        .child(still_needed)
+                        .child(StillNeeded {
+                            model: model.clone(),
+                            look,
+                            actions,
+                        })
                         .child(
                             div()
                                 .grid()
@@ -549,218 +587,6 @@ impl Render for PlannerView {
 }
 
 impl PlannerView {
-    fn render_entry(
-        &self,
-        entry: &PlanEntry,
-        share: &EntryShare,
-        shared: Shared,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let id = entry.id;
-        let scope = format!("entry-{id}");
-        let estimate = (shared.planner).resin_estimate(&share.missing.materials, shared.resin);
-        let tiles = || {
-            div()
-                .v_flex()
-                .gap_3()
-                .child(materials(
-                    &scope,
-                    &share.needed,
-                    &share.missing,
-                    &share.crafted,
-                    Count::Entry,
-                    shared,
-                    cx,
-                ))
-                .children(resin::entry_resin(
-                    id,
-                    &estimate,
-                    shared.resin,
-                    shared.images,
-                    cx,
-                ))
-                .into_any_element()
-        };
-        let preview = |portrait, name: &str, detail, goal| {
-            CardPreview::new(portrait, name, detail, goal, share, shared)
-        };
-        let character_steps = Level::steps();
-        let ranges = |goal| Ranges::of(&character_steps, goal);
-        match &entry.target {
-            PlanTarget::Character { key, goal } => {
-                let character = shared.planner.character(key);
-                let name = character.map_or(key.clone(), |c| c.name.clone());
-                let portrait = Portrait::Icon(
-                    character.and_then(|c| shared.images.character(c)),
-                    character.map_or(4, |c| c.rarity),
-                );
-                let detail = character.map(|c| format!("{} · {}", c.element, c.weapon));
-                let header = entry_header(
-                    preview(portrait, &name, detail, Some(ranges(goal))),
-                    id,
-                    None,
-                    cx,
-                );
-                let warning = character
-                    .is_none()
-                    .then_some("This character is no longer in the game data.");
-                self.character_card(id, &name, ranges(goal), header, warning, tiles(), cx)
-            }
-            PlanTarget::Weapon { key, goal } => {
-                let weapon = shared.planner.weapon(key);
-                let name = weapon.map_or(key.clone(), |w| w.name.clone());
-                let rarity = weapon.map_or(5, |w| w.rarity);
-                let portrait = Portrait::Icon(weapon.and_then(|w| shared.images.weapon(w)), rarity);
-                let detail = weapon.map(|w| format!("{} · {}★", w.weapon, w.rarity));
-                let steps = Level::weapon_steps(rarity);
-                let goal = Ranges {
-                    steps: &steps,
-                    from: goal.from,
-                    to: goal.to,
-                    talents: &[],
-                };
-                let header =
-                    entry_header(preview(portrait, &name, detail, Some(goal)), id, None, cx);
-                let warning = weapon
-                    .is_none()
-                    .then_some("This weapon is no longer in the game data.");
-                self.character_card(id, &name, goal, header, warning, tiles(), cx)
-            }
-            PlanTarget::CustomCharacter {
-                name, stars, goal, ..
-            } => {
-                let edit = icon_button(
-                    SharedString::from(format!("edit-plan-{id}")),
-                    IconName::Settings,
-                    format!("Edit {name}"),
-                )
-                .ghost()
-                .on_click(cx.listener({
-                    let entry = entry.clone();
-                    move |this, _, window, cx| {
-                        this.open_custom(Some(entry.clone()), window, cx);
-                    }
-                }));
-                let detail = Some(format!("Custom character · {stars}★"));
-                let header = entry_header(
-                    preview(Portrait::Custom(*stars), name, detail, Some(ranges(goal))),
-                    id,
-                    Some(edit.into_any_element()),
-                    cx,
-                );
-                self.character_card(id, name, ranges(goal), header, None, tiles(), cx)
-            }
-            PlanTarget::CustomWeapon {
-                name, stars, goal, ..
-            } => {
-                let edit = icon_button(
-                    SharedString::from(format!("edit-plan-{id}")),
-                    IconName::Settings,
-                    format!("Edit {name}"),
-                )
-                .ghost()
-                .on_click(cx.listener({
-                    let entry = entry.clone();
-                    move |this, _, window, cx| {
-                        this.open_custom(Some(entry.clone()), window, cx);
-                    }
-                }));
-                let steps = Level::weapon_steps(*stars);
-                let goal = Ranges {
-                    steps: &steps,
-                    from: goal.from,
-                    to: goal.to,
-                    talents: &[],
-                };
-                let detail = Some(format!("Custom weapon · {stars}★"));
-                let header = entry_header(
-                    preview(Portrait::CustomWeapon(*stars), name, detail, Some(goal)),
-                    id,
-                    Some(edit.into_any_element()),
-                    cx,
-                );
-                self.character_card(id, name, goal, header, None, tiles(), cx)
-            }
-            PlanTarget::Custom { name, .. } => {
-                // The free-form entries of earlier versions: shown, and
-                // removable, but no longer made.
-                let detail = Some("Custom entry".to_owned());
-                let card = card(cx)
-                    .p_4()
-                    .gap_4()
-                    .child(entry_header(
-                        preview(Portrait::Entry, name, detail, None),
-                        id,
-                        None,
-                        cx,
-                    ))
-                    .child(tiles());
-                droppable(card, id, self, cx).into_any_element()
-            }
-        }
-    }
-
-    /// A character's or weapon's card: its header, the sliders of its goal one
-    /// above the other, its materials.
-    #[allow(clippy::too_many_arguments)]
-    fn character_card(
-        &self,
-        id: i64,
-        name: &str,
-        goal: Ranges,
-        header: Div,
-        warning: Option<&'static str>,
-        materials: AnyElement,
-        cx: &Context<Self>,
-    ) -> AnyElement {
-        let theme = cx.theme();
-        let Some(controls) = self.controls.get(&id) else {
-            return card(cx).p_4().child(header).into_any_element();
-        };
-        let level_row = slider_row(
-            "Level",
-            format!(
-                "{}/{} → {}/{}",
-                goal.from.level,
-                goal.from.cap(),
-                goal.to.level,
-                goal.to.cap()
-            ),
-            Slider::new(&controls.level)
-                .cursor_pointer()
-                .accessibility_label(format!("{name}'s level")),
-            cx,
-        );
-        let talent_rows = TALENTS.iter().zip(&controls.talents).zip(goal.talents).map(
-            |((label, state), &(from, to))| {
-                slider_row(
-                    label,
-                    format!("{from} → {to}"),
-                    Slider::new(state)
-                        .cursor_pointer()
-                        .accessibility_label(format!("{name}'s {label}")),
-                    cx,
-                )
-            },
-        );
-        let card = card(cx)
-            .p_4()
-            .gap_4()
-            .child(header)
-            .when_some(warning, |this, warning| {
-                this.child(div().text_sm().text_color(theme.warning).child(warning))
-            })
-            .child(
-                div()
-                    .v_flex()
-                    .gap_3()
-                    .child(level_row)
-                    .children(talent_rows),
-            )
-            .child(materials);
-        droppable(card, id, self, cx).into_any_element()
-    }
-
     /// Asks how many of `item` the player has: with the other tiers of its
     /// series, when it is crafted from lower tiers, or with the smaller books
     /// or ores, for an EXP material.
@@ -812,588 +638,6 @@ impl PlannerView {
             self.open_inventory(materials, window, cx);
         }
     }
-}
-
-/// An entry's picture, name and detail, with its edit and remove buttons.
-fn entry_header(
-    preview: CardPreview,
-    id: i64,
-    edit: Option<AnyElement>,
-    cx: &Context<PlannerView>,
-) -> Div {
-    let theme = cx.theme();
-    let (name, detail) = (preview.name.clone(), preview.detail.clone());
-    let picture = preview.portrait.render(cx);
-    let remove_name = name.to_string();
-    let dragged = DraggedEntry { id, card: preview };
-    let view = cx.entity().downgrade();
-    // The picture and the name are the handle that moves the card.
-    let handle = div()
-        .id(SharedString::from(format!("plan-handle-{id}")))
-        .h_flex()
-        .flex_1()
-        .min_w_0()
-        .gap_2()
-        .cursor(CursorStyle::OpenHand)
-        .on_drag(dragged, move |dragged, _, _, cx| {
-            let id = dragged.id;
-            view.update(cx, |view, cx| {
-                view.dragging = Some(id);
-                cx.notify();
-            })
-            .ok();
-            cx.new(|_| dragged.clone())
-        })
-        .tooltip(|window, cx| {
-            gpui_kit::component::tooltip::Tooltip::new(
-                "Drag to change the order: the first characters take from your inventory first",
-            )
-            .build(window, cx)
-        })
-        .child(
-            Icon::new(IconName::GripVertical)
-                .size_4()
-                .flex_shrink_0()
-                .text_color(theme.muted_foreground),
-        )
-        .child(picture)
-        .child(
-            div()
-                .v_flex()
-                .flex_1()
-                .min_w_0()
-                .child(
-                    div()
-                        .text_lg()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .truncate()
-                        .child(name.clone()),
-                )
-                .children(detail.map(|detail| {
-                    div()
-                        .text_sm()
-                        .truncate()
-                        .text_color(theme.muted_foreground)
-                        .child(detail)
-                })),
-        );
-    div().h_flex().gap_1().child(handle).children(edit).child(
-        icon_button(
-            SharedString::from(format!("remove-plan-{id}")),
-            IconName::Close,
-            format!("Remove {name} from the plan"),
-        )
-        .ghost()
-        .on_click(cx.listener(move |this, _, window, cx| {
-            this.confirm_remove(id, remove_name.clone(), window, cx)
-        })),
-    )
-}
-
-/// A slider with its label and the range it shows.
-fn slider_row(label: &str, value: String, slider: Slider, cx: &App) -> Div {
-    let theme = cx.theme();
-    div()
-        .v_flex()
-        .gap_1p5()
-        .child(
-            div()
-                .h_flex()
-                .justify_between()
-                .text_sm()
-                .child(
-                    div()
-                        .text_color(theme.muted_foreground)
-                        .child(label.to_owned()),
-                )
-                .child(div().font_weight(FontWeight::SEMIBOLD).child(value)),
-        )
-        .child(slider)
-}
-
-/// A card being dragged to another place in the plan, and what follows the
-/// pointer meanwhile.
-#[derive(Clone)]
-struct DraggedEntry {
-    id: i64,
-    card: CardPreview,
-}
-
-/// A copy of a character card, without its controls: what follows the
-/// pointer while the card is moved.
-#[derive(Clone)]
-struct CardPreview {
-    width: Pixels,
-    portrait: Portrait,
-    name: SharedString,
-    detail: Option<SharedString>,
-    /// Each slider: its label, its range as text, and where the range starts
-    /// and ends (0 to 1).
-    ranges: Vec<(SharedString, SharedString, f32, f32)>,
-    /// Each tile: icon, stars, count, done.
-    /// Icon, stars, what is still lacking, whether nothing is, how many are crafted.
-    tiles: Vec<(Option<ImageSource>, u8, SharedString, bool, u64)>,
-    /// What the game data does not have: label, done.
-    named: Vec<(SharedString, bool)>,
-}
-
-/// What an entry's sliders are set to: its level range over its steps (a
-/// character's, or a weapon's of its rarity), and a character's talents.
-#[derive(Clone, Copy)]
-struct Ranges<'a> {
-    steps: &'a [Level],
-    from: Level,
-    to: Level,
-    talents: &'a [(u8, u8)],
-}
-
-impl<'a> Ranges<'a> {
-    /// A character's goal over `steps`.
-    fn of(steps: &'a [Level], goal: &'a CharacterGoal) -> Self {
-        Self {
-            steps,
-            from: goal.from,
-            to: goal.to,
-            talents: &goal.talents,
-        }
-    }
-}
-
-/// What a card shows in the corner.
-#[derive(Clone)]
-enum Portrait {
-    /// A character's or weapon's icon, on its rarity tile.
-    Icon(Option<ImageSource>, u8),
-    Custom(u8),
-    CustomWeapon(u8),
-    Entry,
-}
-
-impl Portrait {
-    fn render(&self, cx: &App) -> Div {
-        let theme = cx.theme();
-        let tile = div().size_12().flex_shrink_0().rounded(theme.radius);
-        match self {
-            Portrait::Icon(icon, stars) => tile
-                .overflow_hidden()
-                .bg(theme::stars_tile(*stars, cx))
-                .children(
-                    icon.clone()
-                        .map(|icon| img(icon).size_full().object_fit(ObjectFit::Contain)),
-                ),
-            Portrait::Custom(stars) => tile
-                .bg(theme::stars_tile(*stars, cx))
-                .flex()
-                .items_center()
-                .justify_center()
-                .child(
-                    Icon::new(IconName::Sparkles)
-                        .size_6()
-                        .text_color(gpui_kit::white().opacity(0.9)),
-                ),
-            Portrait::CustomWeapon(stars) => tile
-                .bg(theme::stars_tile(*stars, cx))
-                .flex()
-                .items_center()
-                .justify_center()
-                .child(
-                    Icon::new(IconName::Swords)
-                        .size_6()
-                        .text_color(gpui_kit::white().opacity(0.9)),
-                ),
-            Portrait::Entry => tile
-                .bg(theme.muted)
-                .flex()
-                .items_center()
-                .justify_center()
-                .child(
-                    Icon::new(IconName::Sparkles)
-                        .size_6()
-                        .text_color(theme.muted_foreground),
-                ),
-        }
-    }
-}
-
-impl CardPreview {
-    fn new(
-        portrait: Portrait,
-        name: &str,
-        detail: Option<String>,
-        goal: Option<Ranges>,
-        share: &EntryShare,
-        shared: Shared,
-    ) -> Self {
-        let mut ranges = Vec::new();
-        if let Some(goal) = goal {
-            let last = (goal.steps.len().max(2) - 1) as f32;
-            let step = |level: Level| {
-                goal.steps.iter().position(|s| *s == level).unwrap_or(0) as f32 / last
-            };
-            ranges.push((
-                "Level".into(),
-                format!(
-                    "{}/{} → {}/{}",
-                    goal.from.level,
-                    goal.from.cap(),
-                    goal.to.level,
-                    goal.to.cap()
-                )
-                .into(),
-                step(goal.from),
-                step(goal.to),
-            ));
-            for (label, &(from, to)) in TALENTS.iter().zip(goal.talents) {
-                let at = |level: u8| f32::from(level.saturating_sub(1)) / 9.;
-                ranges.push((
-                    (*label).into(),
-                    format!("{from} → {to}").into(),
-                    at(from),
-                    at(to),
-                ));
-            }
-        }
-        let tiles = known_materials(&share.needed, &share.missing, shared.planner)
-            .into_iter()
-            .map(|(material, _, lack)| {
-                (
-                    shared.images.material(material),
-                    material.rarity,
-                    format::compact(lack).into(),
-                    lack == 0,
-                    share.crafted(material.id),
-                )
-            })
-            .collect();
-        let named = named_materials(&share.needed, &share.missing)
-            .into_iter()
-            .map(|(name, _, lack)| {
-                (
-                    format!("{} × {name}", format::count(lack)).into(),
-                    lack == 0,
-                )
-            })
-            .collect();
-        Self {
-            width: shared.card_width,
-            portrait,
-            name: name.to_owned().into(),
-            detail: detail.map(Into::into),
-            ranges,
-            tiles,
-            named,
-        }
-    }
-}
-
-impl Render for DraggedEntry {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Drawn where the card was: the pointer took it by its header, which
-        // sits a padding (one rem) in.
-        let rem = window.rem_size();
-        card_copy(&self.card, cx).ml(-rem).mt(-rem)
-    }
-}
-
-/// The copy of a card that follows the pointer.
-fn card_copy(card: &CardPreview, cx: &App) -> Div {
-    {
-        let theme = cx.theme();
-        let ranges = card.ranges.iter().map(|(label, value, from, to)| {
-            div()
-                .v_flex()
-                .gap_1p5()
-                .child(
-                    div()
-                        .h_flex()
-                        .justify_between()
-                        .text_sm()
-                        .child(
-                            div()
-                                .text_color(theme.muted_foreground)
-                                .child(label.clone()),
-                        )
-                        .child(div().font_weight(FontWeight::SEMIBOLD).child(value.clone())),
-                )
-                .child(
-                    div()
-                        .relative()
-                        .w_full()
-                        .h(px(6.))
-                        .my(px(5.))
-                        .rounded_full()
-                        .bg(theme.primary.opacity(0.25))
-                        .child(
-                            div()
-                                .absolute()
-                                .top_0()
-                                .h(px(6.))
-                                .left(relative(*from))
-                                .w(relative(to - from))
-                                .rounded_full()
-                                .bg(theme.primary),
-                        ),
-                )
-        });
-        let tiles = card
-            .tiles
-            .iter()
-            .map(|(icon, stars, label, done, crafted)| {
-                MaterialTile::new(icon.clone(), *stars, label.clone())
-                    .done(*done)
-                    .crafted(*crafted)
-            });
-        let named = card.named.iter().map(|(label, done)| {
-            badge(label.clone(), (theme.foreground, theme.muted), cx)
-                .text_sm()
-                .when(*done, |this| this.opacity(0.35))
-        });
-        div()
-            .w(card.width)
-            .p_4()
-            .v_flex()
-            .gap_4()
-            .rounded(theme.radius_lg)
-            .bg(theme.group_box)
-            .text_color(theme.group_box_foreground)
-            .border_1()
-            .border_color(theme.primary)
-            .shadow_lg()
-            .child(
-                div()
-                    .h_flex()
-                    .gap_2()
-                    .child(
-                        Icon::new(IconName::GripVertical)
-                            .size_4()
-                            .flex_shrink_0()
-                            .text_color(theme.muted_foreground),
-                    )
-                    .child(card.portrait.render(cx))
-                    .child(
-                        div()
-                            .v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .truncate()
-                                    .child(card.name.clone()),
-                            )
-                            .children(card.detail.clone().map(|detail| {
-                                div()
-                                    .text_sm()
-                                    .truncate()
-                                    .text_color(theme.muted_foreground)
-                                    .child(detail)
-                            })),
-                    ),
-            )
-            .when(!card.ranges.is_empty(), |this| {
-                this.child(div().v_flex().gap_3().children(ranges))
-            })
-            .child(div().h_flex().flex_wrap().gap_2().children(tiles))
-            .when(!card.named.is_empty(), |this| {
-                this.child(div().h_flex().flex_wrap().gap_2().children(named))
-            })
-    }
-}
-
-/// Makes `card`, entry `id`'s, a place to drop another entry: it takes this
-/// one's place in the plan.
-fn droppable(
-    card: Div,
-    id: i64,
-    view: &PlannerView,
-    cx: &Context<PlannerView>,
-) -> gpui_kit::Stateful<Div> {
-    // The card being moved stays dimmed in its place meanwhile.
-    let dragged = cx.has_active_drag() && view.dragging == Some(id);
-    card.id(SharedString::from(format!("plan-card-{id}")))
-        .when(dragged, |this| this.opacity(0.35))
-        .drag_over::<DraggedEntry>(move |style, dragged, _, cx| {
-            if dragged.id == id {
-                style
-            } else {
-                style.bg(cx.theme().primary.opacity(0.15))
-            }
-        })
-        .on_drop(cx.listener(move |this, dragged: &DraggedEntry, _, cx| {
-            this.move_entry(dragged.id, id, cx)
-        }))
-}
-
-/// The known materials of a list, in the game's inventory order: each with
-/// what is needed and what is still lacking. (EXP lacking may come out as
-/// other books than the EXP needed.)
-fn known_materials<'a>(
-    needed: &PlanTotals,
-    missing: &PlanTotals,
-    planner: &'a PlannerData,
-) -> Vec<(&'a Material, u64, u64)> {
-    let ids: BTreeSet<MaterialId> = (needed.materials.keys())
-        .chain(missing.materials.keys())
-        .copied()
-        .collect();
-    let mut known: Vec<_> = ids
-        .into_iter()
-        .filter_map(|id| {
-            let need = needed.materials.get(&id).copied().unwrap_or(0);
-            let lack = missing.materials.get(&id).copied().unwrap_or(0);
-            Some((planner.material(id)?, need, lack))
-        })
-        .collect();
-    known.sort_by_key(|(material, _, _)| (material.sort, material.id));
-    known
-}
-
-/// The materials of a list the game data does not have, by name: each with
-/// what is needed and what is still lacking.
-fn named_materials<'a>(
-    needed: &'a PlanTotals,
-    missing: &'a PlanTotals,
-) -> Vec<(&'a str, u64, u64)> {
-    let mut names: BTreeSet<&String> = needed.named.keys().collect();
-    names.extend(missing.named.keys());
-    names
-        .into_iter()
-        .map(|name| {
-            let need = needed.named.get(name).copied().unwrap_or(0);
-            let lack = missing.named.get(name).copied().unwrap_or(0);
-            (name.as_str(), need, lack)
-        })
-        .collect()
-}
-
-/// What the counts under a list of materials say.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Count {
-    /// An entry's: what it still lacks once the entries before it took their
-    /// part of the inventory.
-    Entry,
-    /// The plan's: what it still lacks.
-    Plan,
-}
-
-/// What every list of materials on the page draws from.
-#[derive(Clone, Copy)]
-struct Shared<'a> {
-    planner: &'a PlannerData,
-    images: &'a Images,
-    inventory: &'a Inventory,
-    /// How the resin estimate counts.
-    resin: &'a ResinOptions,
-    /// A character card's width, for the copy that follows the pointer.
-    card_width: Pixels,
-}
-
-/// Known materials as the game shows them (its inventory order), then the
-/// ones the game data does not have, by name. Each opens the inventory
-/// dialog. `crafted`: how many of each are crafted from the tiers below,
-/// shown on the tile. `scope` keeps the tiles' ids apart from other lists'.
-fn materials(
-    scope: &str,
-    needed: &PlanTotals,
-    missing: &PlanTotals,
-    crafted: &BTreeMap<MaterialId, u64>,
-    count: Count,
-    shared: Shared,
-    cx: &Context<PlannerView>,
-) -> AnyElement {
-    let theme = cx.theme();
-    let known = known_materials(needed, missing, shared.planner);
-    let names = named_materials(needed, missing);
-    if known.is_empty() && names.is_empty() {
-        return div()
-            .text_sm()
-            .text_color(theme.muted_foreground)
-            .child("Nothing to spend.")
-            .into_any_element();
-    }
-    let tip = |name: &str, item: &CustomItem, need: u64, lack: u64| match count {
-        Count::Entry if lack == 0 => {
-            format!(
-                "{name}: {} needed, covered by your inventory",
-                format::count(need)
-            )
-        }
-        Count::Entry if lack < need => format!(
-            "{name}: {} needed, {} still to get",
-            format::count(need),
-            format::count(lack)
-        ),
-        Count::Entry => format!("{name}: {} needed", format::count(need)),
-        Count::Plan => format!(
-            "{name}: {} for the whole plan, {} owned, {} still to get",
-            format::count(need),
-            format::count(shared.inventory.owned(item)),
-            format::count(lack)
-        ),
-    };
-    let tiles = known.into_iter().map(|(material, need, lack)| {
-        let item = CustomItem::Material(material.id);
-        let made = crafted.get(&material.id).copied().unwrap_or(0);
-        let mut text = tip(&material.name, &item, need, lack);
-        if made > 0 {
-            text.push_str(&format!(
-                "; {} crafted from the tiers below",
-                format::count(made)
-            ));
-        }
-        clickable(format!("{scope}-{}", material.id), item, text, cx).child(
-            MaterialTile::new(
-                shared.images.material(material),
-                material.rarity,
-                format::compact(lack),
-            )
-            .done(lack == 0)
-            .crafted(made),
-        )
-    });
-    let named = names.into_iter().map(|(name, need, lack)| {
-        let item = CustomItem::Named(name.to_owned());
-        let label = format!("{} × {name}", format::count(lack));
-        let text = format!("{} (not in the game data)", tip(name, &item, need, lack));
-        clickable(format!("{scope}-named-{name}"), item, text, cx).child(
-            badge(label, (theme.foreground, theme.muted), cx)
-                .text_sm()
-                .when(lack == 0, |this| this.opacity(0.35)),
-        )
-    });
-    let named: Vec<_> = named.collect();
-    div()
-        .v_flex()
-        .gap_2()
-        .child(div().h_flex().flex_wrap().gap_2().children(tiles))
-        .when(!named.is_empty(), |this| {
-            this.child(div().h_flex().flex_wrap().gap_2().children(named))
-        })
-        .into_any_element()
-}
-
-/// A material that opens the inventory dialog when clicked.
-fn clickable(
-    id: String,
-    item: CustomItem,
-    tip: String,
-    cx: &Context<PlannerView>,
-) -> gpui_kit::Stateful<Div> {
-    let tip = SharedString::from(tip);
-    div()
-        .id(SharedString::from(id))
-        .rounded(cx.theme().radius)
-        .cursor_pointer()
-        .hover(|style| style.opacity(0.8))
-        .on_click(
-            cx.listener(move |this, _, window, cx| {
-                this.open_inventory_for(item.clone(), window, cx)
-            }),
-        )
-        .tooltip(move |window, cx| {
-            gpui_kit::component::tooltip::Tooltip::new(tip.clone()).build(window, cx)
-        })
 }
 
 /// Shows a notice if a plan write fails.

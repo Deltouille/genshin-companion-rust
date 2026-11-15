@@ -20,6 +20,7 @@ use gpui_kit::{
 use wish_core::planner::{MAX_WORLD_LEVEL, ResinEstimate, ResinOptions, ResinSource};
 
 use super::PlannerView;
+use super::sections::OnOpen;
 use crate::app::images::Images;
 use crate::app::notices::report;
 use wish_ui::{Segmented, button, dialog_footer, filter_chip, format, input};
@@ -103,19 +104,20 @@ pub(super) fn entry_resin(
 }
 
 /// The whole plan's estimate: the resin and the days, then each source's
-/// runs and resin, and the way to the options.
+/// runs and resin, and the way to the options (`open_options`).
 pub(super) fn plan_resin(
     estimate: &ResinEstimate,
     options: &ResinOptions,
     images: &Images,
-    cx: &Context<PlannerView>,
+    open_options: OnOpen,
+    cx: &App,
 ) -> Div {
     let theme = cx.theme();
     let muted = theme.muted_foreground;
     let options_button = button("resin-options")
         .icon(gpui_kit::assets::IconName::Settings)
         .label("Resin options…")
-        .on_click(cx.listener(|this, _, window, cx| this.open_resin_options(window, cx)));
+        .on_click(move |_, window, cx| open_options(window, cx));
     let counted = ResinSource::ALL.iter().any(|&s| options.counts(s));
     let headline = if estimate.is_empty() {
         div().text_color(muted).child(if counted {
