@@ -15,6 +15,7 @@ pub mod import;
 pub mod model;
 pub mod paths;
 pub mod planner;
+pub mod service;
 pub mod settings;
 pub mod snapshot;
 pub mod stats;

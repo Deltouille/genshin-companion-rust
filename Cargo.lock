@@ -8856,6 +8856,7 @@ dependencies = [
  "futures-util",
  "gpui-kit",
  "image",
+ "serde_json",
  "tempfile",
  "wish-core",
  "wish-ui",

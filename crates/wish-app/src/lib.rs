@@ -69,7 +69,7 @@ use gpui_kit::{
     App, Bounds, KeyBinding, Menu, MenuItem, TitlebarOptions, WindowBounds, WindowOptions, px, size,
 };
 
-pub use app::{AppAssets, ImageDownloads, Library, Session};
+pub use app::{AppAssets, ImageDownloads, Library, Services, Session};
 pub use shell::{
     ArchivePage, Feature, ImportFile, ImportFromGame, OverviewTab, Page, Quit, Shell,
     SyncFromHoyolab, WishPage,

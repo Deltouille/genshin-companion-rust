@@ -6,6 +6,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
 
 use anyhow::{Context, Result, bail};
@@ -14,6 +15,7 @@ use wish_core::engine::{self, PoolAnalysis, RateUpOutcome};
 use wish_core::import::api::{self, GachaLink};
 use wish_core::import::{ImportBatch, ImportReport, api_plan, paimon, paimon_check};
 use wish_core::model::{PRIMOGEMS_PER_WISH, Pool, Rarity};
+use wish_core::service::{self, export::ExportSummary};
 use wish_core::snapshot::Snapshot;
 use wish_core::stats::{RarityStats, RateStats};
 use wish_core::store::BackupReason;
@@ -136,9 +138,7 @@ fn main() -> Result<()> {
 fn game(paths: &AppPaths, link: &str, apply: bool) -> Result<()> {
     let link = GachaLink::parse(link)?;
     let data = game_data(paths);
-    let mut store = Store::open(paths.clone())?;
-    let known = store.known_api_ids()?;
-    let is_known = |uid: &str, id: &str| known.get(uid).is_some_and(|ids| ids.contains(id));
+    let store = Mutex::new(Store::open(paths.clone())?);
     let mut progress = |p: api::FetchProgress| {
         eprint!(
             "\r{:<16} page {:>3}, {} new wishes so far",
@@ -147,17 +147,19 @@ fn game(paths: &AppPaths, link: &str, apply: bool) -> Result<()> {
             p.fetched
         );
     };
-    let fetched = api::fetch(
+    // As the app does it: the same service.
+    let plan = service::game::fetch(
         &link,
         &api::HttpTransport::new(),
         api::Pacing::default(),
-        &is_known,
+        &store,
+        &data,
         &mut progress,
         &AtomicBool::new(false),
     )?;
     eprintln!();
+    let mut store = service::lock(&store);
 
-    let plan = api_plan::plan(fetched, &store, &data)?;
     let Some(target) = plan.targets.get(plan.suggested) else {
         println!("The game returned no wishes.");
         return Ok(());
@@ -287,14 +289,14 @@ fn count_by_pool(
 
 fn export(paths: &AppPaths, file: &Path) -> Result<()> {
     let store = Store::open(paths.clone())?;
-    let snapshot = Snapshot::from_store(&store)?;
-    snapshot.write_to(file)?;
-    let wishes: usize = snapshot.accounts.iter().map(|a| a.wishes.len()).sum();
-    println!(
-        "Wrote {} account(s), {wishes} wishes to {}",
-        snapshot.accounts.len(),
-        file.display()
-    );
+    let exported = service::export::snapshot(&store)?;
+    wish_core::paths::write_atomic(file, &exported.bytes)?;
+    if let ExportSummary::Snapshot { wishes, accounts } = exported.summary {
+        println!(
+            "Wrote {accounts} account(s), {wishes} wishes to {}",
+            file.display()
+        );
+    }
     Ok(())
 }
 
@@ -660,21 +662,24 @@ fn hoyolab_sync(
     apply: bool,
 ) -> Result<()> {
     use wish_core::archive::ArchiveData;
-    use wish_core::collection::{Change, Collection, SyncNote, plan_sync};
+    use wish_core::collection::{Change, SyncNote};
     use wish_core::planner::{Level, PlannerData};
 
     let (account, details) = match from {
         Some(file) => saved_details(file, uid)?,
         None => fetch_details(uid)?,
     };
-    let account = &account;
 
     let mut store = Store::open(paths.clone())?;
-    // Into the suggested account, as `import-game`: the one with the UID,
-    // else the only account without a UID, else a new one.
-    let targets = store.sync_targets(&account.uid, None)?;
-    let existing = targets.targets[targets.suggested].clone();
-    let others = targets.targets.len() - 1;
+    let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
+    // Worked out as the app does, then into the suggested account, as
+    // `import-game`: the one with the UID, else the only account without a
+    // UID, else a new one.
+    let preview = service::hoyolab::preview(account, details, &store, None, planner, archive)?;
+    let account = &preview.account;
+    let choice = &preview.choices[preview.suggested];
+    let existing = choice.target.clone();
+    let others = preview.choices.len() - 1;
     println!(
         "HoYoLAB: {} ({}, AR {}) → {}{}",
         account.uid,
@@ -689,12 +694,7 @@ fn hoyolab_sync(
             String::new()
         }
     );
-    let (planner, archive) = (PlannerData::embedded(), ArchiveData::embedded());
-    let current = match &existing {
-        Some(existing) => store.collection(existing.id)?,
-        None => Collection::default(),
-    };
-    let plan = plan_sync(&details, &current, planner, archive);
+    let plan = &choice.plan;
 
     let level = |level: Level| {
         const CAPS: [u8; 7] = [20, 40, 50, 60, 70, 80, 90];
@@ -803,7 +803,8 @@ fn hoyolab_sync(
         return Ok(());
     }
     let target = existing.map(|existing| existing.id);
-    let (_, applied, backup) = store.apply_sync(target, account, &details, planner, archive)?;
+    let (_, applied, backup) =
+        store.apply_sync(target, account, &preview.details, planner, archive)?;
     println!(
         "\nWritten: {} changes. Backup: {}",
         applied.changes(),
@@ -819,23 +820,24 @@ fn fetch_details(
     uid: Option<&str>,
 ) -> Result<(hoyolab::GameAccount, Vec<hoyolab::CharacterDetail>)> {
     let cookie = read_cookie()?;
-    let transport = hoyolab::HttpTransport::new();
-    let client = hoyolab::Client::new(cookie, &transport);
-    let accounts = client.game_accounts()?;
-    let account = match uid {
-        Some(uid) => accounts.iter().find(|a| a.uid == uid),
-        None => accounts.iter().max_by_key(|a| a.level),
+    // As the app does it: every account behind the cookie.
+    let fetched = service::hoyolab::fetch(
+        cookie,
+        &hoyolab::HttpTransport::new(),
+        &AtomicBool::new(false),
+    )?;
+    let index = match uid {
+        Some(uid) => fetched.iter().position(|(a, _)| a.uid == uid),
+        None => (0..fetched.len()).max_by_key(|&i| fetched[i].0.level),
     };
-    let Some(account) = account.cloned() else {
-        let known: Vec<&str> = accounts.iter().map(|a| a.uid.as_str()).collect();
+    let Some(index) = index else {
+        let known: Vec<&str> = fetched.iter().map(|(a, _)| a.uid.as_str()).collect();
         bail!(
             "no such Genshin account on this HoYoLAB account (it has: {})",
             known.join(", ")
         );
     };
-    let ids: Vec<u32> = client.characters(&account)?.iter().map(|c| c.id).collect();
-    let details = client.character_details(&account, &ids)?;
-    Ok((account, details))
+    Ok(fetched.into_iter().nth(index).expect("found above"))
 }
 
 /// The details `hoyolab-check --raw` saved in `file`, for the account `uid`.

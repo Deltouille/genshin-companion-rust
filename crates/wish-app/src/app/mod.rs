@@ -7,9 +7,11 @@ mod assets;
 pub mod images;
 pub mod library;
 pub mod notices;
+pub mod services;
 pub mod session;
 
 pub use assets::AppAssets;
-pub use library::{ImageDownloads, Library};
+pub use library::Library;
 pub use notices::{Notice, Notices, notify, report, report_outcome};
+pub use services::{ImageDownloads, Services};
 pub use session::Session;

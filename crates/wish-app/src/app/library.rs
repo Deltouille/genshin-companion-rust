@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, anyhow};
@@ -22,16 +22,16 @@ use wish_core::data::GameData;
 use wish_core::images::{self, Collection, Remote};
 
 use super::images::{Fetched, Job};
-use wish_core::collection::{
-    Collection as Owned, OwnedCharacter, OwnedWeapon, SyncPlan, plan_sync,
-};
+use wish_core::collection::{Collection as Owned, OwnedCharacter, OwnedWeapon, SyncPlan};
 use wish_core::hoyolab;
 use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData, ResinOptions};
+use wish_core::service::export::ExportSummary;
+use wish_core::service::{self, lock};
 
 use super::images::Images;
 use wish_core::engine::{self, Analysis};
-use wish_core::import::api::{self, FetchProgress, GachaLink, HttpTransport, Pacing};
-use wish_core::import::api_plan::{self, ApiPlan};
+use wish_core::import::api::{FetchProgress, GachaLink};
+use wish_core::import::api_plan::ApiPlan;
 use wish_core::import::game_cache::{self, FoundLink};
 use wish_core::import::{
     self, ImportBatch, ImportRecord, ImportReport, PreparedImport, UndoReport,
@@ -39,6 +39,9 @@ use wish_core::import::{
 use wish_core::model::{Account, AccountId, Server, WishId};
 use wish_core::settings::Settings;
 use wish_core::snapshot;
+
+pub use super::services::{ImageDownloads, Services};
+pub use wish_core::service::hoyolab::{HoyolabAccount, SyncChoice};
 use wish_core::store::{BackupFile, BackupReason};
 use wish_core::{AppPaths, Store};
 
@@ -149,28 +152,6 @@ pub enum ExportKind {
     Spreadsheet,
 }
 
-/// One Genshin account HoYoLAB showed: its characters, and what a sync would
-/// change in the app's account of the same UID.
-#[derive(Clone, Debug)]
-pub struct HoyolabAccount {
-    pub account: hoyolab::GameAccount,
-    pub details: Vec<hoyolab::CharacterDetail>,
-    /// Where the sync can go, each with what it would change there: the
-    /// app's account with that UID; without one, a new account first, then
-    /// each account without a UID (`Store::sync_targets`).
-    pub choices: Vec<SyncChoice>,
-    /// Index into `choices` of the suggested one.
-    pub suggested: usize,
-}
-
-/// One place a HoYoLAB sync can go, and what it would change there.
-#[derive(Clone, Debug)]
-pub struct SyncChoice {
-    /// `None`: a new account, named after the game's nickname.
-    pub target: Option<Account>,
-    pub plan: SyncPlan,
-}
-
 /// Shared between a running fetch and the view that shows it.
 #[derive(Debug, Default)]
 pub struct FetchControl {
@@ -190,6 +171,8 @@ impl FetchControl {
 
 pub struct Library {
     paths: AppPaths,
+    /// The network: the game's API, HoYoLAB, the image sites.
+    services: Services,
     state: LoadState,
     store: Option<Arc<Mutex<Store>>>,
     data: Option<Arc<GameData>>,
@@ -233,19 +216,12 @@ pub struct Library {
     last_write: Option<oneshot::Receiver<()>>,
 }
 
-/// Whether the library downloads the images the pages ask for. Tests turn
-/// it off: they never touch the network.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ImageDownloads {
-    On,
-    Off,
-}
-
 impl Library {
     /// Starts opening the database in the background; observers are
-    /// notified when it is ready or has failed.
-    pub fn open(paths: AppPaths, downloads: ImageDownloads, cx: &mut Context<Self>) -> Self {
-        let image_requests = match downloads {
+    /// notified when it is ready or has failed. `services` is how it reaches
+    /// the network: tests give fakes ([`Services::offline`]).
+    pub fn open(paths: AppPaths, services: Services, cx: &mut Context<Self>) -> Self {
+        let image_requests = match services.images {
             ImageDownloads::On => {
                 let (requests, queue) = mpsc::unbounded();
                 Self::download_images(queue, paths.image_cache(), cx);
@@ -284,6 +260,7 @@ impl Library {
 
         Self {
             paths,
+            services,
             state: LoadState::Loading,
             store: None,
             data: None,
@@ -972,25 +949,22 @@ impl Library {
         let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
             return Task::ready(Err(not_open()));
         };
+        let (transport, pacing) = (self.services.game.clone(), self.services.pacing);
         cx.background_spawn(async move {
-            let known = lock(&store).known_api_ids()?;
-            let is_known = |uid: &str, id: &str| known.get(uid).is_some_and(|ids| ids.contains(id));
             let mut report = |progress: FetchProgress| {
                 if let Ok(mut slot) = control.progress.lock() {
                     *slot = Some(progress);
                 }
             };
-            // The store is not locked during the network requests.
-            let fetched = api::fetch(
+            Ok(service::game::fetch(
                 &link,
-                &HttpTransport::new(),
-                Pacing::default(),
-                &is_known,
+                &*transport,
+                pacing,
+                &store,
+                &data,
                 &mut report,
                 &control.cancelled,
-            )?;
-            let store = lock(&store);
-            Ok(api_plan::plan(fetched, &store, &data)?)
+            )?)
         })
     }
 
@@ -1011,54 +985,17 @@ impl Library {
             return Task::ready(Err(not_open()));
         };
         let (planner, archive) = (self.planner.clone(), self.archive.clone());
+        let transport = self.services.hoyolab.clone();
         cx.background_spawn(async move {
-            let cancelled = || control.cancelled.load(Ordering::Relaxed);
-            let fetched = {
-                let transport = hoyolab::HttpTransport::new();
-                // The cookie lives in the client, dropped (and wiped) at the
-                // end of this block.
-                let client = hoyolab::Client::new(cookie, &transport);
-                let mut fetched = Vec::new();
-                for account in client.game_accounts()? {
-                    if cancelled() {
-                        return Err(wish_core::Error::Cancelled.into());
-                    }
-                    let characters = client.characters(&account)?;
-                    let ids: Vec<u32> = characters.iter().map(|c| c.id).collect();
-                    if cancelled() {
-                        return Err(wish_core::Error::Cancelled.into());
-                    }
-                    let details = client.character_details(&account, &ids)?;
-                    fetched.push((account, details));
-                }
-                fetched
-            };
-            if fetched.is_empty() {
-                return Err(hoyolab::Error::NoGameAccount.into());
-            }
-            let store = lock(&store);
-            fetched
-                .into_iter()
-                .map(|(account, details)| {
-                    let targets = store.sync_targets(&account.uid, shown)?;
-                    let choices = (targets.targets.into_iter())
-                        .map(|target| {
-                            let current = match &target {
-                                Some(target) => store.collection(target.id)?,
-                                None => Owned::default(),
-                            };
-                            let plan = plan_sync(&details, &current, &planner, &archive);
-                            Ok(SyncChoice { target, plan })
-                        })
-                        .collect::<Result<_>>()?;
-                    Ok(HoyolabAccount {
-                        account,
-                        details,
-                        choices,
-                        suggested: targets.suggested,
-                    })
-                })
-                .collect()
+            Ok(service::hoyolab::fetch_preview(
+                cookie,
+                &*transport,
+                &store,
+                shown,
+                &planner,
+                &archive,
+                &control.cancelled,
+            )?)
         })
     }
 
@@ -1134,50 +1071,19 @@ impl Library {
             return Task::ready(Err(not_open()));
         };
         cx.background_spawn(async move {
-            let store = lock(&store);
-            match kind {
-                ExportKind::Snapshot => {
-                    let snapshot = snapshot::Snapshot::from_store(&store)?;
-                    snapshot.write_to(&path)?;
-                    let wishes: usize = snapshot.accounts.iter().map(|a| a.wishes.len()).sum();
-                    Ok(format!(
-                        "Exported {wishes} wishes of {} account(s).",
-                        snapshot.accounts.len()
-                    ))
-                }
-                ExportKind::Uigf => {
-                    let export = wish_core::uigf::export(&store, &data)?;
-                    wish_core::paths::write_atomic(&path, &export.json)?;
-                    let mut summary = format!(
-                        "Exported {} wishes of {} account(s).",
-                        export.wishes, export.accounts
-                    );
-                    if !export.without_uid.is_empty() {
-                        summary.push_str(&format!(
-                            " Left out, without a UID: {}.",
-                            export.without_uid.join(", ")
-                        ));
+            let exported = {
+                let store = lock(&store);
+                match kind {
+                    ExportKind::Snapshot => service::export::snapshot(&store)?,
+                    ExportKind::Uigf => service::export::uigf(&store, &data)?,
+                    ExportKind::Spreadsheet => {
+                        let id = account.ok_or_else(|| anyhow!("choose an account first"))?;
+                        service::export::spreadsheet(&store, id, &data)?
                     }
-                    Ok(summary)
                 }
-                ExportKind::Spreadsheet => {
-                    let id = account.ok_or_else(|| anyhow!("choose an account first"))?;
-                    let account = store
-                        .accounts()?
-                        .into_iter()
-                        .find(|a| a.id == id)
-                        .ok_or_else(|| anyhow!("that account no longer exists"))?;
-                    let analysis = engine::analyze(
-                        store.wishes(account.id)?,
-                        account.server,
-                        &store.manual_counters(account.id)?,
-                        &data,
-                    );
-                    let xlsx = wish_core::excel::export(&account, &analysis, &data)?;
-                    wish_core::paths::write_atomic(&path, &xlsx)?;
-                    Ok(format!("Exported the wishes of {}.", account.label))
-                }
-            }
+            };
+            wish_core::paths::write_atomic(&path, &exported.bytes)?;
+            Ok(export_message(&exported.summary))
         })
     }
 
@@ -1345,14 +1251,32 @@ fn not_open() -> anyhow::Error {
     anyhow!("your data isn’t open yet")
 }
 
-/// The store, for one write or read at a time. A write that panicked
-/// leaves it as it was (each write is one transaction, rolled back as the
-/// panic unwound), so the lock it poisoned is taken back.
-fn lock(store: &Mutex<Store>) -> MutexGuard<'_, Store> {
-    store.lock().unwrap_or_else(|poisoned| {
-        store.clear_poison();
-        poisoned.into_inner()
-    })
+/// What an export holds, in words.
+fn export_message(summary: &ExportSummary) -> String {
+    let accounts = |n: usize| format!("{n} {}", if n == 1 { "account" } else { "accounts" });
+    match summary {
+        ExportSummary::Snapshot {
+            wishes,
+            accounts: n,
+        } => {
+            format!("Exported {wishes} wishes of {}.", accounts(*n))
+        }
+        ExportSummary::Uigf {
+            wishes,
+            accounts: n,
+            without_uid,
+        } => {
+            let mut message = format!("Exported {wishes} wishes of {}.", accounts(*n));
+            if !without_uid.is_empty() {
+                message.push_str(&format!(
+                    " Left out, without a UID: {}.",
+                    without_uid.join(", ")
+                ));
+            }
+            message
+        }
+        ExportSummary::Spreadsheet { account } => format!("Exported the wishes of {account}."),
+    }
 }
 
 /// What a panic said, for an error message.

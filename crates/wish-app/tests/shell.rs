@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use gpui_kit::{AppContext as _, Entity, HeadlessAppContext, NoopTextSystem, Task};
 use wish_app::app::library::{LoadState, MirrorStatus};
-use wish_app::{ArchivePage, Feature, ImageDownloads, Library, OverviewTab, Page, Shell, WishPage};
+use wish_app::{ArchivePage, Feature, Library, OverviewTab, Page, Services, Shell, WishPage};
 use wish_core::AppPaths;
 use wish_core::model::{AccountId, Pool};
 
@@ -33,7 +33,7 @@ impl App {
         cx.update(wish_app::init);
         let paths = AppPaths::at(data_dir);
         let (library, shell) = cx.update(|cx| {
-            let library = cx.new(|cx| Library::open(paths, ImageDownloads::Off, cx));
+            let library = cx.new(|cx| Library::open(paths, Services::offline(), cx));
             let (_, shell) =
                 gpui_kit::open_window(wish_app::window_options(cx), cx, |window, cx| {
                     cx.new(|cx| Shell::new(library.clone(), window, cx))

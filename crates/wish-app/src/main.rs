@@ -3,7 +3,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use gpui_kit::AppContext as _;
-use wish_app::{ImageDownloads, Library, Shell};
+use wish_app::{Library, Services, Shell};
 use wish_core::AppPaths;
 
 /// Points the app at another data folder, e.g. a scratch copy for testing.
@@ -48,7 +48,7 @@ fn main() {
             })
             .detach();
 
-            let library = cx.new(|cx| Library::open(paths, ImageDownloads::On, cx));
+            let library = cx.new(|cx| Library::open(paths, Services::network(), cx));
             let opened = gpui_kit::open_window(wish_app::window_options(cx), cx, |window, cx| {
                 cx.new(|cx| Shell::new(library, window, cx))
             });

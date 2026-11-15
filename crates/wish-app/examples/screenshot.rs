@@ -16,7 +16,7 @@ use gpui_kit::component::{Theme, ThemeMode, WindowExt as _};
 use gpui_kit::{AppContext as _, HeadlessAppContext};
 use wish_app::app::{Notice, notify};
 use wish_app::{
-    ArchivePage, ImageDownloads, ImportFromGame, Library, OverviewTab, Page, Shell, WishPage,
+    ArchivePage, ImportFromGame, Library, OverviewTab, Page, Services, Shell, WishPage,
 };
 use wish_core::AppPaths;
 use wish_core::collection::{OwnedCharacter, OwnedWeapon};
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
 
     let paths = AppPaths::at(data_dir);
     let manual_counting = wish_core::settings::Settings::load(&paths)?.manual_counting;
-    let library = cx.update(|cx| cx.new(|cx| Library::open(paths, ImageDownloads::On, cx)));
+    let library = cx.update(|cx| cx.new(|cx| Library::open(paths, Services::network(), cx)));
     let (window, shell) = cx.update(|cx| {
         let library = library.clone();
         let mut options = wish_app::window_options(cx);

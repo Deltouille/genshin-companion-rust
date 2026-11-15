@@ -143,6 +143,10 @@ pub enum Error {
 
     #[error("cancelled")]
     Cancelled,
+
+    /// HoYoLAB's own words, which say what the player can do.
+    #[error(transparent)]
+    Hoyolab(#[from] hoyolab::Error),
 }
 
 impl Error {

@@ -194,6 +194,12 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     suggested when it has none, else the only one without). `Store::apply_sync(target, game, …)` gives the chosen
     account the UID (and the server) or makes the new one, works the plan out again against the stored collection,
     and writes it all in one transaction after a `before-sync` backup.
+  - `service/`: the use cases the app and `wishctl` share, without GPUI, each taking what it reaches (transport,
+    store, game data) as parameters: `game::fetch` (the history behind a link, up to the first wish stored, then
+    planned), `hoyolab::fetch` / `preview` / `fetch_preview` (`HoyolabAccount`, `SyncChoice`), `export::snapshot` /
+    `uigf` / `spreadsheet` (bytes and an `ExportSummary` the app puts into words). A service that fetches takes
+    `&Mutex<Store>` and locks it (`service::lock`, which takes back a poisoned lock) before and after the requests,
+    never during. Writing stays `Store::apply_import` / `apply_sync`, through the app's write queue.
   - `import/paimon_check.rs`: compares the engine with the values paimon.moe stored in a save.
   - `import/api.rs` (link parsing, fetching behind a `Transport` trait), `import/game_cache.rs`
     (finding the link on disk), `import/api_plan.rs` (new wishes vs links vs held back).
@@ -307,7 +313,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       offline use (Settings → Images, with progress and Stop); `Images::claim` keeps it and the pages from
       downloading one file twice. Downloads are opt-in beyond what pages show: don't add eager prefetching, it
       would load the two volunteer-run sites.
-      `Library::open(paths, ImageDownloads::Off, cx)` turns downloads off: tests must never touch the network.
+      `Library::open(paths, services, cx)` takes what it reaches outside (`app/services.rs`: the game's API with its
+      pacing, HoYoLAB, image downloads): `Services::network()` in the app, `Services::offline()` in tests, which
+      never touch the network (every request fails, no download) and put fakes in for a flow
+      (`library/tests.rs`: a HoYoLAB sync and an import from the game, end to end).
       Banner files are named by `Banner::slug()`, never by the raw name (a `:` would make GPUI take the path for a URL).
       The queue holds `Job`s: downloads, and `Job::Blur`, which makes the blurred backdrop of a downloaded wish art
       (`Images::backdrop`, `blur/<file>` in the cache: shrunk to 160 px and blurred with the `image` crate, which

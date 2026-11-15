@@ -118,6 +118,18 @@ impl Store {
         Ok(accounts)
     }
 
+    /// The account `id`.
+    pub fn account(&self, id: AccountId) -> Result<Account> {
+        self.conn
+            .query_row(
+                "SELECT id, label, uid, server FROM accounts WHERE id = ?1",
+                [id.0],
+                account_from_row,
+            )
+            .optional()?
+            .ok_or(Error::UnknownAccount(id))
+    }
+
     /// Adds an account by hand (a player who imports no wishes, or not yet):
     /// a name, and optionally its UID and server. A UID already taken by
     /// another account is refused.
