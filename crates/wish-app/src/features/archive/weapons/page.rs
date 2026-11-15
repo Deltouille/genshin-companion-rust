@@ -15,7 +15,7 @@ use gpui_kit::{
 };
 use wish_ui::{PageFrame, Segmented, button, card, card_title, theme};
 
-use super::super::detail::{facts_grid, hero_banner, level_badge, materials, table};
+use super::super::shared::{facts_grid, hero_banner, level_badge, materials, table};
 use super::WeaponsView;
 use super::model;
 

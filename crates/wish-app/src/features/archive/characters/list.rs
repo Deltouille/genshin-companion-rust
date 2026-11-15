@@ -7,24 +7,25 @@
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::{ActiveTheme as _, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Context, Div, Entity, FontWeight, ImageSource, InteractiveElement as _,
+    AnyElement, App, Context, Entity, FontWeight, ImageSource, InteractiveElement as _,
     IntoElement, ObjectFit, ParentElement as _, SharedString, Styled as _, StyledImage as _,
     WeakEntity, Window, div, img, rems,
 };
-use wish_core::collection::OwnedCharacter;
 use wish_core::model::Rarity;
-use wish_core::planner::Character;
 
 use std::rc::Rc;
 
-use super::filters::{self, FilterGroup, FilterOption};
-use super::{CharactersView, Sort};
+use super::super::filters::{self, FilterGroup, FilterOption};
+use super::super::shared::{corner_button, section_title};
+use super::CharactersView;
+use super::model::{self, CharacterCard, Filters};
 use crate::app::images::Images;
+use wish_core::planner::PlannerData;
 use wish_ui::{PageFrame, badge, theme};
 
 /// The elements in the game's order, as the filters show them.
@@ -42,55 +43,23 @@ impl CharactersView {
         );
         let owned = library.owned(account).clone();
         let warning = library.game_data_warning().cloned();
-        let version = |key: &str| {
-            archive
-                .character(key)
-                .and_then(|page| page.version.as_deref())
-                .map(release)
-                .unwrap_or_default()
-        };
-        let latest = planner.characters().iter().map(|c| version(&c.key)).max();
-
         let query = self.search.read(cx).value().to_lowercase();
-        let mut shown: Vec<&Character> = planner
-            .characters()
-            .iter()
-            .filter(|c| query.is_empty() || c.name.to_lowercase().contains(&query))
-            .filter(|c| self.elements.is_empty() || self.elements.contains(c.element.as_str()))
-            .filter(|c| self.weapons.is_empty() || self.weapons.contains(c.weapon.as_str()))
-            .filter(|c| self.stars.is_empty() || self.stars.contains(&c.rarity))
-            .filter(|c| !self.favourites || owned.character(&c.key).is_some_and(|o| o.favourite))
+        let filters = Filters {
+            query: &query,
+            elements: &self.elements,
+            weapons: &self.weapons,
+            stars: &self.stars,
+            favourites: self.favourites,
+            sort: self.sort,
+            reversed: self.reversed,
+        };
+        let filtered = filters.any();
+        let list = model::list(&planner, &archive, &owned, &filters);
+        let mine_cards: Vec<AnyElement> = (list.mine.iter())
+            .map(|card| self.card(card, &planner, &images, cx))
             .collect();
-        match self.sort {
-            Sort::Newest => shown.sort_by(|a, b| {
-                version(&b.key)
-                    .cmp(&version(&a.key))
-                    .then_with(|| a.name.cmp(&b.name))
-            }),
-            Sort::Name => shown.sort_by(|a, b| a.name.cmp(&b.name)),
-            Sort::Rarity => {
-                shown.sort_by(|a, b| b.rarity.cmp(&a.rarity).then_with(|| a.name.cmp(&b.name)))
-            }
-        }
-        if self.reversed {
-            shown.reverse();
-        }
-        // What the account owns first, its favourites leading; the others
-        // after, each part in the chosen order.
-        let (mut mine, others): (Vec<_>, Vec<_>) = shown
-            .into_iter()
-            .map(|c| (c, owned.character(&c.key).cloned()))
-            .partition(|(_, owned)| owned.is_some());
-        mine.sort_by_key(|(_, owned)| !owned.as_ref().is_some_and(|o| o.favourite));
-
-        let is_new = |c: &Character| latest.is_some() && Some(version(&c.key)) == latest;
-        let mine_cards: Vec<AnyElement> = mine
-            .iter()
-            .map(|(c, owned)| self.card(c, owned.as_ref(), is_new(c), &images, cx))
-            .collect();
-        let other_cards: Vec<AnyElement> = others
-            .iter()
-            .map(|(c, _)| self.card(c, None, is_new(c), &images, cx))
+        let other_cards: Vec<AnyElement> = (list.others.iter())
+            .map(|card| self.card(card, &planner, &images, cx))
             .collect();
 
         let theme = cx.theme();
@@ -112,11 +81,6 @@ impl CharactersView {
         );
 
         let (mine_count, other_count) = (mine_cards.len(), other_cards.len());
-        let filtered = !query.is_empty()
-            || !self.elements.is_empty()
-            || !self.weapons.is_empty()
-            || !self.stars.is_empty()
-            || self.favourites;
         let muted = theme.muted_foreground;
         let body = div()
             .id("character-grid")
@@ -162,11 +126,7 @@ impl CharactersView {
                     }),
             );
         let page = PageFrame::new("Characters", body)
-            .subtitle(format!(
-                "{} owned · {} characters",
-                owned.characters.len(),
-                planner.characters().len()
-            ))
+            .subtitle(format!("{} owned · {} characters", list.owned, list.total))
             .action(crate::features::imports::hoyolab_sync_button())
             .toolbar(toolbar)
             .body_scrolls();
@@ -213,9 +173,9 @@ impl CharactersView {
             .map(|element| FilterOption {
                 label: (*element).into(),
                 icon: images.element(element),
-                on: this.elements.contains(*element),
+                on: this.elements.contains(element),
                 toggle: toggle(Rc::new(move |this| {
-                    Self::toggle(&mut this.elements, (*element).into())
+                    Self::toggle(&mut this.elements, *element)
                 })),
             })
             .collect();
@@ -224,9 +184,9 @@ impl CharactersView {
             .map(|weapon| FilterOption {
                 label: (*weapon).into(),
                 icon: None,
-                on: this.weapons.contains(*weapon),
+                on: this.weapons.contains(weapon),
                 toggle: toggle(Rc::new(move |this| {
-                    Self::toggle(&mut this.weapons, (*weapon).into())
+                    Self::toggle(&mut this.weapons, *weapon)
                 })),
             })
             .collect();
@@ -311,33 +271,34 @@ impl CharactersView {
     /// name; the corner buttons add, remove or mark it as a favourite.
     fn card(
         &self,
-        character: &Character,
-        owned: Option<&OwnedCharacter>,
-        new: bool,
+        character: &CharacterCard,
+        planner: &PlannerData,
         images: &Images,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
         let (ink, parchment) = theme::tile_label(cx);
         let (key, name) = (character.key.clone(), character.name.clone());
-        let corner = match owned {
-            Some(owned) => {
+        let owned = character.owned.clone();
+        let corner = match &owned {
+            Some((_, favourite)) => {
+                let favourite = *favourite;
                 let gold = theme::rarity(Rarity::Five, cx);
                 let star = corner_button(
                     format!("favourite-{key}"),
-                    if owned.favourite {
+                    if favourite {
                         IconName::StarFill
                     } else {
                         IconName::Star
                     },
-                    if owned.favourite {
+                    if favourite {
                         "Remove from favourites"
                     } else {
                         "Add to favourites"
                     },
                     cx,
                 )
-                .when(owned.favourite, |this| this.text_color(gold))
+                .when(favourite, |this| this.text_color(gold))
                 .on_click(cx.listener({
                     let key = key.clone();
                     move |this, _, _, cx| {
@@ -371,7 +332,7 @@ impl CharactersView {
                 })),
             ),
         };
-        let icon = images.character(character);
+        let icon = planner.character(&key).and_then(|c| images.character(c));
         let picture = div()
             .relative()
             .w_full()
@@ -401,15 +362,15 @@ impl CharactersView {
                     .right_1()
                     .h_flex()
                     .gap_1()
-                    .children(owned.map(|owned| {
+                    .children(owned.as_ref().map(|(summary, _)| {
                         badge(
-                            format!("Lv. {} · C{}", owned.level.level, owned.constellation),
+                            summary.clone(),
                             (theme.foreground, theme.background.opacity(0.85)),
                             cx,
                         )
                     }))
                     .child(div().flex_1())
-                    .when(new, |this| {
+                    .when(character.new, |this| {
                         this.child(badge("New", (theme.primary_foreground, theme.primary), cx))
                     }),
             );
@@ -420,14 +381,7 @@ impl CharactersView {
             .h_auto()
             .rounded(theme.radius_lg)
             .cursor_pointer()
-            .accessibility_label(format!(
-                "{}, {}★ {} {}{}",
-                character.name,
-                character.rarity,
-                character.element,
-                character.weapon,
-                if owned.is_some() { ", owned" } else { "" }
-            ))
+            .accessibility_label(character.label())
             .child(
                 div()
                     .v_flex()
@@ -454,7 +408,7 @@ impl CharactersView {
                             } else {
                                 theme.muted_foreground
                             })
-                            .child(character.name.clone()),
+                            .child(name),
                     ),
             )
             .on_click(cx.listener(move |this, _, _, cx| this.show_character(&key, cx)))
@@ -468,50 +422,4 @@ fn picture(icon: ImageSource, owned: bool) -> impl IntoElement {
         .size_full()
         .object_fit(ObjectFit::Contain)
         .when(!owned, |this| this.opacity(0.5))
-}
-
-/// A small round button in a card's corner, on a veil of the page's colour
-/// so it reads over any picture.
-pub(super) fn corner_button(
-    id: impl Into<SharedString>,
-    icon: IconName,
-    label: &'static str,
-    cx: &App,
-) -> Button {
-    let theme = cx.theme();
-    Button::new(gpui_kit::ElementId::Name(id.into()))
-        .ghost()
-        .small()
-        .size_7()
-        .rounded_full()
-        .bg(theme.background.opacity(0.8))
-        .icon(icon)
-        .tooltip(label)
-        .accessibility_label(label)
-        .cursor_pointer()
-}
-
-/// A part of the list: its name and how many it holds, as a chip.
-pub(super) fn section_title(title: &str, count: usize, cx: &App) -> Div {
-    let theme = cx.theme();
-    div()
-        .h_flex()
-        .gap_2()
-        .child(
-            div()
-                .text_lg()
-                .font_weight(FontWeight::SEMIBOLD)
-                .child(title.to_owned()),
-        )
-        .child(badge(
-            count.to_string(),
-            (theme.secondary_foreground, theme.secondary),
-            cx,
-        ))
-}
-
-/// "4.10" → (4, 10), so versions sort as numbers.
-pub(super) fn release(version: &str) -> (u32, u32) {
-    let mut parts = version.split('.').map(|p| p.parse().unwrap_or(0));
-    (parts.next().unwrap_or(0), parts.next().unwrap_or(0))
 }

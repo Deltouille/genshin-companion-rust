@@ -17,7 +17,7 @@ use gpui_kit::{
 use wish_core::model::Rarity;
 
 use super::super::filters;
-use super::super::list::{corner_button, section_title};
+use super::super::shared::{corner_button, section_title};
 use super::WeaponsView;
 use super::model::{self, Filters, WeaponCard};
 use crate::app::images::Images;

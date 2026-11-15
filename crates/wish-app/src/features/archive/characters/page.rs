@@ -5,8 +5,6 @@
 //! values at the talent level on the slider (and what a level costs), the
 //! constellations.
 
-use std::collections::BTreeMap;
-
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
@@ -16,16 +14,17 @@ use gpui_kit::component::slider::Slider;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, ImageSource, InteractiveElement as _, IntoElement,
-    ObjectFit, ParentElement as _, Pixels, SharedString, StatefulInteractiveElement as _,
-    Styled as _, StyledImage as _, Window, div, img, linear_color_stop, linear_gradient, rems,
+    ParentElement as _, Pixels, Styled as _, Window, div, img, rems,
 };
 use wish_core::archive::{ArchiveData, CharacterPage, Talent};
 use wish_core::model::Rarity;
-use wish_core::planner::{Character, CharacterGoal, Level, MaterialId, PlannerData};
+use wish_core::planner::{Character, PlannerData};
 
+use super::super::shared::{facts_grid, hero_banner, level_badge, materials, table};
 use super::CharactersView;
+use super::model;
 use crate::app::images::Images;
-use wish_ui::{MaterialTile, PageFrame, badge, button, card, card_title, format, rich_text, theme};
+use wish_ui::{PageFrame, badge, button, card, card_title, rich_text, theme};
 
 impl CharactersView {
     pub(super) fn render_character(
@@ -125,51 +124,31 @@ impl CharactersView {
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let level = self.level(cx);
-        let stats = archive.stats(page, level);
-        let special = if page.stats.special == "Elemental Mastery" {
-            format::count(stats.special.round() as u64)
-        } else {
-            format!("{:.1}%", stats.special * 100.0)
-        };
-        let rows = [
-            ("Base HP", format::count(stats.hp.round() as u64)),
-            ("Base ATK", format::count(stats.attack.round() as u64)),
-            ("Base DEF", format::count(stats.defense.round() as u64)),
-            (page.stats.special.as_str(), special),
-        ];
-        let level_label = format!("Lv. {}/{}", level.level, level.cap());
+        let at = self.level.read(cx).value().end().round() as usize;
+        let stats = model::stats(planner, archive, character, page, at);
         let stats_card = card(cx)
             .p_4()
             .gap_3()
-            .child(card_title("Base stats", cx).child(level_badge(&level_label, cx)))
+            .child(card_title("Base stats", cx).child(level_badge(&stats.level_label, cx)))
             .child(
                 Slider::new(&self.level)
                     .cursor_pointer()
                     .accessibility_label("Level"),
             )
-            .child(table(rows, cx));
+            .child(table(stats.rows.clone(), cx));
 
-        let need = planner.character_cost(
-            character,
-            &CharacterGoal {
-                from: Level::START,
-                to: level,
-                talents: [(1, 1); 3],
-            },
-        );
         let cost_card = card(cx)
             .p_4()
             .gap_3()
             .child(
-                card_title(format!("To reach {level_label}"), cx).child(
+                card_title(format!("To reach {}", stats.level_label), cx).child(
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
                         .child("from level 1"),
                 ),
             )
-            .child(materials(&need.materials_with_exp(), planner, images, cx));
+            .child(materials(&stats.cost, planner, images, cx));
 
         div()
             .grid()
@@ -190,17 +169,8 @@ impl CharactersView {
         cx: &Context<Self>,
     ) -> AnyElement {
         let theme = cx.theme();
-        let level = self.talent_level(cx);
-        // Levels past 10 come from constellations; materials stop at 10.
-        let to = level.min(10);
-        let need = planner.character_cost(
-            character,
-            &CharacterGoal {
-                from: Level::START,
-                to: Level::START,
-                talents: [(1, to), (1, 1), (1, 1)],
-            },
-        );
+        let talent = model::talent_cost(planner, character, self.talent_level(cx));
+        let level = talent.level;
         let level_card = card(cx)
             .p_4()
             .gap_3()
@@ -214,15 +184,10 @@ impl CharactersView {
                 div()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child(if level > 10 {
-                        "Levels 11 to 15 come from constellations; the materials stop at 10."
-                            .to_owned()
-                    } else {
-                        format!("Raising one talent from 1 to {level}:")
-                    }),
+                    .child(talent.note.clone()),
             )
-            .when(to > 1, |this| {
-                this.child(materials(&need.materials_with_exp(), planner, images, cx))
+            .when_some(talent.cost.as_ref(), |this, cost| {
+                this.child(materials(cost, planner, images, cx))
             });
 
         div()
@@ -256,24 +221,7 @@ fn section(title: &str, content: AnyElement, _: &App) -> Div {
 /// level: "20/20" before ascending, "20/40" after.
 fn ascension_table(page: &CharacterPage, archive: &ArchiveData, cx: &App) -> AnyElement {
     let theme = cx.theme();
-    let bounds = [
-        (1, 0),
-        (20, 0),
-        (20, 1),
-        (40, 1),
-        (40, 2),
-        (50, 2),
-        (50, 3),
-        (60, 3),
-        (60, 4),
-        (70, 4),
-        (70, 5),
-        (80, 5),
-        (80, 6),
-        (90, 6),
-    ];
     let special_name = page.stats.special.clone();
-    let percent = special_name != "Elemental Mastery";
     let row = |cells: [String; 5], head: bool, even: bool| {
         div()
             .h_flex()
@@ -306,29 +254,9 @@ fn ascension_table(page: &CharacterPage, archive: &ArchiveData, cx: &App) -> Any
         true,
         false,
     );
-    let rows = bounds
-        .iter()
+    let rows = (model::ascension(archive, page).into_iter())
         .enumerate()
-        .filter_map(|(ix, (level, phase))| {
-            let level = Level::new(*level, *phase)?;
-            let stats = archive.stats(page, level);
-            let special = if percent {
-                format!("{:.1}%", stats.special * 100.0)
-            } else {
-                format::count(stats.special.round() as u64)
-            };
-            Some(row(
-                [
-                    format!("{}/{}", level.level, level.cap()),
-                    format::count(stats.hp.round() as u64),
-                    format::count(stats.attack.round() as u64),
-                    format::count(stats.defense.round() as u64),
-                    special,
-                ],
-                false,
-                ix % 2 == 1,
-            ))
-        });
+        .map(|(ix, cells)| row(cells, false, ix % 2 == 1));
     card(cx)
         .py_2()
         .overflow_hidden()
@@ -336,9 +264,6 @@ fn ascension_table(page: &CharacterPage, archive: &ArchiveData, cx: &App) -> Any
         .children(rows)
         .into_any_element()
 }
-
-/// The hero's height, in rems.
-const HERO_REMS: f32 = 22.;
 
 /// The page's head: the wish art large on the right, over a blurred copy of
 /// itself, the element, the stars, the description and the facts on the left.
@@ -402,185 +327,6 @@ fn hero(
         window,
         cx,
     )
-}
-
-/// A page's banner: `info` on the left; on the right `art` (with its width
-/// as a share of its height, and how many times the banner's height it is
-/// drawn, cropped by the banner), centred three quarters of the way across;
-/// under both `backdrop`, a blurred copy of the art faded into the card under
-/// the text. `width` is the page's.
-pub(super) fn hero_banner(
-    info: Div,
-    art: Option<(ImageSource, f32, f32)>,
-    backdrop: Option<ImageSource>,
-    width: Pixels,
-    window: &Window,
-    cx: &App,
-) -> Div {
-    let theme = cx.theme();
-    let height = window.rem_size() * HERO_REMS;
-    // The art beside the text when there is room for both.
-    let beside = width > window.rem_size() * 52.;
-    let surface = theme.group_box;
-    let layer = || div().absolute().top_0().left_0().w(width).h(height);
-    // Clipping is rectangular: each layer rounds its own corners.
-    let backdrop = backdrop.map(|image| {
-        layer()
-            .rounded(theme.radius_lg)
-            .overflow_hidden()
-            .opacity(0.85)
-            .child(
-                img(image)
-                    .w(width)
-                    .h(height)
-                    .aspect_ratio(width / height)
-                    .object_fit(ObjectFit::Cover),
-            )
-    });
-    // Solid under the text, clear under the art.
-    let fade = layer().rounded(theme.radius_lg).bg(linear_gradient(
-        90.,
-        linear_color_stop(surface, 0.2),
-        linear_color_stop(surface.opacity(0.), if beside { 0.75 } else { 1.4 }),
-    ));
-    let art = art.filter(|_| beside).map(|(art, ratio, scale)| {
-        let art_height = (height * scale).min(width * 0.9 / ratio);
-        let art_width = art_height * ratio;
-        div()
-            .absolute()
-            .left(width * 0.76 - art_width / 2.)
-            .top((height - art_height) / 2.)
-            .child(
-                img(art)
-                    .w(art_width)
-                    .h(art_height)
-                    .aspect_ratio(ratio)
-                    .object_fit(ObjectFit::Contain),
-            )
-    });
-    div()
-        .relative()
-        .w(width)
-        .h(height)
-        .rounded(theme.radius_lg)
-        .overflow_hidden()
-        .bg(surface)
-        .when(!theme.is_dark(), |this| {
-            this.border_1().border_color(theme.border)
-        })
-        .children(backdrop)
-        .child(fade)
-        .children(art)
-        .child(
-            info.relative()
-                .v_flex()
-                .justify_center()
-                .gap_4()
-                .h(height)
-                .w(if beside { width * 0.55 } else { width })
-                .p_6(),
-        )
-}
-
-/// Facts in two columns of label and value; those without a value left out.
-pub(super) fn facts_grid(facts: &[(&str, Option<&str>)], cx: &App) -> Div {
-    let theme = cx.theme();
-    div()
-        .grid()
-        .grid_cols(2)
-        .gap_x_6()
-        .gap_y_1()
-        .text_sm()
-        .children(facts.iter().filter_map(|&(label, value)| {
-            let value = value?;
-            Some(
-                div()
-                    .h_flex()
-                    .gap_2()
-                    .child(
-                        div()
-                            .w(rems(6.5))
-                            .flex_shrink_0()
-                            .text_color(theme.muted_foreground)
-                            .child(label.to_owned()),
-                    )
-                    .child(div().truncate().child(value.to_owned())),
-            )
-        }))
-}
-
-/// A small primary badge for the level a slider is at.
-pub(super) fn level_badge(text: &str, cx: &App) -> Div {
-    let theme = cx.theme();
-    badge(
-        text.to_owned(),
-        (theme.primary, theme.primary.opacity(0.16)),
-        cx,
-    )
-    .text_sm()
-}
-
-/// Two columns: a muted label, the value on the right.
-pub(super) fn table<L: Into<SharedString>>(
-    rows: impl IntoIterator<Item = (L, String)>,
-    cx: &App,
-) -> Div {
-    let theme = cx.theme();
-    div()
-        .v_flex()
-        .children(rows.into_iter().map(|(label, value)| {
-            div()
-                .h_flex()
-                .justify_between()
-                .gap_4()
-                .py_1p5()
-                .border_t_1()
-                .border_color(theme.border)
-                .child(div().text_color(theme.muted_foreground).child(label.into()))
-                .child(div().font_weight(FontWeight::SEMIBOLD).child(value))
-        }))
-}
-
-/// The materials of a cost as the game shows them, in its inventory order.
-pub(super) fn materials(
-    need: &BTreeMap<MaterialId, u64>,
-    planner: &PlannerData,
-    images: &Images,
-    cx: &App,
-) -> AnyElement {
-    let mut items: Vec<_> = need
-        .iter()
-        .filter_map(|(&id, &count)| Some((planner.material(id)?, count)))
-        .collect();
-    if items.is_empty() {
-        return div()
-            .text_sm()
-            .text_color(cx.theme().muted_foreground)
-            .child("Nothing to spend.")
-            .into_any_element();
-    }
-    items.sort_by_key(|(material, _)| (material.sort, material.id));
-    div()
-        .h_flex()
-        .flex_wrap()
-        .gap_2()
-        .children(items.into_iter().map(|(material, count)| {
-            div()
-                .id(SharedString::from(format!("material-{}", material.id)))
-                .child(MaterialTile::new(
-                    images.material(material),
-                    material.rarity,
-                    format::compact(count),
-                ))
-                .tooltip({
-                    let text =
-                        SharedString::from(format!("{} × {}", format::count(count), material.name));
-                    move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
-                    }
-                })
-        }))
-        .into_any_element()
 }
 
 /// The dark round tile the game draws its white talent and constellation

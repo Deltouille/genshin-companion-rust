@@ -14,7 +14,7 @@ use wish_core::planner::{Level, MaterialId, PlannerData, Weapon, WeaponGoal};
 use wish_ui::format;
 
 use super::super::Sort;
-use super::super::list::release;
+use super::super::shared::release;
 
 /// What narrows and orders the list.
 pub(super) struct Filters<'a> {

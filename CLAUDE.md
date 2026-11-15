@@ -421,17 +421,20 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       `Shell::open_custom_entry`, `open_custom_picker` (a role's choice), `open_inventory` and `open_resin_options` open the dialogs (the screenshot tool uses
       them).
     - `archive/`: the character archive, like Project Amber's (`Page::Archive(ArchivePage::Characters)`,
-      group "Archive"). `CharactersView` (entity: filters, sort and its direction, open character, level sliders;
-      the shell calls `show_list`, `show_character`, `open_character_filters`). `filters.rs`: the filter bar of both
+      group "Archive"). `characters/`, like `weapons/`: `CharactersView` (entity in `mod.rs`: filters, sort and its
+      direction, open character, level sliders; the shell calls `show_list`, `show_character`,
+      `open_character_filters`), `model.rs` (the list and a character's numbers as plain data from pure functions,
+      tested alone), `list.rs` and `page.rs` drawing them, `collection.rs`. `shared.rs`: what both pages draw alike
+      (the hero banner, facts, level badge, stats table, materials, corner buttons, section titles). `filters.rs`: the filter bar of both
       lists, after genshinlist.vercel.app's (search, "Filter" opening a drawer of filter buttons in groups,
       applied at once; "Sort by" as a picker; a button reversing the order, its icon telling the direction;
       chips for the filters on). The drawer is the app's own (`filter_drawer`, deferred over the page, its
       whole height): it slides in and out (the kit's `Sheet` has no exit animation and leaves the title bar's
       height); Escape, its cross, Done or a click on the veil close it.
-      Never read the view's entity in its own render: `filter_groups` takes `&self` and a weak handle. `list.rs`:
+      Never read the view's entity in its own render: `filter_groups` takes `&self` and a weak handle. `characters/list.rs`:
       the account's characters first ("Owned": level and constellation, ☆, ×), the others faded with + ("Not
       owned"), 8.25 rem cards (icon on the rarity tile, element badge, "New" for the latest version).
-      `collection.rs`: owning, favourites, removing, and the "My character" panel. `detail.rs`: a hero banner (the
+      `collection.rs`: owning, favourites, removing, and the "My character" panel. `page.rs`: a hero banner (the
       blurred backdrop faded into the card under the text, the art drawn 1.3× the banner's height and cropped, the
       stars, description and facts), "My character" when owned, then stacked sections as on genshin-list: Stats (at
       the slider's level and phase, and what reaching it costs, from `PlannerData::character_cost`), Ascension (the
@@ -442,7 +445,7 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       `page.rs` draw them; `Page::Archive(ArchivePage::Weapons)`, the shell calls
       `show_weapon`): the weapon list (the same filter bar: type, rarity, favourites; "Owned" first, a card
       showing the best refinement and the copies, "R3 · ×2", with ☆ (every copy) and + (add a copy), then "Not
-      owned" faded) and a weapon's page (the same `detail::hero_banner` with its upright wish art, "My copies",
+      owned" faded) and a weapon's page (the same `shared::hero_banner` with its upright wish art, "My copies",
       stats at the level slider and their cost, the passive by refinement, "Add to the planner").
       `weapons/copies.rs`: the copies, one row each (level picker over `Level::weapon_steps`, refinement, "Held
       by" among the owned characters of that weapon type, favourite, remove after asking), "Add a copy";
