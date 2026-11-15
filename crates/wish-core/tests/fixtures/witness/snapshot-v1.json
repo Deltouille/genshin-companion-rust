@@ -1,0 +1,266 @@
+{
+  "format": "genshin-wishes-snapshot",
+  "version": 1,
+  "exported_at": "2026-11-15T09:45:49+01:00",
+  "app_version": "0.5.0",
+  "accounts": [
+    {
+      "label": "Main",
+      "uid": "700000001",
+      "server": "europe",
+      "wishes": [
+        {
+          "id": "paimon:character-event:20240101100000:0",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:00:00",
+          "seq": 0,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:0",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 0,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:1",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 1,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:2",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 2,
+          "name": "Cool Steel",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "cool_steel",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:3",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 3,
+          "name": "Xiangling",
+          "item_type": "Character",
+          "rarity": 4,
+          "item_key": "xiangling",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:4",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 4,
+          "name": "Harbinger of Dawn",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "harbinger_of_dawn",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:5",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 5,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:6",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 6,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:7",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 7,
+          "name": "Cool Steel",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "cool_steel",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:8",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 8,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:9",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 9,
+          "name": "Bennett",
+          "item_type": "Character",
+          "rarity": 4,
+          "item_key": "bennett",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240102090000:0",
+          "gacha_type": "400",
+          "time": "2024-01-02 09:00:00",
+          "seq": 0,
+          "name": "Venti",
+          "item_type": "Character",
+          "rarity": 5,
+          "item_key": "venti",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240102090100:0",
+          "gacha_type": "301",
+          "time": "2024-01-02 09:01:00",
+          "seq": 0,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:weapon-event:20240201120000:0",
+          "gacha_type": "302",
+          "time": "2024-02-01 12:00:00",
+          "seq": 0,
+          "name": "Wolf's Gravestone",
+          "item_type": "Weapon",
+          "rarity": 5,
+          "item_key": "wolfs_gravestone",
+          "source": "paimon"
+        },
+        {
+          "id": "manual:20240601120000:1794732349042786154:00",
+          "gacha_type": "200",
+          "time": "2024-06-01 12:00:00",
+          "seq": 0,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "source": "manual"
+        },
+        {
+          "id": "manual:20240601120000:1794732349042786154:01",
+          "gacha_type": "200",
+          "time": "2024-06-01 12:00:00",
+          "seq": 1,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "source": "manual"
+        },
+        {
+          "id": "manual:20240601120500:1794732349058541496:00",
+          "gacha_type": "301",
+          "time": "2024-06-01 12:05:00",
+          "seq": 0,
+          "name": "Venti",
+          "item_type": "Character",
+          "rarity": 5,
+          "item_key": "venti",
+          "manual_pity": 77,
+          "source": "manual"
+        },
+        {
+          "id": "1712345678000000002",
+          "gacha_type": "301",
+          "time": "2024-06-02 10:00:00",
+          "seq": 0,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "api"
+        }
+      ],
+      "links": [
+        {
+          "wish_id": "paimon:character-event:20240101100000:0",
+          "api_id": "1712345678000000001"
+        }
+      ]
+    },
+    {
+      "label": "Account 2",
+      "server": "asia",
+      "wishes": [
+        {
+          "id": "paimon:standard:20240301080000:0",
+          "gacha_type": "200",
+          "time": "2024-03-01 08:00:00",
+          "seq": 0,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "manual_pity": 1,
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:standard:20240301080000:1",
+          "gacha_type": "200",
+          "time": "2024-03-01 08:00:00",
+          "seq": 1,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "manual_pity": 1,
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:standard:20240302200000:0",
+          "gacha_type": "200",
+          "time": "2024-03-02 20:00:00",
+          "seq": 0,
+          "name": "Diluc",
+          "item_type": "Character",
+          "rarity": 5,
+          "item_key": "diluc",
+          "manual_pity": 76,
+          "source": "paimon"
+        }
+      ],
+      "manual_counters": [
+        {
+          "pool": "standard",
+          "total": 80,
+          "pity5": 3,
+          "pity4": 5
+        }
+      ]
+    }
+  ]
+}

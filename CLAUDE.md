@@ -96,7 +96,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   dropped, hidden from `Debug`/`Display`); `HttpTransport` sends it over https to HoYoverse's hosts only, with no
   redirect. Tests on a fake `Transport`, never the network. Its own repository only to publish it.
 - `crates/wish-core`: model, banner/item data, SQLite storage, importers, pity / 50-50 engine, stats, planner costs.
-  **Never depends on GPUI.** All logic and tests go here.
+  **Never depends on GPUI.** All logic and tests go here. Its domain (`model`, `engine`, `stats`, `planner`,
+  `collection`, `archive`) reaches no database, network or file: `tests/layers.rs` reads their sources and fails on
+  such an import (its `KNOWN` list holds the crossings still there, ARCH-11 of the architecture audit).
   - `model.rs`: domain types (`Pool`, `GachaType`, `Wish`, `WishTime`…). Text-stored enums use `text_enum!`.
   - `data.rs`: embedded `items.json` / `banners.json`, overridable from `<data dir>/game-data/`.
     `GameData::load` never fails: a copy that can't be read, or older than the embedded one (an item missing,
@@ -278,8 +280,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     (`on_navigate`).
   - `app/`: state and services, no views.
     - `library.rs`: the `Library` entity, which owns the store, game data, analyses and settings.
-      Every database write goes through `Library::write`, which runs it on the background executor. Writes queue
-      on the store lock and run detached, so they finish even if the caller drops the returned task. The state is
+      Every database write goes through `Library::write`, which runs it on the background executor. Writes run
+      one at a time in the order they were made (each waits for the one before, `last_write`: threads take the store
+      lock in any order, so two quick changes to one slider could otherwise keep the older), detached, so they finish
+      even if the caller drops the returned task. The state is
       reloaded after a failed write too, which undoes what a page showed at once (the planner's sliders, order and
       inventory), and after a panic in a write, which becomes its error (the lock it poisoned is taken back: each
       write is one transaction). Every write but a backup by hand refreshes the mirror folder (`changes_data`):
@@ -531,6 +535,13 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
 - Schema changes go through migrations only: add a new `store/schema/NNN_*.sql` and append it to `MIGRATIONS`.
   Never edit a migration that has shipped. A database with a newer `user_version` must be refused untouched.
 - Exports and mirror files are written atomically: temp file, fsync, rename.
+- Files written outside the database must keep reading: `tests/formats.rs` checks the frozen witnesses in
+  `tests/fixtures/witness/` (a version 1 snapshot written by 0.5.0, version 2 by 0.6.0, `settings.json` of 0.6),
+  and that the writer still writes the current one. **Never edit or regenerate a witness.** A format change gets a
+  new version and a new witness, written by the app that introduces it, and the writer test moves to it.
+- The write queue's promises (a failed or panicking write reloads, the order kept, the newest state shown, a write
+  finishing when its caller lets go, quitting counting the writes under way) are tested in
+  `wish-app/src/app/library/tests.rs`, under the test scheduler's random order (`SEED=n` tries another).
 - Tests that use real exports (they contain UIDs) go in `crates/wish-core/tests/fixtures/private/`, which is git-ignored.
 
 ## Domain rules

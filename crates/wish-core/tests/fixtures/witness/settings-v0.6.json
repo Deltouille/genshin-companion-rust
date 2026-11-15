@@ -1,0 +1,13 @@
+{
+  "mirror_folder": "/home/player/Sync/genshin",
+  "game_folder": "/home/player/Games/Genshin Impact",
+  "manual_counting": true,
+  "resin": {
+    "world_level": 6,
+    "resin_per_day": 200,
+    "ignored": [
+      "character-exp",
+      "mora"
+    ]
+  }
+}

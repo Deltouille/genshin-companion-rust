@@ -38,8 +38,9 @@
 //!   private.
 //! - **One flow for the whole window** ([`Session::start_flow`]): starting
 //!   one cancels the previous before it can open a stale dialog, as before
-//!   pages had state of their own. Writes are not at risk: [`Library`] queues
-//!   them and they always finish; a cancelled flow only loses its next step.
+//!   pages had state of their own. Writes are not at risk: [`Library`] runs
+//!   them one at a time, in the order they were made, and they always
+//!   finish; a cancelled flow only loses its next step.
 //! - **Routing stays in the shell**: a page doesn't know the others, so it
 //!   asks to open one (`on_navigate`) rather than switching itself.
 //! - **Commands are actions**: an action works the same from a button, the
