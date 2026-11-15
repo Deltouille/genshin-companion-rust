@@ -1,6 +1,6 @@
 //! Settings → Backups: back up now, and restore one (or a file kept elsewhere).
 
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::report_outcome;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::{ActiveTheme as _, WindowExt as _};
@@ -18,21 +18,9 @@ use wish_core::store::BackupReason;
 use super::SettingsPage;
 
 impl SettingsPage {
-    pub(super) fn back_up(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn back_up(&mut self, cx: &mut Context<Self>) {
         let task = self.library.update(cx, |library, cx| library.back_up(cx));
-        let flow = cx.spawn_in(window, async move |this, cx| {
-            let result = task.await;
-            this.update_in(cx, |_, _, cx| {
-                let note = match result {
-                    Ok(_) => Notice::done("Backup saved."),
-                    Err(err) => Notice::failed(format!("Couldn’t back up: {err:#}")),
-                };
-                notify(note, cx);
-            })
-            .ok();
-        });
-        self.session
-            .update(cx, |session, _| session.start_flow(flow));
+        report_outcome(task, "Couldn’t back up", |_| "Backup saved.".to_owned(), cx);
     }
 
     /// Lists the backups to restore one, or a backup file kept elsewhere.
@@ -155,34 +143,25 @@ impl SettingsPage {
                      The current state is backed up first, so you can restore it if needed.",
                 )
                 .footer(dialog_footer(button("confirm").danger().label("Restore")))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     shell
-                        .update(cx, |shell, cx| {
-                            shell.restore_backup(file.clone(), window, cx)
-                        })
+                        .update(cx, |shell, cx| shell.restore_backup(file.clone(), cx))
                         .ok();
                     true
                 })
         });
     }
 
-    fn restore_backup(&mut self, file: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+    fn restore_backup(&mut self, file: PathBuf, cx: &mut Context<Self>) {
         let task = self
             .library
             .update(cx, |library, cx| library.restore_backup(file, cx));
-        let flow = cx.spawn_in(window, async move |this, cx| {
-            let result = task.await;
-            this.update_in(cx, |_, _, cx| {
-                let note = match result {
-                    Ok(_) => Notice::done("Backup restored. The previous state was backed up."),
-                    Err(err) => Notice::failed(format!("Couldn’t restore: {err:#}")),
-                };
-                notify(note, cx);
-            })
-            .ok();
-        });
-        self.session
-            .update(cx, |session, _| session.start_flow(flow));
+        report_outcome(
+            task,
+            "Couldn’t restore",
+            |_| "Backup restored. The previous state was backed up.".to_owned(),
+            cx,
+        );
     }
 }
 

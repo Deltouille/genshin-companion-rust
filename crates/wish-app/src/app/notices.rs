@@ -6,7 +6,16 @@
 //! an M3 snackbar's inverse surface would hide. So the app keeps its own:
 //! [`Notices`], one per window, which the shell draws above everything (the
 //! dialogs too), and [`notify`] to show one from anywhere.
+//!
+//! A change the [`Library`](crate::Library) makes in the background is
+//! reported with [`report`] (its failure only, when the page shows the
+//! change) or [`report_outcome`] (a message either way). Every
+//! `Task<Result<…>>` of the library is awaited or goes to one of them, never
+//! `.detach()` on its own: its error would never be seen. They aren't a
+//! `Session` flow either: the change happens whatever the window does next,
+//! so its outcome is always told.
 
+use std::fmt::Display;
 use std::time::Duration;
 
 use gpui_kit::base::StyledExt as _;
@@ -46,6 +55,11 @@ impl Notice {
         }
     }
 
+    /// What didn't happen, then why: "The plan was not saved: …".
+    pub fn failure(what: impl Display, error: &anyhow::Error) -> Self {
+        Self::failed(format!("{what}: {error:#}"))
+    }
+
     /// How long a [`NoticeKind::Done`] stays: 4 s, longer for a long
     /// message (Material 3 allows 4 to 10 s).
     fn duration(&self) -> Duration {
@@ -60,6 +74,40 @@ pub fn notify(notice: Notice, cx: &mut App) {
     if let Some(notices) = cx.try_global::<CurrentNotices>().map(|n| n.0.clone()) {
         notices.update(cx, |notices, cx| notices.push(notice, cx));
     }
+}
+
+/// Shows `task`'s error, if it fails, as [`Notice::failure`] with `what`
+/// ("The plan was not saved"). For a change the page already shows: success
+/// needs no word.
+pub fn report<T: 'static>(
+    task: Task<anyhow::Result<T>>,
+    what: impl Display + 'static,
+    cx: &mut App,
+) {
+    cx.spawn(async move |cx| {
+        if let Err(error) = task.await {
+            cx.update(|cx| notify(Notice::failure(what, &error), cx));
+        }
+    })
+    .detach();
+}
+
+/// Shows `task`'s outcome: what `done` says of its result, or its error as
+/// [`Notice::failure`] with `what` ("Couldn’t export").
+pub fn report_outcome<T: 'static>(
+    task: Task<anyhow::Result<T>>,
+    what: impl Display + 'static,
+    done: impl FnOnce(T) -> String + 'static,
+    cx: &mut App,
+) {
+    cx.spawn(async move |cx| {
+        let notice = match task.await {
+            Ok(value) => Notice::done(done(value)),
+            Err(error) => Notice::failure(what, &error),
+        };
+        cx.update(|cx| notify(notice, cx));
+    })
+    .detach();
 }
 
 /// The window's notices, as a global for [`notify`].
@@ -168,6 +216,42 @@ impl Render for Notices {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    use anyhow::anyhow;
+    use gpui_kit::{HeadlessAppContext, NoopTextSystem};
+
+    #[test]
+    fn a_task_s_outcome_is_told_as_what_then_why() {
+        let mut cx = HeadlessAppContext::new(Arc::new(NoopTextSystem::new()));
+        let notices = cx.update(Notices::new);
+        cx.update(|cx| {
+            let failed: Task<anyhow::Result<()>> = Task::ready(Err(anyhow!("the disk is full")));
+            report(failed, "The plan was not saved", cx);
+            // A change the page shows says nothing when it works.
+            report(Task::ready(Ok(())), "Never shown", cx);
+            report_outcome(
+                Task::ready(Ok(3)),
+                "Never shown",
+                |n| format!("{n} counted."),
+                cx,
+            );
+            let failed: Task<anyhow::Result<u32>> =
+                Task::ready(Err(anyhow!("no").context("reading the file")));
+            report_outcome(failed, "Couldn’t count", |n| n.to_string(), cx);
+        });
+        cx.run_until_parked();
+        let mut messages = cx.update(|cx| notices.read(cx).messages());
+        messages.sort();
+        assert_eq!(
+            messages,
+            [
+                "3 counted.",
+                "Couldn’t count: reading the file: no",
+                "The plan was not saved: the disk is full",
+            ]
+        );
+    }
 
     #[test]
     fn long_messages_stay_longer_up_to_ten_seconds() {

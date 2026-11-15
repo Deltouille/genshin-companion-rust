@@ -100,19 +100,19 @@ impl PlannerView {
 
     /// Adds a character: from the levels and talents the account has (as the
     /// archive's "Add to the planner" does), to 90/90 with its talents to 10.
-    fn add_character(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn add_character(&mut self, key: String, cx: &mut Context<Self>) {
         let account = self.account(cx);
         let goal = self.library.read(cx).owned(account).character_goal(&key);
         let target = PlanTarget::Character { key, goal };
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
         });
-        report_errors(task, window, cx);
+        report_plan(task, cx);
     }
 
     /// Adds a weapon: from its most levelled copy that can still go up (else
     /// level 1, for a new copy) to the top of its rarity.
-    fn add_weapon(&mut self, key: String, window: &mut Window, cx: &mut Context<Self>) {
+    fn add_weapon(&mut self, key: String, cx: &mut Context<Self>) {
         let account = self.account(cx);
         let library = self.library.read(cx);
         let rarity = (library.planner().weapon(&key)).map_or(5, |weapon| weapon.rarity);
@@ -121,7 +121,7 @@ impl PlannerView {
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
         });
-        report_errors(task, window, cx);
+        report_plan(task, cx);
     }
 
     /// Opens the custom character dialog: for a new one, or entry `id`.
@@ -163,7 +163,7 @@ impl PlannerView {
     }
 
     /// Moves entry `id` to where entry `onto` is.
-    fn move_entry(&mut self, id: i64, onto: i64, window: &mut Window, cx: &mut Context<Self>) {
+    fn move_entry(&mut self, id: i64, onto: i64, cx: &mut Context<Self>) {
         self.dragging = None;
         if id == onto {
             return;
@@ -172,7 +172,7 @@ impl PlannerView {
         let task = self.library.update(cx, |library, cx| {
             library.move_plan_entry(account, id, onto, cx)
         });
-        report_errors(task, window, cx);
+        report_plan(task, cx);
     }
 
     /// Opens the confirmation to remove an entry.
@@ -191,11 +191,11 @@ impl PlannerView {
                 .title(title.clone())
                 .description("Its goal is forgotten. A backup is taken first.")
                 .footer(dialog_footer(button("confirm").danger().label("Remove")))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let task =
                         library.update(cx, |library, cx| library.remove_plan_entry(entry, cx));
                     if let Ok(task) = task {
-                        report_errors(task, window, cx);
+                        report_plan(task, cx);
                     }
                     true
                 })
@@ -273,27 +273,24 @@ impl PlannerView {
                 })
             })
             .collect();
-        let on_slide = move |this: &mut Self,
-                             event: &SliderEvent,
-                             window: &mut Window,
-                             cx: &mut Context<Self>| {
+        let on_slide = move |this: &mut Self, event: &SliderEvent, cx: &mut Context<Self>| {
             if let SliderEvent::Release(_) = event {
-                this.save(id, window, cx);
+                this.save(id, cx);
             }
             cx.notify();
         };
         let mut subscriptions =
             vec![
-                cx.subscribe_in(&level, window, move |this, _, event, window, cx| {
-                    on_slide(this, event, window, cx)
+                cx.subscribe_in(&level, window, move |this, _, event, _, cx| {
+                    on_slide(this, event, cx)
                 }),
             ];
         for talent in &talents {
-            subscriptions.push(cx.subscribe_in(
-                talent,
-                window,
-                move |this, _, event, window, cx| on_slide(this, event, window, cx),
-            ));
+            subscriptions.push(
+                cx.subscribe_in(talent, window, move |this, _, event, _, cx| {
+                    on_slide(this, event, cx)
+                }),
+            );
         }
         Controls {
             level,
@@ -335,7 +332,7 @@ impl PlannerView {
     }
 
     /// Saves an entry's goal from its sliders.
-    fn save(&mut self, id: i64, window: &mut Window, cx: &mut Context<Self>) {
+    fn save(&mut self, id: i64, cx: &mut Context<Self>) {
         let account = self.account(cx);
         let Some(mut entry) = self
             .library
@@ -362,7 +359,7 @@ impl PlannerView {
             let task = (self.library).update(cx, |library, cx| {
                 library.update_plan_entry(account, entry, cx)
             });
-            report_errors(task, window, cx);
+            report_plan(task, cx);
         }
     }
 
@@ -1223,11 +1220,9 @@ fn droppable(
                 style.bg(cx.theme().primary.opacity(0.15))
             }
         })
-        .on_drop(
-            cx.listener(move |this, dragged: &DraggedEntry, window, cx| {
-                this.move_entry(dragged.id, id, window, cx)
-            }),
-        )
+        .on_drop(cx.listener(move |this, dragged: &DraggedEntry, _, cx| {
+            this.move_entry(dragged.id, id, cx)
+        }))
 }
 
 /// The known materials of a list, in the game's inventory order: each with
@@ -1401,25 +1396,7 @@ fn clickable(
         })
 }
 
-/// Shows a notification if a plan write fails.
-fn report_errors<T: 'static>(
-    task: gpui_kit::Task<anyhow::Result<T>>,
-    window: &mut Window,
-    cx: &mut App,
-) {
-    window
-        .spawn(cx, async move |cx| {
-            if let Err(err) = task.await {
-                cx.update(|_, cx| {
-                    crate::app::notices::notify(
-                        crate::app::notices::Notice::failed(format!(
-                            "The plan was not saved: {err:#}"
-                        )),
-                        cx,
-                    );
-                })
-                .ok();
-            }
-        })
-        .detach();
+/// Shows a notice if a plan write fails.
+fn report_plan<T: 'static>(task: gpui_kit::Task<anyhow::Result<T>>, cx: &mut App) {
+    crate::app::notices::report(task, "The plan was not saved", cx);
 }

@@ -340,9 +340,9 @@ impl CharactersView {
                 .when(owned.favourite, |this| this.text_color(gold))
                 .on_click(cx.listener({
                     let key = key.clone();
-                    move |this, _, window, cx| {
+                    move |this, _, _, cx| {
                         cx.stop_propagation();
-                        this.toggle_favourite(&key, window, cx);
+                        this.toggle_favourite(&key, cx);
                     }
                 }));
                 let remove = corner_button(format!("disown-{key}"), IconName::Close, "Remove", cx)
@@ -364,9 +364,9 @@ impl CharactersView {
                 )
                 .on_click(cx.listener({
                     let (key, name) = (key.clone(), name.clone());
-                    move |this, _, window, cx| {
+                    move |this, _, _, cx| {
                         cx.stop_propagation();
-                        this.own(key.clone(), name.clone(), window, cx);
+                        this.own(key.clone(), name.clone(), cx);
                     }
                 })),
             ),

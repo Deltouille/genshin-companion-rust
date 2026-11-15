@@ -20,7 +20,7 @@ use wish_core::planner::{Level, Weapon};
 
 use super::level_options;
 use super::weapons::WeaponsView;
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::{report, report_outcome};
 use wish_ui::{
     PickerEvent, PickerItem, PickerState, Segmented, button, card, card_title, dialog_footer,
     icon_button, picker,
@@ -57,17 +57,17 @@ impl WeaponsView {
         let task = self.library.update(cx, |library, cx| {
             library.add_owned_weapon(account, OwnedWeapon::new(key), cx)
         });
-        cx.spawn(async move |_, cx| {
-            let notice = match task.await {
-                Ok(_) => Notice::done(format!(
+        report_outcome(
+            task,
+            format!("{name} wasn’t added"),
+            move |_| {
+                format!(
                     "A copy of {name} is in your weapons. Set its level, refinement and holder \
                      on its page."
-                )),
-                Err(err) => Notice::failed(format!("{name} wasn’t added: {err:#}")),
-            };
-            cx.update(|cx| notify(notice, cx));
-        })
-        .detach();
+                )
+            },
+            cx,
+        );
     }
 
     /// Saves what changed on a copy.
@@ -78,7 +78,7 @@ impl WeaponsView {
         let task = self.library.update(cx, |library, cx| {
             library.update_owned_weapon(account, weapon, cx)
         });
-        report(task, cx);
+        report_weapons(task, cx);
     }
 
     /// Marks every copy of `key` as a favourite, or none if one was.
@@ -112,17 +112,7 @@ impl WeaponsView {
                     });
                     if let Ok(task) = task {
                         // A failed removal brings the copy back: say why.
-                        cx.spawn(async move |cx| {
-                            if let Err(err) = task.await {
-                                cx.update(|cx| {
-                                    notify(
-                                        Notice::failed(format!("The copy wasn’t removed: {err:#}")),
-                                        cx,
-                                    );
-                                });
-                            }
-                        })
-                        .detach();
+                        report(task, "The copy wasn’t removed", cx);
                     }
                     true
                 })
@@ -362,17 +352,7 @@ fn field(label: &str, control: impl IntoElement, cx: &App) -> Div {
         .child(control)
 }
 
-/// Shows a notification if a write of the weapons fails.
-fn report<T: 'static>(task: Task<anyhow::Result<T>>, cx: &mut Context<WeaponsView>) {
-    cx.spawn(async move |_, cx| {
-        if let Err(err) = task.await {
-            cx.update(|cx| {
-                notify(
-                    Notice::failed(format!("Your weapons were not saved: {err:#}")),
-                    cx,
-                );
-            });
-        }
-    })
-    .detach();
+/// Shows a notice if a write of the weapons fails.
+fn report_weapons<T: 'static>(task: Task<anyhow::Result<T>>, cx: &mut App) {
+    report(task, "Your weapons were not saved", cx);
 }

@@ -21,7 +21,7 @@ use wish_core::planner::{MAX_WORLD_LEVEL, ResinEstimate, ResinOptions, ResinSour
 
 use super::PlannerView;
 use crate::app::images::Images;
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::report;
 use wish_ui::{Segmented, button, dialog_footer, filter_chip, format, input};
 
 /// The most resin a day the options take: the game's hard cap on what can
@@ -332,7 +332,7 @@ impl PlannerView {
                 .w(window.rem_size() * 36.)
                 .child(form.clone())
                 .footer(dialog_footer(button("save-resin").primary().label("Save")))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let Some(options) = form.update(cx, |form, cx| form.submit(cx)) else {
                         // Keep the dialog open on the error.
                         return false;
@@ -342,21 +342,7 @@ impl PlannerView {
                     else {
                         return true;
                     };
-                    window
-                        .spawn(cx, async move |cx| {
-                            if let Err(err) = task.await {
-                                cx.update(|_, cx| {
-                                    notify(
-                                        Notice::failed(format!(
-                                            "The resin options were not saved: {err:#}"
-                                        )),
-                                        cx,
-                                    )
-                                })
-                                .ok();
-                            }
-                        })
-                        .detach();
+                    report(task, "The resin options were not saved", cx);
                     true
                 })
         });

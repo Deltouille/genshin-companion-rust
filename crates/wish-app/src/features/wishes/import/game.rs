@@ -22,6 +22,7 @@ use wish_core::import::api::GachaLink;
 use wish_core::import::api_plan::{ApiPlan, Target};
 
 use crate::app::library::{FetchControl, Library, is_cancelled};
+use crate::app::notices::report;
 use wish_ui::{ButtonExt as _, button, format, input};
 
 pub enum GameImportEvent {
@@ -105,9 +106,10 @@ impl GameImport {
                             is_error: false,
                         });
                         if let Some(folder) = folder {
-                            this.library
-                                .update(cx, |library, cx| library.remember_game_folder(folder, cx))
-                                .detach();
+                            let task = this.library.update(cx, |library, cx| {
+                                library.remember_game_folder(folder, cx)
+                            });
+                            report(task, "The game folder wasn’t remembered", cx);
                         }
                     }
                     None => {

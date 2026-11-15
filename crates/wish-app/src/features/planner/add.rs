@@ -155,8 +155,8 @@ impl AddDialog {
         let kind = self.kind;
         self.view
             .update(cx, |view, cx| match kind {
-                Kind::Character => view.add_character(key, window, cx),
-                Kind::Weapon => view.add_weapon(key, window, cx),
+                Kind::Character => view.add_character(key, cx),
+                Kind::Weapon => view.add_weapon(key, cx),
             })
             .ok();
         window.close_dialog(cx);

@@ -1,6 +1,6 @@
 //! Settings: where the data lives, its backups, and the mirror folder.
 
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::report;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::ButtonVariants as _;
@@ -61,20 +61,11 @@ impl SettingsPage {
     }
 
     /// Turns counting by hand on or off, and saves the setting.
-    fn set_manual_counting(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+    fn set_manual_counting(&mut self, on: bool, cx: &mut Context<Self>) {
         let task = self
             .library
             .update(cx, |library, cx| library.set_manual_counting(on, cx));
-        cx.spawn_in(window, async move |this, cx| {
-            if let Err(err) = task.await {
-                this.update_in(cx, |_, _, cx| {
-                    let message = format!("Couldn’t save the setting: {err:#}");
-                    notify(Notice::failed(message), cx);
-                })
-                .ok();
-            }
-        })
-        .detach();
+        report(task, "Couldn’t save the setting", cx);
     }
 }
 
@@ -139,10 +130,9 @@ impl SettingsPage {
                 .child(path)
         };
 
-        let data =
-            group(
-                "Your data",
-                vec![
+        let data = group(
+            "Your data",
+            vec![
                 row(
                     "Data folder",
                     div()
@@ -175,17 +165,17 @@ impl SettingsPage {
                             button("back-up-now")
                                 .label("Back up now")
                                 .loading(busy)
-                                .on_click(
-                                    cx.listener(|this, _, window, cx| this.back_up(window, cx)),
-                                ),
+                                .on_click(cx.listener(|this, _, _, cx| this.back_up(cx))),
                         )
                         .child(
                             button("restore-backup")
                                 .label("Restore…")
                                 .unavailable(busy)
-                                .on_click(cx.listener(|this, _, window, cx| {
-                                    this.open_backups(window, cx)
-                                })),
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| {
+                                        this.open_backups(window, cx)
+                                    }),
+                                ),
                         ),
                 ),
                 row(
@@ -220,8 +210,8 @@ impl SettingsPage {
                                     .ghost()
                                     .label("Stop mirroring")
                                     .unavailable(busy)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.set_mirror_folder(None, window, cx)
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.set_mirror_folder(None, cx)
                                     })),
                             )
                         })
@@ -235,8 +225,8 @@ impl SettingsPage {
                         ),
                 ),
             ],
-                cx,
-            );
+            cx,
+        );
 
         let recent_rows: Vec<AnyElement> = if imports.is_empty() {
             vec![row("No imports yet", div(), div())]
@@ -323,9 +313,9 @@ impl SettingsPage {
                     .cursor_pointer()
                     .checked(manual_counting)
                     .accessibility_label("Count wishes by hand")
-                    .on_change(cx.listener(|this, on: &bool, window, cx| {
-                        this.set_manual_counting(*on, window, cx)
-                    })),
+                    .on_change(
+                        cx.listener(|this, on: &bool, _, cx| this.set_manual_counting(*on, cx)),
+                    ),
             )],
             cx,
         );

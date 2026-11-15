@@ -7,7 +7,7 @@
 use std::cell::Cell;
 use std::sync::Arc;
 
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::{report, report_outcome};
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::form::{field, v_form};
@@ -37,7 +37,7 @@ impl HistoryView {
                 let account = self.counting_account(cx);
                 let time = now_for(account.as_ref());
                 let batch = manual::three_stars(account.as_ref(), *pool, *count, time);
-                self.save_counted(batch, window, cx);
+                self.save_counted(batch, cx);
             }
             ManualAction::AddItem(pool) => self.open_add_item(*pool, window, cx),
             ManualAction::Delete(wish) => self.confirm_delete(wish.clone(), window, cx),
@@ -54,22 +54,12 @@ impl HistoryView {
     }
 
     /// Writes one entry. Success shows in the table, so only a failure is
-    /// reported. Detached rather than kept in `flow`: a second click must not
-    /// cancel the report of the first.
-    fn save_counted(&mut self, batch: ImportBatch, window: &mut Window, cx: &mut Context<Self>) {
+    /// reported, never cancelled: a second click must not hide the first's.
+    fn save_counted(&mut self, batch: ImportBatch, cx: &mut Context<Self>) {
         let task = self
             .library
             .update(cx, |library, cx| library.apply_import(batch, cx));
-        cx.spawn_in(window, async move |this, cx| {
-            if let Err(err) = task.await {
-                this.update_in(cx, |_, _, cx| {
-                    let message = format!("Couldn’t save the wish: {err:#}");
-                    notify(Notice::failed(message), cx);
-                })
-                .ok();
-            }
-        })
-        .detach();
+        report(task, "Couldn’t save the wish", cx);
     }
 
     /// Opens "Add a 4★ or 5★" for `pool`.
@@ -93,7 +83,7 @@ impl HistoryView {
                 .footer(dialog_footer(
                     button("confirm-add-item").primary().label("Add"),
                 ))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let Some((item, pity)) = form.update(cx, |form, cx| form.submit(cx)) else {
                         // Keep the dialog open on the error.
                         return false;
@@ -108,7 +98,7 @@ impl HistoryView {
                             pity,
                             time,
                         );
-                        view.save_counted(batch, window, cx);
+                        view.save_counted(batch, cx);
                     })
                     .ok();
                     true
@@ -137,37 +127,25 @@ impl HistoryView {
                 .footer(dialog_footer(
                     button("confirm").danger().label("Delete wish"),
                 ))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let id = id.clone();
-                    view.update(cx, |view, cx| view.delete_manual(account, id, window, cx))
+                    view.update(cx, |view, cx| view.delete_manual(account, id, cx))
                         .ok();
                     true
                 })
         });
     }
 
-    fn delete_manual(
-        &mut self,
-        account: AccountId,
-        id: WishId,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn delete_manual(&mut self, account: AccountId, id: WishId, cx: &mut Context<Self>) {
         let task = self.library.update(cx, |library, cx| {
             library.delete_manual(account, vec![id], cx)
         });
-        cx.spawn_in(window, async move |this, cx| {
-            let result = task.await;
-            this.update_in(cx, |_, _, cx| {
-                let note = match result {
-                    Ok(_) => Notice::done("Wish deleted."),
-                    Err(err) => Notice::failed(format!("Couldn’t delete the wish: {err:#}")),
-                };
-                notify(note, cx);
-            })
-            .ok();
-        })
-        .detach();
+        report_outcome(
+            task,
+            "Couldn’t delete the wish",
+            |_| "Wish deleted.".to_owned(),
+            cx,
+        );
     }
 }
 

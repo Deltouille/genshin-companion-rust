@@ -23,7 +23,7 @@ use wish_core::planner::{
     Role, WeaponGoal,
 };
 
-use super::{PlannerView, report_errors};
+use super::{PlannerView, report_plan};
 use crate::app::images::Images;
 use wish_ui::{MaterialTile, Segmented, button, dialog_footer, icon_button, input};
 
@@ -486,7 +486,7 @@ impl PlannerView {
                         None => "Add",
                     },
                 )))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let Some((kind, name, stars, materials)) =
                         form.update(cx, |form, cx| form.submit(cx))
                     else {
@@ -522,7 +522,7 @@ impl PlannerView {
                             }
                             None => library.add_plan_entry(account, target, cx),
                         });
-                        report_errors(task, window, cx);
+                        report_plan(task, cx);
                     })
                     .ok();
                     true

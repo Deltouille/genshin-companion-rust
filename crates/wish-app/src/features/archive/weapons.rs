@@ -711,9 +711,7 @@ impl WeaponsView {
             .label("Add to the planner")
             .on_click(cx.listener({
                 let (key, name, rarity) = (weapon.key.clone(), weapon.name.clone(), weapon.rarity);
-                move |this, _, window, cx| {
-                    this.add_to_plan(key.clone(), name.clone(), rarity, window, cx)
-                }
+                move |this, _, _, cx| this.add_to_plan(key.clone(), name.clone(), rarity, cx)
             }));
         PageFrame::new(weapon.name.clone(), body)
             .subtitle(weapon.weapon.clone())
@@ -723,14 +721,7 @@ impl WeaponsView {
             .into_any_element()
     }
 
-    fn add_to_plan(
-        &mut self,
-        key: String,
-        name: String,
-        rarity: u8,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn add_to_plan(&mut self, key: String, name: String, rarity: u8, cx: &mut Context<Self>) {
         let account = self.session.read(cx).account();
         // From its most levelled copy that can still go up, else level 1.
         let goal = self
@@ -742,20 +733,17 @@ impl WeaponsView {
         let task = self.library.update(cx, |library, cx| {
             library.add_plan_entry(account, target, cx)
         });
-        cx.spawn_in(window, async move |_, cx| {
-            let message = match task.await {
-                Ok(_) => crate::app::notices::Notice::done(format!(
+        crate::app::notices::report_outcome(
+            task,
+            format!("{name} was not added to the planner"),
+            move |_| {
+                format!(
                     "{name} is in the planner, from level {} to {}.",
                     goal.from.level, goal.to.level
-                )),
-                Err(err) => crate::app::notices::Notice::failed(format!(
-                    "{name} was not added to the planner: {err:#}"
-                )),
-            };
-            cx.update(|_, cx| crate::app::notices::notify(message, cx))
-                .ok();
-        })
-        .detach();
+                )
+            },
+            cx,
+        );
     }
 }
 

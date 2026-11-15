@@ -94,7 +94,7 @@ impl CharactersView {
             .label("Add to the planner")
             .on_click(cx.listener({
                 let (key, name) = (character.key.clone(), character.name.clone());
-                move |this, _, window, cx| this.add_to_plan(key.clone(), name.clone(), window, cx)
+                move |this, _, _, cx| this.add_to_plan(key.clone(), name.clone(), cx)
             }));
         let mut frame = PageFrame::new(character.name.clone(), body).action(plan);
         if owned.is_none() {
@@ -104,7 +104,7 @@ impl CharactersView {
                     .label("Add to my characters")
                     .on_click(cx.listener({
                         let (key, name) = (character.key.clone(), character.name.clone());
-                        move |this, _, window, cx| this.own(key.clone(), name.clone(), window, cx)
+                        move |this, _, _, cx| this.own(key.clone(), name.clone(), cx)
                     })),
             );
         }
@@ -696,13 +696,7 @@ fn constellations(page: &CharacterPage, images: &Images, cx: &App) -> AnyElement
 impl CharactersView {
     /// Adds the character to the ascension planner, from where the player
     /// has it (or level 1) to 90 with talents to 10, and says so.
-    fn add_to_plan(
-        &mut self,
-        key: String,
-        name: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn add_to_plan(&mut self, key: String, name: String, cx: &mut Context<Self>) {
         let account = self.session.read(cx).account();
         let goal = self.library.read(cx).owned(account).character_goal(&key);
         let target = wish_core::planner::PlanTarget::Character { key, goal };
@@ -710,19 +704,16 @@ impl CharactersView {
             library.add_plan_entry(account, target, cx)
         });
         let from = goal.from;
-        cx.spawn_in(window, async move |_, cx| {
-            let message = match task.await {
-                Ok(_) => crate::app::notices::Notice::done(format!(
+        crate::app::notices::report_outcome(
+            task,
+            format!("{name} was not added to the planner"),
+            move |_| {
+                format!(
                     "{name} is in the planner, from level {} to 90 with talents to 10.",
                     from.level
-                )),
-                Err(err) => crate::app::notices::Notice::failed(format!(
-                    "{name} was not added to the planner: {err:#}"
-                )),
-            };
-            cx.update(|_, cx| crate::app::notices::notify(message, cx))
-                .ok();
-        })
-        .detach();
+                )
+            },
+            cx,
+        );
     }
 }

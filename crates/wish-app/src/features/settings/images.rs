@@ -2,7 +2,7 @@
 //! cache), and downloading them all for offline use, icons only or everything,
 //! with its progress.
 
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::report;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::progress::Progress;
@@ -168,27 +168,17 @@ impl SettingsPage {
                      touched.",
                 )
                 .footer(dialog_footer(button("confirm").danger().label("Empty")))
-                .on_ok(move |_, window, cx| {
-                    page.update(cx, |page, cx| page.empty_cache(window, cx))
-                        .ok();
+                .on_ok(move |_, _, cx| {
+                    page.update(cx, |page, cx| page.empty_cache(cx)).ok();
                     true
                 })
         });
     }
 
-    fn empty_cache(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn empty_cache(&mut self, cx: &mut Context<Self>) {
         let task = self
             .library
             .update(cx, |library, cx| library.clear_image_cache(cx));
-        cx.spawn_in(window, async move |this, cx| {
-            if let Err(err) = task.await {
-                this.update_in(cx, |_, _, cx| {
-                    let message = format!("Couldn’t empty the downloaded images: {err:#}");
-                    notify(Notice::failed(message), cx);
-                })
-                .ok();
-            }
-        })
-        .detach();
+        report(task, "Couldn’t empty the downloaded images", cx);
     }
 }

@@ -17,7 +17,7 @@ use wish_core::model::AccountId;
 use wish_core::planner::Level;
 
 use super::CharactersView;
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::{report, report_outcome};
 use gpui_kit::prelude::FluentBuilder as _;
 use wish_ui::{
     ButtonExt as _, Segmented, button, card, card_title, dialog_footer, icon_button, picker,
@@ -39,61 +39,50 @@ impl CharactersView {
     }
 
     /// Adds `key` to the account's characters, at level 1.
-    pub(super) fn own(&mut self, key: String, name: String, window: &mut Window, cx: &mut App) {
+    pub(super) fn own(&mut self, key: String, name: String, cx: &mut App) {
         let account = self.account(cx);
         let task = self.library.update(cx, |library, cx| {
             library.save_owned_character(account, OwnedCharacter::new(key), cx)
         });
-        window
-            .spawn(cx, async move |cx| {
-                let notice = match task.await {
-                    Ok(()) => Notice::done(format!(
-                        "{name} is in your characters. Set the level, constellation and \
-                         talents on the character's page."
-                    )),
-                    Err(err) => Notice::failed(format!("{name} wasn’t added: {err:#}")),
-                };
-                cx.update(|_, cx| notify(notice, cx)).ok();
-            })
-            .detach();
+        report_outcome(
+            task,
+            format!("{name} wasn’t added"),
+            move |()| {
+                format!(
+                    "{name} is in your characters. Set the level, constellation and talents on \
+                     the character's page."
+                )
+            },
+            cx,
+        );
     }
 
     /// Saves what changed on an owned character.
-    pub(super) fn save_owned(
-        &mut self,
-        character: OwnedCharacter,
-        window: &mut Window,
-        cx: &mut App,
-    ) {
+    pub(super) fn save_owned(&mut self, character: OwnedCharacter, cx: &mut App) {
         let account = self.account(cx);
         let task = self.library.update(cx, |library, cx| {
             library.save_owned_character(account, character, cx)
         });
-        report_failure(task, window, cx);
+        report_characters(task, cx);
     }
 
     /// Marks or unmarks `key` as a favourite.
-    pub(super) fn toggle_favourite(&mut self, key: &str, window: &mut Window, cx: &mut App) {
+    pub(super) fn toggle_favourite(&mut self, key: &str, cx: &mut App) {
         if let Some(mut character) = self.owned_character(key, cx) {
             character.favourite = !character.favourite;
-            self.save_owned(character, window, cx);
+            self.save_owned(character, cx);
         }
     }
 
     /// The level picked on the open character's page.
-    pub(super) fn set_owned_level(
-        &mut self,
-        level: Level,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn set_owned_level(&mut self, level: Level, cx: &mut Context<Self>) {
         let Some(key) = self.open.clone() else { return };
         if let Some(mut character) = self.owned_character(&key, cx)
             && character.level != level
         {
             character.level = level;
             self.synced = Some((key, Some(level)));
-            self.save_owned(character, window, cx);
+            self.save_owned(character, cx);
         }
     }
 
@@ -119,13 +108,13 @@ impl CharactersView {
                      weapon they hold stays in your weapons. A backup is taken first.",
                 )
                 .footer(dialog_footer(button("confirm").danger().label("Remove")))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let key = key.clone();
                     let task = library.update(cx, |library, cx| {
                         library.remove_owned_character(account, key, cx)
                     });
                     if let Ok(task) = task {
-                        report_failure(task, window, cx);
+                        report_characters(task, cx);
                     }
                     true
                 })
@@ -178,8 +167,8 @@ impl CharactersView {
             icon_button("favourite", icon, label)
                 .ghost()
                 .when(character.favourite, |this| this.text_color(gold))
-                .on_click(cx.listener(move |this, _, window, cx| {
-                    this.toggle_favourite(&key, window, cx);
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.toggle_favourite(&key, cx);
                 }))
         };
         let remove = button("disown")
@@ -199,10 +188,10 @@ impl CharactersView {
                     seg.option(format!("C{c}"))
                 })
                 .selected(usize::from(character.constellation))
-                .on_select(cx.listener(move |this, ix: &usize, window, cx| {
+                .on_select(cx.listener(move |this, ix: &usize, _, cx| {
                     let mut owned = owned.clone();
                     owned.constellation = *ix as u8;
-                    this.save_owned(owned, window, cx);
+                    this.save_owned(owned, cx);
                 }))
         };
         let mut talents = Vec::with_capacity(TALENTS.len());
@@ -216,8 +205,8 @@ impl CharactersView {
                     .ghost()
                     .size_9()
                     .unavailable(to == level)
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.save_owned(owned.clone(), window, cx);
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.save_owned(owned.clone(), cx);
                     }))
             };
             let (lower, raise) = (
@@ -312,23 +301,7 @@ fn field(label: &str, control: impl IntoElement, cx: &App) -> Div {
         .child(control)
 }
 
-/// Shows a notification if a write of the collection fails.
-pub(super) fn report_failure<T: 'static>(
-    task: gpui_kit::Task<anyhow::Result<T>>,
-    window: &mut Window,
-    cx: &mut App,
-) {
-    window
-        .spawn(cx, async move |cx| {
-            if let Err(err) = task.await {
-                cx.update(|_, cx| {
-                    notify(
-                        Notice::failed(format!("Your characters were not saved: {err:#}")),
-                        cx,
-                    );
-                })
-                .ok();
-            }
-        })
-        .detach();
+/// Shows a notice if a write of the collection fails.
+pub(super) fn report_characters<T: 'static>(task: gpui_kit::Task<anyhow::Result<T>>, cx: &mut App) {
+    report(task, "Your characters were not saved", cx);
 }

@@ -23,7 +23,7 @@ use gpui_kit::{
 };
 use wish_core::planner::{Allocation, CustomItem, Inventory, MORA, PlanEntry, PlannerData};
 
-use super::{PlannerView, report_errors};
+use super::{PlannerView, report_plan};
 use wish_ui::{MaterialTile, button, dialog_footer, format, input};
 
 /// What a ley line outcrop of wealth gives at world level 8.
@@ -449,7 +449,7 @@ impl PlannerView {
                 .footer(dialog_footer(
                     button("save-inventory").primary().label("Save"),
                 ))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     let Some(changed) = form.update(cx, |form, cx| form.submit(cx)) else {
                         // Keep the dialog open on the error.
                         return false;
@@ -462,7 +462,7 @@ impl PlannerView {
                         let task = view.library.update(cx, |library, cx| {
                             library.set_owned_many(account, changed, cx)
                         });
-                        report_errors(task, window, cx);
+                        report_plan(task, cx);
                     })
                     .ok();
                     true

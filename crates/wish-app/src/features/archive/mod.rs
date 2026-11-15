@@ -126,10 +126,10 @@ impl CharactersView {
             cx.subscribe_in(
                 &owned_level,
                 window,
-                |this, _, event: &PickerEvent<usize>, window, cx| {
+                |this, _, event: &PickerEvent<usize>, _, cx| {
                     let PickerEvent::Confirm(index) = event;
                     if let Some(level) = Level::steps().get(*index) {
-                        this.set_owned_level(*level, window, cx);
+                        this.set_owned_level(*level, cx);
                     }
                 },
             ),

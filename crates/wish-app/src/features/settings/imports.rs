@@ -1,6 +1,6 @@
 //! Settings → Recent imports: undo one after confirming.
 
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::report_outcome;
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::{Context, SharedString, Window};
@@ -44,41 +44,31 @@ impl SettingsPage {
                 .footer(dialog_footer(
                     button("confirm").danger().label("Undo import"),
                 ))
-                .on_ok(move |_, window, cx| {
+                .on_ok(move |_, _, cx| {
                     shell
-                        .update(cx, |shell, cx| shell.undo_import(import_id, window, cx))
+                        .update(cx, |shell, cx| shell.undo_import(import_id, cx))
                         .ok();
                     true
                 })
         });
     }
 
-    pub(super) fn undo_import(
-        &mut self,
-        import_id: i64,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    pub(super) fn undo_import(&mut self, import_id: i64, cx: &mut Context<Self>) {
         let task = self
             .library
             .update(cx, |library, cx| library.undo_import(import_id, cx));
-        let flow = cx.spawn_in(window, async move |this, cx| {
-            let result = task.await;
-            this.update_in(cx, |_, _, cx| {
-                let note = match result {
-                    Ok(report) => Notice::done(format!(
-                        "Removed {} {}.",
-                        format::count(report.removed_wishes),
-                        format::plural(report.removed_wishes, "wish", "wishes")
-                    )),
-                    Err(err) => Notice::failed(format!("Couldn’t undo the import: {err:#}")),
-                };
-                notify(note, cx);
-            })
-            .ok();
-        });
-        self.session
-            .update(cx, |session, _| session.start_flow(flow));
+        report_outcome(
+            task,
+            "Couldn’t undo the import",
+            |report| {
+                format!(
+                    "Removed {} {}.",
+                    format::count(report.removed_wishes),
+                    format::plural(report.removed_wishes, "wish", "wishes")
+                )
+            },
+            cx,
+        );
     }
 }
 

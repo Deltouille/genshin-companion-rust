@@ -68,8 +68,7 @@ impl ImportFlow {
                 Ok(Ok(Some(mut paths))) => paths.pop(),
                 Ok(Err(err)) => {
                     this.update_in(cx, |_, _, cx| {
-                        let message = format!("Couldn’t open the file picker: {err:#}");
-                        notify(Notice::failed(message), cx);
+                        notify(Notice::failure("Couldn’t open the file picker", &err), cx);
                     })
                     .ok();
                     None

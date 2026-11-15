@@ -1,6 +1,6 @@
 //! Settings → Export: snapshot, UIGF and spreadsheet files.
 
-use crate::app::notices::{Notice, notify};
+use crate::app::notices::report_outcome;
 
 use gpui_kit::{Context, Window};
 
@@ -29,19 +29,12 @@ impl SettingsPage {
             let Ok(Ok(Some(path))) = picked.await else {
                 return;
             };
-            let Ok(task) = this.update(cx, |this, cx| {
-                this.library
-                    .update(cx, |library, cx| library.export(kind, path, account, cx))
-            }) else {
-                return;
-            };
-            let result = task.await;
-            this.update_in(cx, |_, _, cx| {
-                let note = match result {
-                    Ok(summary) => Notice::done(summary),
-                    Err(err) => Notice::failed(format!("Couldn’t export: {err:#}")),
-                };
-                notify(note, cx);
+            // Once the file is chosen, the export is reported whatever the
+            // window does next.
+            this.update(cx, |this, cx| {
+                let task = (this.library)
+                    .update(cx, |library, cx| library.export(kind, path, account, cx));
+                report_outcome(task, "Couldn’t export", |summary| summary.to_string(), cx);
             })
             .ok();
         });

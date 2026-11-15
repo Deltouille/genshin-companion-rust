@@ -288,7 +288,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       inventory), and after a panic in a write, which becomes its error (the lock it poisoned is taken back: each
       write is one transaction). Every write but a backup by hand refreshes the mirror folder (`changes_data`):
       the collection, the plan and the inventory are in its snapshot too; quitting waits up to 5 s for the writes under way (`on_app_quit`). Report a write's error to the
-      user (the planner's `report_errors`); never `.detach()` it silently. Settings change through
+      user with `notices::report` (or `report_outcome`, for a message either way; a feature wraps it with its words:
+      `report_plan`, `report_characters`, `report_weapons`); never `.detach()` it silently, nor make its report a
+      `Session` flow, which a later flow would cancel. Settings change through
       `change_settings` only: at once in memory, saved in order (an older save never overwrites a newer one). A
       `settings.json` that doesn't parse is renamed `settings.json.<UTC time>.damaged` and Settings says so
       (`Settings::load_or_set_aside`).
@@ -309,7 +311,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       GPUI already builds; GPUI cannot blur an image itself).
     - `assets.rs`: `AppAssets`, the design system's icons (`wish_ui::UiAssets`).
     - `notices.rs`: messages about work done in the background, as M3 snackbars centred under the page:
-      `notify(Notice::done(…) | Notice::failed(…), cx)` from anywhere. Done goes after 4 s (longer for a long
+      `notify(Notice::done(…) | Notice::failed(…), cx)` from anywhere; `Notice::failure(what, &error)` words a
+      failure as "what: why", and `report` / `report_outcome` report a `Library` task with it. Done goes after 4 s (longer for a long
       message, 10 s at most); Failed stays until closed. At most 3 show, newest lowest. `Notices` is created and
       drawn by the shell (a global points `notify` at it), deferred at `NOTICES_PRIORITY` so it stays above
       dialogs. **Never use the kit's `window.push_notification`**: its toasts sit top right over the pages' buttons,
