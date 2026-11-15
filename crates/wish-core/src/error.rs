@@ -2,6 +2,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 /// Everything that can go wrong in `wish-core`.
+///
+/// The messages reach the player as they are: they say what happened and
+/// what the player can do, never a developer's step (a command to run, a
+/// script). What a developer needs goes in the data the variant carries.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("database error: {0}")]
@@ -21,15 +25,15 @@ pub enum Error {
     NoDataDir,
 
     #[error(
-        "the database uses schema version {found}, but this build only knows up to {known}; \
-         it was written by a newer version of the app and is left untouched"
+        "a newer version of Genshin Companion wrote this database (schema {found}; this one \
+         reads up to {known}). It is left untouched: update the app to open it"
     )]
     SchemaTooNew { found: i64, known: i64 },
 
     #[error("invalid game data: {0}")]
     GameData(String),
 
-    #[error("not a paimon.moe export: no `wish-counter-*` entries found")]
+    #[error("this isn’t a paimon.moe save: it holds no wish history")]
     NotPaimonExport,
 
     #[error(
@@ -39,8 +43,8 @@ pub enum Error {
     UnrecognizedFile,
 
     #[error(
-        "the export contains items this build does not know: {}. \
-         Update the game data (`git -C paimon-moe pull` then `node tools/extract-paimon-data.mjs`)",
+        "the file has items this version of Genshin Companion doesn’t know yet: {}. Update the \
+         app, then import the file again",
         .0.join(", ")
     )]
     UnknownItems(Vec<String>),
@@ -55,14 +59,15 @@ pub enum Error {
     #[error("`{key}`: {message}")]
     InvalidEntry { key: String, message: String },
 
-    #[error("not a snapshot: expected format `{expected}`, found `{found}`")]
+    #[error("this isn’t a Genshin Companion snapshot (format “{found}”, not “{expected}”)")]
     NotSnapshot {
         expected: &'static str,
         found: String,
     },
 
     #[error(
-        "snapshot format version {found} is newer than this build supports ({known}); update the app"
+        "a newer version of Genshin Companion wrote this snapshot (format {found}; this one reads \
+         up to {known}): update the app to import it"
     )]
     SnapshotTooNew { found: u32, known: u32 },
 
@@ -152,3 +157,16 @@ impl Error {
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+#[cfg(test)]
+mod tests {
+    /// The messages reach the player: none names a developer's step.
+    #[test]
+    fn messages_name_no_developer_step() {
+        let source = include_str!("error.rs");
+        let messages = source.split("#[cfg(test)]").next().unwrap();
+        for step in ["git ", "node ", ".mjs", "cargo ", "this build", "tools/"] {
+            assert!(!messages.contains(step), "a message names `{step}`");
+        }
+    }
+}

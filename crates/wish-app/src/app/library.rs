@@ -883,7 +883,7 @@ impl Library {
         cx: &mut Context<Self>,
     ) -> Task<Result<PreparedImport>> {
         let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
-            return Task::ready(Err(anyhow!("the wish history is not open yet")));
+            return Task::ready(Err(not_open()));
         };
         cx.background_spawn(async move {
             // A paimon.moe save is a few MB; a far larger file is no export.
@@ -970,7 +970,7 @@ impl Library {
         cx: &mut Context<Self>,
     ) -> Task<Result<ApiPlan>> {
         let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
-            return Task::ready(Err(anyhow!("the wish history is not open yet")));
+            return Task::ready(Err(not_open()));
         };
         cx.background_spawn(async move {
             let known = lock(&store).known_api_ids()?;
@@ -1008,7 +1008,7 @@ impl Library {
         cx: &mut Context<Self>,
     ) -> Task<Result<Vec<HoyolabAccount>>> {
         let Some(store) = self.store.clone() else {
-            return Task::ready(Err(anyhow!("the data is not open yet")));
+            return Task::ready(Err(not_open()));
         };
         let (planner, archive) = (self.planner.clone(), self.archive.clone());
         cx.background_spawn(async move {
@@ -1131,7 +1131,7 @@ impl Library {
         cx: &mut Context<Self>,
     ) -> Task<Result<String>> {
         let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
-            return Task::ready(Err(anyhow!("the wish history is not open yet")));
+            return Task::ready(Err(not_open()));
         };
         cx.background_spawn(async move {
             let store = lock(&store);
@@ -1252,7 +1252,7 @@ impl Library {
         R: 'static,
     {
         let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
-            return Task::ready(Err(anyhow!("the wish history is not open yet")));
+            return Task::ready(Err(not_open()));
         };
         self.writes += 1;
         cx.notify();
@@ -1337,6 +1337,12 @@ impl Library {
                 .unwrap_or_else(|_| Err(anyhow!("the window closed before the change was saved")))
         })
     }
+}
+
+/// Why a change or a fetch can't start: the data folder isn't open (it is
+/// opening, or failed to).
+fn not_open() -> anyhow::Error {
+    anyhow!("your data isn’t open yet")
 }
 
 /// The store, for one write or read at a time. A write that panicked

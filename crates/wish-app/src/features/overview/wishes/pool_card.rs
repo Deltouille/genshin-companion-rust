@@ -178,7 +178,7 @@ fn notes(pool: &PoolAnalysis) -> Vec<String> {
     let mut notes = Vec::new();
     if pool.outside_banners > 0 {
         notes.push(format!(
-            "{} {} outside every known banner. Update the game data.",
+            "{} {} outside every banner this version knows: update the app.",
             pool.outside_banners,
             format::plural(pool.outside_banners, "wish falls", "wishes fall"),
         ));

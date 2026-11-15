@@ -99,6 +99,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   **Never depends on GPUI.** All logic and tests go here. Its domain (`model`, `engine`, `stats`, `planner`,
   `collection`, `archive`) reaches no database, network or file: `tests/layers.rs` reads their sources and fails on
   such an import (its `KNOWN` list holds the crossings still there, ARCH-11 of the architecture audit).
+  - `error.rs`: `Error`. Its messages reach the player as they are: what happened and what to do ("update the
+    app"), never a developer's step (a command, a script); a test checks it. The app's own repeated cases are one
+    function each (`library::not_open`).
   - `model.rs`: domain types (`Pool`, `GachaType`, `Wish`, `WishTime`…). Text-stored enums use `text_enum!`.
   - `data.rs`: embedded `items.json` / `banners.json`, overridable from `<data dir>/game-data/`.
     `GameData::load` never fails: a copy that can't be read, or older than the embedded one (an item missing,
