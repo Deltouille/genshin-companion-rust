@@ -62,9 +62,10 @@ impl SettingsPage {
 
     /// Turns counting by hand on or off, and saves the setting.
     fn set_manual_counting(&mut self, on: bool, cx: &mut Context<Self>) {
-        let task = self
-            .library
-            .update(cx, |library, cx| library.set_manual_counting(on, cx));
+        let preferences = self.library.read(cx).preferences().clone();
+        let task = preferences.update(cx, |preferences, cx| {
+            preferences.set_manual_counting(on, cx)
+        });
         report(task, "Couldn’t save the setting", cx);
     }
 }
@@ -82,8 +83,8 @@ impl SettingsPage {
         let busy = library.is_busy();
         let root = library.paths().root().to_path_buf();
         let backups = library.backups();
-        let mirror_folder = library.settings().mirror_folder.clone();
-        let manual_counting = library.settings().manual_counting;
+        let mirror_folder = library.settings(cx).mirror_folder.clone();
+        let manual_counting = library.settings(cx).manual_counting;
         let imports = library.imports().to_vec();
 
         let backup_line = match backups.newest {
@@ -109,7 +110,7 @@ impl SettingsPage {
             (Some(_), None) => Some(("Written after the next change.".to_owned(), false)),
         };
         let game_data_warning = library.game_data_warning().cloned();
-        let settings_warning = library.settings_warning().cloned();
+        let settings_warning = library.settings_warning(cx).cloned();
         let source = library.data().map(|data| {
             data.banners
                 .source

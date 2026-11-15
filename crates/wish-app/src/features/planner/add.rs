@@ -95,7 +95,7 @@ impl AddDialog {
     fn cards(&self, cx: &App) -> (Vec<Card>, Vec<Card>) {
         let library = self.library.read(cx);
         let account = self.session.read(cx).account();
-        let (planner, images) = (library.planner(), library.images());
+        let (planner, images) = (library.planner(), library.images(cx));
         let owned = library.owned(account);
         let plan = library.plan(account);
         let query = self.search.read(cx).value().trim().to_lowercase();

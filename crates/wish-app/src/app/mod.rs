@@ -4,9 +4,11 @@
 //! done in the background).
 
 mod assets;
+pub mod image_service;
 pub mod images;
 pub mod library;
 pub mod notices;
+pub mod preferences;
 pub mod services;
 pub mod session;
 

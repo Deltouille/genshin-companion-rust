@@ -65,7 +65,7 @@ impl Session {
     /// While counting by hand, every type, so that counting can start on an
     /// empty one.
     pub fn pools(&self, cx: &App) -> Vec<Pool> {
-        if self.library.read(cx).settings().manual_counting {
+        if self.library.read(cx).settings(cx).manual_counting {
             return Pool::ALL.to_vec();
         }
         self.summary(cx)

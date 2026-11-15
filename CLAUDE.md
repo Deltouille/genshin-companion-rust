@@ -288,8 +288,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     and `ImportFlow`, a service with no view). Pages don't know each other: they ask the shell to navigate
     (`on_navigate`).
   - `app/`: state and services, no views.
-    - `library.rs`: the `Library` entity, which owns the store, game data, analyses and settings.
-      Every database write goes through `Library::write`, which runs it on the background executor. Writes run
+    - `library/`: the `Library` entity, which owns the store, game data and analyses (`mod.rs`: the state, `open`,
+      the accessors, the reload), one file per domain of its methods (`plan.rs`, `collection.rs`, `data.rs`: imports,
+      syncs, exports, backups, accounts; `mirror.rs`; `write.rs`: the write queue), and `tests.rs`. Every database write goes through `Library::write`, which runs it on the background executor. Writes run
       one at a time in the order they were made (each waits for the one before, `last_write`: threads take the store
       lock in any order, so two quick changes to one slider could otherwise keep the older), detached, so they finish
       even if the caller drops the returned task. The state is
@@ -299,17 +300,23 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       the collection, the plan and the inventory are in its snapshot too; quitting waits up to 5 s for the writes under way (`on_app_quit`). Report a write's error to the
       user with `notices::report` (or `report_outcome`, for a message either way; a feature wraps it with its words:
       `report_plan`, `report_characters`, `report_weapons`); never `.detach()` it silently, nor make its report a
-      `Session` flow, which a later flow would cancel. Settings change through
-      `change_settings` only: at once in memory, saved in order (an older save never overwrites a newer one). A
-      `settings.json` that doesn't parse is renamed `settings.json.<UTC time>.damaged` and Settings says so
-      (`Settings::load_or_set_aside`).
+      `Session` flow, which a later flow would cancel.
+    - `preferences.rs`: `Preferences`, the settings, an entity of their own (`Library::preferences`; read them with
+      `Library::settings(cx)`). They change through `Preferences::change` only (and its `set_…`): at once in memory,
+      saved in order (an older save never overwrites a newer one). The library passes a change on to its observers:
+      a setting can change what the pages show. A `settings.json` that doesn't parse is renamed
+      `settings.json.<UTC time>.damaged` and Settings says so (`Settings::load_or_set_aside`).
+    - `image_service.rs`: `ImageService`, the game's images and their downloads, an entity of their own
+      (`Library::image_service`; pages read the `Images` with `Library::images(cx)`): an image arriving redraws the
+      window (the shell observes the service) and wakes none of the library's observers, which rebuild the
+      history's table, the planner's sliders or the account picker.
     - `session.rs`: the `Session` entity: selected account (kept valid when the data changes) and the one flow.
     - `images.rs`: `Images`, the game's images by what they show (`item`, `banner`, `character`, `material`,
       `skill`, `splash`…). It answers from the files it knows are in the cache and queues the others; the
-      `Library`'s downloader (`download_images`, 6 at a time on the background executor) fetches them and redraws.
+      `ImageService`'s downloader (6 at a time on the background executor) fetches them and redraws.
       Until then, or offline, the page draws without the image. A failed download is retried at the next launch;
       one the sites lack (404) leaves a `<file>.missing` marker, trusted for a week (`images::MISSING_FOR`).
-      `Library::download_all_images(Collection::Icons | Everything)` downloads the whole `images::catalog` for
+      `ImageService::download_all(Collection::Icons | Everything)` downloads the whole `images::catalog` for
       offline use (Settings → Images, with progress and Stop); `Images::claim` keeps it and the pages from
       downloading one file twice. Downloads are opt-in beyond what pages show: don't add eager prefetching, it
       would load the two volunteer-run sites.

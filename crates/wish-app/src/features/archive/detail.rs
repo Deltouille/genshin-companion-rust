@@ -40,7 +40,7 @@ impl CharactersView {
         let (planner, archive, images) = (
             library.planner().clone(),
             library.archive().clone(),
-            library.images().clone(),
+            library.images(cx).clone(),
         );
         let back = button("back-to-characters")
             .ghost()

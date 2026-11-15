@@ -322,7 +322,7 @@ impl Render for ResinForm {
 impl PlannerView {
     /// Opens the options of the resin estimate.
     pub(crate) fn open_resin_options(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let options = self.library.read(cx).settings().resin.clone();
+        let options = self.library.read(cx).settings(cx).resin.clone();
         let form = cx.new(|cx| ResinForm::new(&options, window, cx));
         let library = self.library.downgrade();
         window.open_dialog(cx, move |dialog, window, _| {
@@ -337,11 +337,14 @@ impl PlannerView {
                         // Keep the dialog open on the error.
                         return false;
                     };
-                    let Ok(task) =
-                        library.update(cx, |library, cx| library.set_resin_options(options, cx))
+                    let Ok(preferences) =
+                        library.read_with(cx, |library, _| library.preferences().clone())
                     else {
                         return true;
                     };
+                    let task = preferences.update(cx, |preferences, cx| {
+                        preferences.set_resin_options(options, cx)
+                    });
                     report(task, "The resin options were not saved", cx);
                     true
                 })

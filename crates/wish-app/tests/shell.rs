@@ -242,9 +242,12 @@ fn counting_by_hand_starts_from_nothing_and_keeps_every_click() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = App::open(dir.path());
     let library = app.library.clone();
-    let on = app
-        .cx
-        .update(|cx| library.update(cx, |library, cx| library.set_manual_counting(true, cx)));
+    let on = app.cx.update(|cx| {
+        let preferences = library.read(cx).preferences().clone();
+        preferences.update(cx, |preferences, cx| {
+            preferences.set_manual_counting(true, cx)
+        })
+    });
     app.finish(on).unwrap();
     let saved = wish_core::settings::Settings::load(&AppPaths::at(dir.path())).unwrap();
     assert!(saved.manual_counting);

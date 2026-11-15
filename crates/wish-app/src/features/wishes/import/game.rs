@@ -106,8 +106,9 @@ impl GameImport {
                             is_error: false,
                         });
                         if let Some(folder) = folder {
-                            let task = this.library.update(cx, |library, cx| {
-                                library.remember_game_folder(folder, cx)
+                            let preferences = this.library.read(cx).preferences().clone();
+                            let task = preferences.update(cx, |preferences, cx| {
+                                preferences.remember_game_folder(folder, cx)
                             });
                             report(task, "The game folder wasn’t remembered", cx);
                         }

@@ -2,8 +2,9 @@
 //! `wish-ui` (the design system):
 //!
 //! - [`app`]: state and services, no views: the [`Library`] (store, game
-//!   data, analyses, settings), the [`Session`] (selected account, the flow
-//!   in progress), the item images, the embedded assets, the notices
+//!   data, analyses; its settings and images as entities of their own), the
+//!   [`Session`] (selected account, the flow in progress), the item images,
+//!   the embedded assets, the notices
 //!   (messages about work done in the background, [`app::notify`]);
 //! - [`shell`]: the window, its sidebar and the routing between pages;
 //! - `features`: the overview (the app's home), one folder per feature (`wishes`:
@@ -21,6 +22,7 @@
 //! | What | Owner | How others get it |
 //! | --- | --- | --- |
 //! | Wish data, settings, backups | [`Library`] | hold `Entity<Library>`, read it, `observe` it to redraw; change it with its methods (writes run in the background) |
+//! | Settings, the game's images | [`Library`]'s own entities: `Preferences` and `ImageService` | reach them through the library (`settings(cx)`, `preferences()`, `images(cx)`, `image_service()`); an image arriving only redraws, it wakes none of the library's observers |
 //! | Selected account, flow in progress | [`Session`] | hold `Entity<Session>`, read and `observe` it; change it only with its methods |
 //! | Which page is shown | [`Shell`] | pages ask with a callback (`on_navigate`) or the shell calls the page (`HistoryView::set_pool`) |
 //! | App-wide commands (import) | GPUI actions | buttons and the menu send [`ImportFile`] / [`ImportFromGame`] / [`SyncFromHoyolab`]; the shell forwards them to the import flow or opens the HoYoLAB sync |

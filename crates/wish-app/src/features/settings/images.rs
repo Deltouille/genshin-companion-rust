@@ -17,11 +17,11 @@ use wish_ui::{ButtonExt as _, button, dialog_footer, format};
 
 impl SettingsPage {
     pub(super) fn images_group(&mut self, cx: &mut Context<Self>) -> Div {
-        let library = self.library.read(cx);
-        let (files, bytes) = library.images().usage();
-        let download = library.image_download().cloned();
+        let service = self.library.read(cx).image_service().read(cx);
+        let (files, bytes) = service.images().usage();
+        let download = service.download().cloned();
         let running = download.as_ref().is_some_and(|d| d.is_running());
-        let missing = |collection| library.missing_images(collection);
+        let missing = |collection| service.missing(collection);
         let (icons, everything) = (missing(Collection::Icons), missing(Collection::Everything));
         let theme = cx.theme();
 
@@ -127,8 +127,8 @@ impl SettingsPage {
                         download.as_ref().map(|d| d.state) == Some(DownloadState::Stopping),
                     )
                     .on_click(cx.listener(|this, _, _, cx| {
-                        this.library
-                            .update(cx, |library, cx| library.stop_image_download(cx))
+                        let service = this.library.read(cx).image_service().clone();
+                        service.update(cx, |service, cx| service.stop_download(cx))
                     })),
             )
         } else {
@@ -152,9 +152,8 @@ impl SettingsPage {
     }
 
     fn download_all_images(&mut self, collection: Collection, cx: &mut Context<Self>) {
-        self.library.update(cx, |library, cx| {
-            library.download_all_images(collection, cx)
-        });
+        let service = self.library.read(cx).image_service().clone();
+        service.update(cx, |service, cx| service.download_all(collection, cx));
     }
 
     fn confirm_empty_cache(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -176,9 +175,8 @@ impl SettingsPage {
     }
 
     fn empty_cache(&mut self, cx: &mut Context<Self>) {
-        let task = self
-            .library
-            .update(cx, |library, cx| library.clear_image_cache(cx));
+        let service = self.library.read(cx).image_service().clone();
+        let task = service.update(cx, |service, cx| service.clear_cache(cx));
         report(task, "Couldn’t empty the downloaded images", cx);
     }
 }

@@ -400,9 +400,9 @@ impl Render for PlannerView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let account = self.account(cx);
         let library = self.library.read(cx);
-        let (planner, images) = (library.planner().clone(), library.images().clone());
+        let (planner, images) = (library.planner().clone(), library.images(cx).clone());
         let inventory = library.inventory(account).clone();
-        let resin_options = library.settings().resin.clone();
+        let resin_options = library.settings(cx).resin.clone();
         let plan = self.live_plan(cx);
         let allocation = planner.allocate(&plan, &inventory);
         // As many cards a row as fit, a rem apart.
@@ -771,7 +771,7 @@ impl PlannerView {
         cx: &mut Context<Self>,
     ) {
         let library = self.library.read(cx);
-        let (planner, images) = (library.planner().clone(), library.images().clone());
+        let (planner, images) = (library.planner().clone(), library.images(cx).clone());
         let materials = match &item {
             CustomItem::Material(id) => {
                 // Lowest first, with the EXP each gives for books and ores.

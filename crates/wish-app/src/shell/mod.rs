@@ -184,8 +184,13 @@ impl Shell {
         let settings = cx.new(|cx| SettingsPage::new(session.clone(), cx));
         let import = cx.new(|cx| ImportFlow::new(session.clone(), cx));
         let notices = Notices::new(cx);
+        let image_service = library.read(cx).image_service().clone();
         let subscriptions = vec![
             wish_ui::theme::follow_system(window),
+            // An image arrived: the window draws it, wherever a page or a
+            // dialog shows it. Only a redraw: the library's observers, which
+            // rebuild tables and sliders, aren't woken.
+            cx.observe(&image_service, |_, _, cx| cx.notify()),
             // New data: the picker lists the accounts again.
             cx.observe_in(&library, window, |this, _, window, cx| {
                 this.sync_account_picker(window, cx)
@@ -524,8 +529,8 @@ impl Shell {
             owned: library.owned(account).clone(),
             data: library.data().cloned(),
             planner: library.planner().clone(),
-            images: library.images().clone(),
-            manual_counting: library.settings().manual_counting,
+            images: library.images(cx).clone(),
+            manual_counting: library.settings(cx).manual_counting,
             busy: library.is_busy(),
             on_navigate: Rc::new(move |page, _, cx| {
                 shell.update(cx, |shell, cx| shell.navigate(page, cx)).ok();

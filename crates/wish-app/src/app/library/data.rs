@@ -1,0 +1,306 @@
+//! The data itself: imports (from a file, the game, HoYoLAB), undoing one,
+//! exports, backups and accounts.
+
+use super::*;
+
+impl Library {
+    /// Adds an account by hand: a name, and optionally its UID and server.
+    pub fn add_account(
+        &mut self,
+        label: String,
+        uid: Option<String>,
+        server: Option<Server>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Account>> {
+        // The mirror's snapshot lists the accounts.
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.add_account(&label, uid.as_deref(), server)?),
+            |_, account| account,
+        )
+    }
+
+    /// Gives an account another name.
+    pub fn rename_account(
+        &mut self,
+        account: AccountId,
+        label: String,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.rename_account(account, &label)?),
+            |_, ()| (),
+        )
+    }
+
+    /// Reads and checks a file for import. Nothing is written.
+    /// A spreadsheet without a UID goes to `target`, the account on screen.
+    pub fn prepare_import(
+        &self,
+        path: PathBuf,
+        target: Option<AccountId>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<PreparedImport>> {
+        let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
+            return Task::ready(Err(not_open()));
+        };
+        cx.background_spawn(async move {
+            // A paimon.moe save is a few MB; a far larger file is no export.
+            let size = std::fs::metadata(&path)
+                .with_context(|| format!("reading {}", path.display()))?
+                .len();
+            if size > MAX_IMPORT_BYTES {
+                return Err(anyhow!(
+                    "{} is {} MB, too large for a wish history export",
+                    path.display(),
+                    size / 1_000_000
+                ));
+            }
+            let bytes =
+                std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+            let name = file_name(&path);
+            let store = lock(&store);
+            Ok(import::prepare(&name, bytes, &data, &store, target)?)
+        })
+    }
+
+    /// Looks for the wish history link on this computer: in `folder` when
+    /// given, else in the remembered game folder, then the usual places.
+    pub fn find_game_link(
+        &self,
+        folder: Option<PathBuf>,
+        cx: &mut Context<Self>,
+    ) -> Task<Option<FoundLink>> {
+        let remembered = self.settings(cx).game_folder.clone();
+        cx.background_spawn(async move {
+            match folder {
+                Some(folder) => game_cache::find_link_in_game_folder(&folder),
+                None => remembered
+                    .and_then(|folder| game_cache::find_link_in_game_folder(&folder))
+                    .or_else(game_cache::find_link),
+            }
+        })
+    }
+
+    /// Deletes wishes entered by hand (after a backup).
+    pub fn delete_manual(
+        &mut self,
+        account: AccountId,
+        ids: Vec<WishId>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<u32>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.delete_manual_wishes(account, &ids)?),
+            |_, deleted| deleted,
+        )
+    }
+
+    /// Fetches the game's history behind `link` and plans its import.
+    /// Nothing is written. The fetch stops at the first wish already stored.
+    pub fn fetch_from_game(
+        &self,
+        link: GachaLink,
+        control: Arc<FetchControl>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<ApiPlan>> {
+        let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
+            return Task::ready(Err(not_open()));
+        };
+        let (transport, pacing) = (self.services.game.clone(), self.services.pacing);
+        cx.background_spawn(async move {
+            let mut report = |progress: FetchProgress| {
+                if let Ok(mut slot) = control.progress.lock() {
+                    *slot = Some(progress);
+                }
+            };
+            Ok(service::game::fetch(
+                &link,
+                &*transport,
+                pacing,
+                &store,
+                &data,
+                &mut report,
+                &control.cancelled,
+            )?)
+        })
+    }
+
+    /// Asks HoYoLAB, with the player's `cookie`, for the characters of every
+    /// Genshin account behind it, and works out what a sync would change in
+    /// each app account it can go to (`shown`, the account on screen, is
+    /// suggested when it has no UID). The cookie is dropped as soon as the
+    /// requests are done, and nothing is written. The store isn't locked
+    /// during the requests.
+    pub fn fetch_from_hoyolab(
+        &self,
+        cookie: hoyolab::Cookie,
+        shown: Option<AccountId>,
+        control: Arc<FetchControl>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<Vec<HoyolabAccount>>> {
+        let Some(store) = self.store.clone() else {
+            return Task::ready(Err(not_open()));
+        };
+        let (planner, archive) = (self.planner.clone(), self.archive.clone());
+        let transport = self.services.hoyolab.clone();
+        cx.background_spawn(async move {
+            Ok(service::hoyolab::fetch_preview(
+                cookie,
+                &*transport,
+                &store,
+                shown,
+                &planner,
+                &archive,
+                &control.cancelled,
+            )?)
+        })
+    }
+
+    /// Writes a HoYoLAB sync the player confirmed into `target`, the account
+    /// they chose (`None`: a new one, named after the game's nickname); an
+    /// account without a UID takes the game's, so the next import from the
+    /// game goes there too. The plan is worked out again against the stored
+    /// collection, then written in one transaction after a backup. Returns
+    /// the account and what changed.
+    pub fn apply_hoyolab_sync(
+        &mut self,
+        fetched: HoyolabAccount,
+        target: Option<AccountId>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<(AccountId, SyncPlan)>> {
+        let (planner, archive) = (self.planner.clone(), self.archive.clone());
+        // The mirror's snapshot lists the accounts, and one may be made.
+        self.write(
+            cx,
+            true,
+            move |store, _| {
+                let (account, plan, _) = store.apply_sync(
+                    target,
+                    &fetched.account,
+                    &fetched.details,
+                    &planner,
+                    &archive,
+                )?;
+                Ok((account, plan))
+            },
+            |_, applied| applied,
+        )
+    }
+
+    /// Writes a prepared batch (backup first, one transaction), then
+    /// recomputes every account and refreshes the mirror folder.
+    pub fn apply_import(
+        &mut self,
+        batch: ImportBatch,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<ImportReport>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.apply_import(batch)?),
+            |_, report| report,
+        )
+    }
+
+    /// Removes what one import added (backup first).
+    pub fn undo_import(
+        &mut self,
+        import_id: i64,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<UndoReport>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.undo_import(import_id)?),
+            |_, report| report,
+        )
+    }
+
+    /// Writes an export to `path`. Read-only for the database.
+    pub fn export(
+        &self,
+        kind: ExportKind,
+        path: PathBuf,
+        account: Option<AccountId>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<String>> {
+        let (Some(store), Some(data)) = (self.store.clone(), self.data.clone()) else {
+            return Task::ready(Err(not_open()));
+        };
+        cx.background_spawn(async move {
+            let exported = {
+                let store = lock(&store);
+                match kind {
+                    ExportKind::Snapshot => service::export::snapshot(&store)?,
+                    ExportKind::Uigf => service::export::uigf(&store, &data)?,
+                    ExportKind::Spreadsheet => {
+                        let id = account.ok_or_else(|| anyhow!("choose an account first"))?;
+                        service::export::spreadsheet(&store, id, &data)?
+                    }
+                }
+            };
+            wish_core::paths::write_atomic(&path, &exported.bytes)?;
+            Ok(export_message(&exported.summary))
+        })
+    }
+
+    /// Replaces the whole database (wishes, plan, inventory) with a backup,
+    /// after backing up the current state. Returns that safety backup.
+    pub fn restore_backup(
+        &mut self,
+        file: PathBuf,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<PathBuf>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.restore(&file)?),
+            |_, safety| safety,
+        )
+    }
+
+    pub fn back_up(&mut self, cx: &mut Context<Self>) -> Task<Result<PathBuf>> {
+        self.write(
+            cx,
+            false,
+            |store, _| Ok(store.backup(BackupReason::Manual)?),
+            |_, path| path,
+        )
+    }
+}
+
+/// The largest file an import reads.
+const MAX_IMPORT_BYTES: u64 = 64 * 1024 * 1024;
+
+/// What an export holds, in words.
+fn export_message(summary: &ExportSummary) -> String {
+    let accounts = |n: usize| format!("{n} {}", if n == 1 { "account" } else { "accounts" });
+    match summary {
+        ExportSummary::Snapshot {
+            wishes,
+            accounts: n,
+        } => {
+            format!("Exported {wishes} wishes of {}.", accounts(*n))
+        }
+        ExportSummary::Uigf {
+            wishes,
+            accounts: n,
+            without_uid,
+        } => {
+            let mut message = format!("Exported {wishes} wishes of {}.", accounts(*n));
+            if !without_uid.is_empty() {
+                message.push_str(&format!(
+                    " Left out, without a UID: {}.",
+                    without_uid.join(", ")
+                ));
+            }
+            message
+        }
+        ExportSummary::Spreadsheet { account } => format!("Exported the wishes of {account}."),
+    }
+}

@@ -105,7 +105,7 @@ fn main() -> Result<()> {
         let mut downloaded = false;
         for _ in 0..600 {
             cx.run_until_parked();
-            if cx.update(|cx| library.read(cx).images().pending()) == 0 {
+            if cx.update(|cx| library.read(cx).images(cx).pending()) == 0 {
                 break;
             }
             downloaded = true;

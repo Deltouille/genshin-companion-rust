@@ -38,7 +38,7 @@ impl CharactersView {
         let (planner, archive, images) = (
             library.planner().clone(),
             library.archive().clone(),
-            library.images().clone(),
+            library.images(cx).clone(),
         );
         let owned = library.owned(account).clone();
         let warning = library.game_data_warning().cloned();
@@ -196,7 +196,7 @@ impl CharactersView {
     /// their icons), weapons, rarities, favourites.
     fn filter_groups(&self, view: WeakEntity<Self>, cx: &App) -> Vec<FilterGroup> {
         let this = self;
-        let images = this.library.read(cx).images().clone();
+        let images = this.library.read(cx).images(cx).clone();
         let weak = view;
         let toggle = |change: Rc<dyn Fn(&mut Self)>| -> filters::Handler {
             let weak = weak.clone();

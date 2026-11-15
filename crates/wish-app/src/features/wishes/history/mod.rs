@@ -148,8 +148,8 @@ impl HistoryView {
         let Some(data) = library.data().cloned() else {
             return;
         };
-        let manual_counting = library.settings().manual_counting;
-        let images = library.images().clone();
+        let manual_counting = library.settings(cx).manual_counting;
+        let images = library.images(cx).clone();
         let analysis = match self.session.read(cx).summary(cx) {
             Some(summary) => summary.analysis.clone(),
             // Counting by hand from scratch: an empty page with the controls.

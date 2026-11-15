@@ -450,7 +450,7 @@ impl PlannerView {
         cx: &mut Context<Self>,
     ) -> Entity<CustomForm> {
         let library = self.library.read(cx);
-        let (planner, images) = (library.planner().clone(), library.images().clone());
+        let (planner, images) = (library.planner().clone(), library.images(cx).clone());
         let form = cx.new(|cx| {
             CustomForm::new(
                 entry.as_ref().map(|e| &e.target),

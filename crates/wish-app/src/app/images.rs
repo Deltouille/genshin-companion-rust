@@ -7,11 +7,11 @@
 //! without an image.
 //!
 //! Asking for an image never blocks: [`Images`] answers from the files it
-//! knows are in the cache, and queues the others for the [`Library`]'s
+//! knows are in the cache, and queues the others for the [`ImageService`]'s
 //! downloader, which redraws the window as they arrive. The same queue makes
 //! the blurred backdrops of wish art, which GPUI cannot blur itself.
 //!
-//! [`Library`]: super::Library
+//! [`ImageService`]: super::image_service::ImageService
 
 use std::collections::HashSet;
 use std::fs;
