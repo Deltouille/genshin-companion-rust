@@ -12,6 +12,8 @@ use wish_core::engine::{PoolAnalysis, Pull};
 use wish_core::model::Rarity;
 
 use crate::app::images::Images;
+use gpui_kit::Context;
+use gpui_kit::component::scroll::ScrollableElement as _;
 use wish_ui::outcome_badge;
 use wish_ui::{card, card_title, item_tile, stat_label};
 use wish_ui::{format, theme};
@@ -267,4 +269,52 @@ pub(super) fn banner_card(
                 })),
         )
         .into_any_element()
+}
+
+impl super::HistoryView {
+    pub(super) fn render_banners(&self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let Some(shown) = &self.shown else {
+            return div().into_any_element();
+        };
+        let Some(pool) = shown.analysis.pool(shown.pool) else {
+            return div().into_any_element();
+        };
+        let banners = shown.data.banners.for_pool(shown.pool);
+        // As many cards a row as fit, a rem apart, as in the planner.
+        let content = crate::shell::content_width(window);
+        let room = content / window.rem_size();
+        let columns =
+            (((room + 1.) / (BANNER_CARD_REMS + 1.)).floor() as u16).clamp(1, BANNER_COLUMNS);
+        let gaps = window.rem_size() * (f32::from(columns) - 1.);
+        let card_width = (content - gaps) / f32::from(columns);
+        let cards: Vec<AnyElement> = pool
+            .banners
+            .iter()
+            .rev()
+            .map(|range| {
+                banner_card(
+                    &banners[range.banner],
+                    &pool.pulls[range.pulls.clone()],
+                    &shown.images,
+                    card_width,
+                    window,
+                    cx,
+                )
+            })
+            .collect();
+        div()
+            .id("banner-list")
+            .size_full()
+            .overflow_y_scrollbar()
+            .child(
+                div()
+                    .v_flex()
+                    .gap_4()
+                    .px_6()
+                    .py_5()
+                    .children(five_star_history(pool, &shown.images, cx))
+                    .child(div().grid().grid_cols(columns).gap_4().children(cards)),
+            )
+            .into_any_element()
+    }
 }

@@ -23,7 +23,9 @@ use wish_core::import::{ImportBatch, manual};
 use wish_core::model::{Account, AccountId, ItemType, Pool, Rarity, Wish, WishId, WishTime};
 use wish_ui::{PickerItem, PickerState, button, dialog_footer, input, picker};
 
-use super::{HistoryView, ManualAction};
+use super::{HistoryView, ManualAction, Mode};
+use gpui_kit::component::IconName;
+use wish_ui::{ButtonExt as _, format};
 
 impl HistoryView {
     pub(super) fn on_manual(
@@ -262,4 +264,56 @@ fn item_option(item: &Item) -> PickerItem<String> {
         ),
         item.key.clone(),
     )
+}
+
+impl super::HistoryView {
+    /// `+1`, `+10`, add a 4★ or 5★, and delete the selected hand-entered
+    /// wish, carried out in `manual_counting.rs`.
+    pub(super) fn render_manual_controls(
+        &self,
+        pool: Pool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let add = |count: u32, cx: &mut Context<Self>| {
+            button(SharedString::from(format!("manual-add-{count}")))
+                .label(format!("+{count}"))
+                .tooltip(format!(
+                    "Add {} 3★ {} made now",
+                    format::count(count),
+                    format::plural(count, "wish", "wishes")
+                ))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.on_manual(&ManualAction::AddThreeStars(pool, count), window, cx)
+                }))
+        };
+        let selected = self.selected_manual.clone();
+        div()
+            .h_flex()
+            .gap_2()
+            .ml_auto()
+            .child(add(1, cx))
+            .child(add(10, cx))
+            .child(
+                button("manual-add-item")
+                    .icon(IconName::Plus)
+                    .label("Add 4★ or 5★…")
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.on_manual(&ManualAction::AddItem(pool), window, cx)
+                    })),
+            )
+            .when(self.mode == Mode::Wishes, |this| {
+                this.child(
+                    button("manual-delete")
+                        .ghost()
+                        .label("Delete…")
+                        .tooltip("Delete the selected wish you entered by hand")
+                        .unavailable(selected.is_none())
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            if let Some(wish) = selected.clone() {
+                                this.on_manual(&ManualAction::Delete(wish), window, cx);
+                            }
+                        })),
+                )
+            })
+    }
 }

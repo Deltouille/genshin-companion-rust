@@ -375,8 +375,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
         the 5★ in order come from `wish-core` (`Analysis::totals`, `pulls_of`), the per-type numbers from
         `PoolAnalysis::stats`. `totals::figures` is the card of key figures the three tabs share.
     - `wishes/`: the wish counter.
-      - `history/`: `HistoryView` (entity: observes `Library` and `Session`; the shell only calls `set_pool`),
-        `table.rs` (`DataTable` delegate: rows 4 rem tall with the item's icon at 3 rem, the user's choice (`ROW_REMS`), each cell centred in its row; sort by any column, pages of 25/50/100; the sort lives in the
+      - `history/`: `HistoryView` (entity in `mod.rs`: observes `Library` and `Session`; the shell only calls
+        `set_pool`), `model.rs` (which rows in which order, the pages, each cell's text, the subtitle: pure
+        functions tested on the sample save), `table.rs` (the kit's delegate drawing them, and the pager: rows 4 rem tall with the item's icon at 3 rem, the user's choice (`ROW_REMS`), each cell centred in its row; sort by any column, pages of 25/50/100; the sort lives in the
         delegate so `TableState::refresh` keeps it; a "Type" column with rarity and character/weapon and a "#"
         column with the wish's number on its banner, `PoolAnalysis::banner_rolls`; 4★/5★ rows tinted from
         `render_tr`; the widths add up to 60.5 rem so it fits a 1280 px window; on a wider one the card measures

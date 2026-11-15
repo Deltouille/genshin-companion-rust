@@ -10,6 +10,9 @@ use wish_core::engine::PoolAnalysis;
 use wish_core::model::Rarity;
 use wish_core::stats::Stats;
 
+use super::CHARTS_REMS;
+use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::{Context, rems};
 use wish_ui::{PityPoint, card, card_title, format, theme};
 
 /// One slice of the rarity donut.
@@ -267,5 +270,39 @@ fn banner_title(banner: &Banner) -> String {
         }
         Some(version) => format!("{} · {version}", banner.name),
         None => banner.name.clone(),
+    }
+}
+
+impl super::HistoryView {
+    /// The rarity donut, the wishes per banner and the pity of each 5★, side
+    /// by side above the table.
+    pub(super) fn render_charts(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let shown = self.shown.as_ref()?;
+        let pool = shown.analysis.pool(shown.pool)?;
+        if pool.pulls.is_empty() {
+            return None;
+        }
+        Some(
+            div()
+                .h_flex()
+                .items_stretch()
+                .gap_4()
+                .flex_none()
+                .h(rems(CHARTS_REMS))
+                .child(div().flex_none().child(rarity_donut(pool, cx)))
+                // Wishes per banner, when there were several (the Standard banner
+                // never changes), and the pity of each 5★, when there is one.
+                .children(
+                    banner_chart(pool, &shown.data, cx)
+                        .map(|chart| div().flex_1().min_w_0().child(chart)),
+                )
+                .when(pool.stats.five.count > 0, |this| {
+                    this.child(div().flex_1().min_w_0().child(five_star_pity(
+                        pool,
+                        &shown.data,
+                        cx,
+                    )))
+                }),
+        )
     }
 }
