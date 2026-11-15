@@ -456,11 +456,14 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     - `imports/`: the Import page (`Imports`, `RenderOnce`, `Page::Imports`, in the sidebar's foot above Settings):
       every source on one page, a card each (the wish history: from the game, from a file; characters and weapons:
       HoYoLAB), their buttons sending the app's actions; the wish import buttons stay on the pages that had them.
-      `hoyolab.rs`: `HoyolabSync`, the HoYoLAB dialog (`SyncFromHoyolab`, `Shell::open_hoyolab_sync`): the cookie
+      `hoyolab/`: `HoyolabSync`, the HoYoLAB dialog (`SyncFromHoyolab`, `Shell::open_hoyolab_sync`; `mod.rs` its
+      steps, the cookie and the fetch, `form.rs`, `preview.rs`, and `model.rs`, the preview's words from the
+      `SyncPlan`, tested alone): the cookie
       in three masked fields (`ltuid_v2`, `ltoken_v2`, `ltmid_v2`, from the browser's Storage tab) or read whole
       from the clipboard (then cleared); `Library::fetch_from_hoyolab` (every Genshin account behind the cookie,
       each a `HoyolabAccount` with its `SyncPlan`; the fields are emptied when it starts, the cookie dropped when
-      its requests end), a preview (account choice, counts, each change, the notes), then
+      its requests end), a preview (account choice, counts, each change; the `SyncPlan`'s notes aren't shown yet,
+      only `wishctl` prints them), then
       `Library::apply_hoyolab_sync` (into the account the player picks among `HoyolabAccount::choices`, each with
       its own `SyncPlan`; the session selects it). A weapon that only changes hands shows as moved (⇄). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
     - `settings/`: `SettingsPage` (entity) and its rows, in a centred column, or two on a page at least
