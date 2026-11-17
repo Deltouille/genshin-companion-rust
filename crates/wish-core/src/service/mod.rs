@@ -14,6 +14,7 @@ use crate::store::Store;
 
 pub mod export;
 pub mod game;
+pub mod good;
 pub mod hoyolab;
 
 /// The store, for one read or write. A write that panicked left it as it

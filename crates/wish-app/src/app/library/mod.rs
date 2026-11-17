@@ -22,7 +22,10 @@ use wish_core::images::{self, Collection};
 
 use super::image_service::ImageCatalog;
 use super::images::Job;
-use wish_core::collection::{Collection as Owned, OwnedCharacter, OwnedWeapon, SyncPlan};
+use wish_core::collection::{
+    Collection as Owned, GoodFile, GoodPlan, OwnedCharacter, OwnedWeapon, SyncPlan,
+};
+use wish_core::error::IoAction;
 use wish_core::hoyolab;
 use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
 use wish_core::service::export::ExportSummary;
@@ -43,9 +46,18 @@ use wish_core::snapshot;
 pub use super::image_service::{DownloadState, ImageDownload, ImageService};
 pub use super::preferences::Preferences;
 pub use super::services::{ImageDownloads, Services};
+pub use wish_core::service::good::GoodPreview;
 pub use wish_core::service::hoyolab::{HoyolabAccount, SyncChoice};
 use wish_core::store::{BackupFile, BackupReason};
 use wish_core::{AppPaths, Store};
+
+/// Where a GOOD file comes from: a file the player picked, or the text they
+/// copied (Irminsul exports to the clipboard too).
+#[derive(Clone, Debug)]
+pub enum GoodSource {
+    File(PathBuf),
+    Text(String),
+}
 
 /// How many imports the import log shows.
 const RECENT_IMPORTS: u32 = 10;

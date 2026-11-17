@@ -9,14 +9,17 @@
 //! are its own state, kept while the user goes elsewhere. What the account
 //! owns is the [`Library`]'s, per account, followed through the [`Session`].
 //! The shell opens the list from the sidebar and a character with
-//! [`CharactersView::show_character`].
+//! [`CharactersView::show_character`]. The weapons are [`WeaponsView`]'s, the
+//! materials and how many the account has [`ResourcesView`]'s.
 
 mod characters;
 mod filters;
+mod resources;
 mod shared;
 mod weapons;
 
 pub use characters::CharactersView;
+pub use resources::{EditMaterial, ResourcesView};
 pub use weapons::WeaponsView;
 
 use wish_core::planner::Level;

@@ -9,7 +9,7 @@
 //! (`SyncFromHoyolab`).
 
 mod form;
-mod model;
+pub(super) mod model;
 mod preview;
 
 use std::sync::Arc;

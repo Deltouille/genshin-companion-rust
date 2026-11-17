@@ -110,6 +110,9 @@ archive-add-copy = Add a copy
 archive-refinement = Refinement
 archive-held-by = Held by
 archive-my-copies = My copies
+archive-my-copies-count = My copies · { $count }
+archive-alike = Alike
+archive-remove-one = Remove one
 archive-no-copies = You don’t have it. Add a copy to note its level, refinement and who holds it.
 archive-weapons-not-saved = Your weapons were not saved
 
@@ -120,3 +123,23 @@ archive-kind-elemental-skill = Elemental Skill
 archive-kind-elemental-burst = Elemental Burst
 archive-kind-alternate-sprint = Alternate Sprint
 archive-kind-passive = Passive
+
+## Archive → Resources
+
+resources-title = Resources
+resources-subtitle = { $owned } of { $total } materials owned · click one to set how many you have
+resources-search = Search a material…
+resources-owned-only = Owned only
+resources-mora-exp = Mora and EXP
+resources-gems = Ascension gems
+resources-boss = Boss materials
+resources-weekly = Weekly boss materials
+resources-talent = Talent materials
+resources-weapon = Weapon ascension materials
+resources-common-drops = Common enemy drops
+resources-elite-drops = Elite enemy drops
+resources-local-specialties = Local specialties
+resources-other = Other materials
+resources-tip = { $name } · { $count }
+resources-no-match = No material matches.
+resources-none-owned = The account has no materials yet: import a GOOD file, or click a material to set how many you have.

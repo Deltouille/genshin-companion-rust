@@ -8,26 +8,24 @@
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Context, Entity, FontWeight, ImageSource, InteractiveElement as _,
-    IntoElement, ObjectFit, ParentElement as _, SharedString, Styled as _, StyledImage as _,
-    WeakEntity, Window, div, img, rems,
+    AnyElement, App, Context, Entity, InteractiveElement as _, IntoElement, ParentElement as _,
+    SharedString, Styled as _, WeakEntity, Window, div, img,
 };
 use wish_core::model::Rarity;
 
 use std::rc::Rc;
 
 use super::super::filters::{self, FilterGroup, FilterOption};
-use super::super::shared::{corner_button, section_title};
+use super::super::shared::{ItemCard, corner_button, item_card, section_title};
 use super::CharactersView;
 use super::model::{self, CharacterCard, Filters};
 use crate::app::images::Images;
 use wish_core::planner::PlannerData;
 use wish_ui::format;
-use wish_ui::{PageFrame, badge, theme};
+use wish_ui::{PageFrame, theme};
 
 /// The elements in the game's order, as the filters show them.
 const ELEMENTS: [&str; 7] = ["Pyro", "Hydro", "Anemo", "Electro", "Dendro", "Cryo", "Geo"];
@@ -280,8 +278,6 @@ impl CharactersView {
         images: &Images,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme();
-        let (ink, parchment) = theme::tile_label(cx);
         let (key, name) = (character.key.clone(), character.name.clone());
         let owned = character.owned.clone();
         let corner = match &owned {
@@ -341,98 +337,24 @@ impl CharactersView {
                 })),
             ),
         };
-        let icon = planner.character(&key).and_then(|c| images.character(c));
-        let picture = div()
-            .relative()
-            .w_full()
-            .h(rems(8.25))
-            .rounded_t(theme.radius_lg)
-            .rounded_br(rems(2.))
-            .bg(match owned {
-                Some(_) => theme::stars_tile(character.rarity, cx),
-                // Faded with its picture: the card reads as one not in the collection.
-                None => theme::stars_tile(character.rarity, cx).opacity(0.4),
-            })
-            .children(icon.map(|icon| picture(icon, owned.is_some())))
-            .children(images.element(&character.element).map(|icon| {
-                div()
-                    .absolute()
-                    .top_1()
-                    .left_1()
-                    .size_6()
-                    .child(img(icon).size_full())
-            }))
-            .child(div().absolute().top_1().right_1().child(corner))
-            .child(
-                div()
-                    .absolute()
-                    .bottom_1()
-                    .left_1()
-                    .right_1()
-                    .h_flex()
-                    .gap_1()
-                    .children(owned.as_ref().map(|(summary, _)| {
-                        badge(
-                            summary.clone(),
-                            (theme.foreground, theme.background.opacity(0.85)),
-                            cx,
-                        )
-                    }))
-                    .child(div().flex_1())
-                    .when(character.new, |this| {
-                        this.child(badge(
-                            t!("archive-new"),
-                            (theme.primary_foreground, theme.primary),
-                            cx,
-                        ))
-                    }),
-            );
-        Button::new(SharedString::from(format!("character-{key}")))
-            .ghost()
-            .p_0()
-            .w(rems(8.25))
-            .h_auto()
-            .rounded(theme.radius_lg)
-            .cursor_pointer()
-            .accessibility_label(character.label())
-            .child(
-                div()
-                    .v_flex()
-                    .w_full()
-                    .rounded(theme.radius_lg)
-                    .bg(if owned.is_some() {
-                        parchment
-                    } else {
-                        // Not in the collection: a slate strip, the name muted.
-                        theme.muted
-                    })
-                    .child(picture)
-                    .child(
-                        div()
-                            .w_full()
-                            .px_2()
-                            .py_1p5()
-                            .text_base()
-                            .font_weight(FontWeight::BOLD)
-                            .text_center()
-                            .truncate()
-                            .text_color(if owned.is_some() {
-                                ink
-                            } else {
-                                theme.muted_foreground
-                            })
-                            .child(name),
-                    ),
-            )
-            .on_click(cx.listener(move |this, _, _, cx| this.show_character(&key, cx)))
-            .into_any_element()
+        let element = (images.element(&character.element))
+            .map(|icon| img(icon).size_full().into_any_element());
+        item_card(
+            ItemCard {
+                id: SharedString::from(format!("character-{key}")),
+                icon: planner.character(&key).and_then(|c| images.character(c)),
+                rarity: character.rarity,
+                owned: owned.is_some(),
+                name: name.clone(),
+                label: character.label(),
+                top_left: element,
+                corner: Some(corner.into_any_element()),
+                summary: owned.map(|(summary, _)| summary),
+                new: character.new,
+            },
+            cx,
+        )
+        .on_click(cx.listener(move |this, _, _, cx| this.show_character(&key, cx)))
+        .into_any_element()
     }
-}
-
-/// The icon on its tile; dimmed for a character the account doesn't own.
-fn picture(icon: ImageSource, owned: bool) -> impl IntoElement {
-    img(icon)
-        .size_full()
-        .object_fit(ObjectFit::Contain)
-        .when(!owned, |this| this.opacity(0.5))
 }

@@ -7,12 +7,16 @@ use std::path::PathBuf;
 use chrono::{Local, SecondsFormat};
 use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 
+use super::inventory::{read_inventory, set_owned};
 use super::{Store, account_from_row, account_label};
 use crate::archive::ArchiveData;
-use crate::collection::{Change, Collection, OwnedCharacter, OwnedWeapon, SyncPlan, plan_sync};
+use crate::collection::{
+    Change, Collection, GoodFile, GoodPlan, OwnedCharacter, OwnedWeapon, SyncPlan, plan_good,
+    plan_sync,
+};
 use crate::error::{Error, Result};
 use crate::model::{Account, AccountId, Server};
-use crate::planner::{Level, PlannerData};
+use crate::planner::{CustomItem, Level, PlannerData};
 use crate::store::BackupReason;
 
 impl Store {
@@ -149,29 +153,88 @@ impl Store {
         let now = now();
         let account = sync_account(&tx, target, game, &now)?;
         let plan = plan_sync(details, &read_collection(&tx, account)?, planner, archive);
-        for change in plan.characters.iter().filter(|c| c.changes()) {
-            save_character(&tx, account, change.after(), &now)?;
-        }
-        for change in &plan.weapons {
-            match change {
-                Change::Added(weapon) => {
-                    tx.execute(
-                        "INSERT INTO owned_weapons (account_id, weapon_key, created_at, updated_at) \
-                         VALUES (?1, ?2, ?3, ?3)",
-                        params![account.0, weapon.key, now],
-                    )?;
-                    let id = tx.last_insert_rowid();
-                    write_weapon(&tx, account, id, weapon, &now)?;
-                }
-                Change::Raised { after, .. } => write_weapon(&tx, account, after.id, after, &now)?,
-                Change::Unchanged(_) => {}
-            }
-        }
+        write_sync(&tx, account, &plan, &now)?;
         tx.commit()?;
         // The account may be new, or have taken a server.
         self.changed(account);
         Ok((account, plan, backup))
     }
+
+    /// Applies a GOOD import once the player confirmed its preview, into
+    /// `target` (`None` when there is no account yet: a new one, "Main").
+    /// A backup first, then the plan worked out again against the collection
+    /// and the inventory as they are now (so what was entered meanwhile is
+    /// never lowered either), written in one transaction. Returns the
+    /// account, what changed and the backup.
+    pub fn apply_good(
+        &mut self,
+        target: Option<AccountId>,
+        file: &GoodFile,
+        planner: &PlannerData,
+    ) -> Result<(AccountId, GoodPlan, PathBuf)> {
+        let backup = self.backup(BackupReason::BeforeSync)?;
+        let tx = self.conn.transaction()?;
+        let now = now();
+        let account = match target {
+            Some(id) => {
+                tx.query_row("SELECT id FROM accounts WHERE id = ?1", [id.0], |_| Ok(()))
+                    .optional()?
+                    .ok_or(Error::UnknownAccount(id))?;
+                id
+            }
+            None => {
+                tx.execute(
+                    "INSERT INTO accounts (label, uid, server, created_at) VALUES (?1, NULL, NULL, ?2)",
+                    params![account_label("Main")?, now],
+                )?;
+                AccountId(tx.last_insert_rowid())
+            }
+        };
+        let plan = plan_good(
+            file,
+            &read_collection(&tx, account)?,
+            &read_inventory(&tx, account)?,
+            planner,
+        );
+        write_sync(&tx, account, &plan.collection, &now)?;
+        for change in &plan.materials {
+            set_owned(
+                &tx,
+                account,
+                &CustomItem::Material(change.id),
+                change.after,
+                &now,
+            )?;
+        }
+        tx.commit()?;
+        if target.is_none() {
+            self.changed(account);
+        }
+        Ok((account, plan, backup))
+    }
+}
+
+/// Writes what `plan` adds or raises in `account`'s collection.
+fn write_sync(tx: &Transaction, account: AccountId, plan: &SyncPlan, now: &str) -> Result<()> {
+    for change in plan.characters.iter().filter(|c| c.changes()) {
+        save_character(tx, account, change.after(), now)?;
+    }
+    for change in &plan.weapons {
+        match change {
+            Change::Added(weapon) => {
+                tx.execute(
+                    "INSERT INTO owned_weapons (account_id, weapon_key, created_at, updated_at) \
+                     VALUES (?1, ?2, ?3, ?3)",
+                    params![account.0, weapon.key, now],
+                )?;
+                let id = tx.last_insert_rowid();
+                write_weapon(tx, account, id, weapon, now)?;
+            }
+            Change::Raised { after, .. } => write_weapon(tx, account, after.id, after, now)?,
+            Change::Unchanged(_) => {}
+        }
+    }
+    Ok(())
 }
 
 /// Where a HoYoLAB sync can go: `None` is a new account.

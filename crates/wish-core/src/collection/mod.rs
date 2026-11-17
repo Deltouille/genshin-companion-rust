@@ -5,9 +5,13 @@
 //! Only what the player states is kept; stats and costs are worked out from
 //! the game data when shown, never stored.
 
+mod good;
 mod stats;
 mod sync;
 
+pub use good::{
+    GoodCharacter, GoodFile, GoodPlan, GoodTalents, GoodWeapon, MaterialChange, good_key, plan_good,
+};
 pub use stats::{
     CharacterStats, ELEMENTS, OwnedWeaponStats, OwnedWeaponSummary, Tally, WEAPON_TYPES,
 };

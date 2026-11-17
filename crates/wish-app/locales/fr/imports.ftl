@@ -8,6 +8,10 @@ imports-wish-history-file = Depuis un fichier : une sauvegarde ou un tableur pa
 imports-collection = Personnages et armes
 imports-collection-help = Depuis HoYoLAB : vos personnages tels qu’ils sont dans le jeu (niveau, constellations, aptitudes) et l’arme de chacun, dans votre collection. Votre cookie HoYoLAB ne sert qu’à cette synchronisation, et n’est jamais enregistré.
 imports-collection-safe = Elle ne fait qu’ajouter ou monter ce que vous avez indiqué, jamais baisser, et montre ce qui changerait avant de rien écrire.
+imports-good = Personnages, armes et matériaux
+imports-good-help = Depuis un fichier GOOD, qu’exportent Irminsul, Inventory Kamera et Genshin Optimizer : vos personnages, toutes les armes de votre sac et vos matériaux, dans le compte affiché. Le planificateur compte alors avec vos vrais matériaux.
+imports-good-safe = Les personnages et les armes sont seulement ajoutés ou montés, jamais baissés ; les matériaux prennent les quantités du fichier. Un aperçu montre chaque changement avant de rien écrire.
+imports-good-button = Importer un fichier GOOD…
 imports-undo = Chaque import peut être annulé, et une sauvegarde est faite avant chacun : voir Paramètres.
 
 ## La fenêtre HoYoLAB : le cookie
@@ -52,3 +56,33 @@ hoyolab-weapon-line = { $weapon } · { $level } · R{ $refinement }
 hoyolab-weapon-held = { $weapon } · { $level } · R{ $refinement } · portée par { $holder }
 hoyolab-moved = { $weapon } · { $level } · R{ $refinement } : de { $from } à { $to }
 hoyolab-nobody = personne
+
+## La fenêtre d’import GOOD
+
+good-prompt = Choisissez un fichier GOOD
+good-intro = Un fichier GOOD contient vos personnages, les armes de votre sac et vos matériaux. Il va dans le compte affiché, { $account } : pour l’importer dans un autre, choisissez-le d’abord dans la barre latérale.
+good-intro-new = Un fichier GOOD contient vos personnages, les armes de votre sac et vos matériaux. Il va dans un nouveau compte, « Main ».
+good-how-irminsul = Irminsul : lancez-le, puis le jeu ; une fois vos données lues, exportez-les dans un fichier ou dans le presse-papiers.
+good-how-kamera = Inventory Kamera : scannez votre compte, puis choisissez le fichier qu’il écrit.
+good-how-optimizer = Genshin Optimizer : exportez votre base de données, puis choisissez le fichier.
+good-safe = Les personnages et les armes sont seulement ajoutés ou montés, jamais baissés. Les matériaux du planificateur prennent les quantités du fichier, ceux que le fichier n’a pas passent à 0, et les Moras restent tels quels. Rien n’est écrit avant votre confirmation, et une sauvegarde est faite d’abord.
+good-paste = Coller depuis le presse-papiers
+good-choose-file = Choisir un fichier…
+good-clipboard-empty = Le presse-papiers ne contient pas de texte : copiez d’abord l’export GOOD, ou choisissez le fichier.
+good-reading = Lecture du fichier…
+good-heading = Depuis { $source }, { $into }
+good-heading-unnamed = Depuis un fichier GOOD, { $into }
+good-into = dans { $account }
+good-into-new = dans un nouveau compte, « Main »
+good-materials = Matériaux : { $count } à changer
+good-section-characters = Personnages
+good-section-weapons = Armes
+good-section-materials = Matériaux
+good-grouped = { $line } ×{ $count }
+good-material-line = { $name } : { $before } → { $after }
+good-nothing-new = Votre collection et votre inventaire ont déjà tout ceci.
+good-import = Importer
+good-imported = Le fichier GOOD est importé dans { $account } : { $count ->
+        [one] { $count } changement
+       *[other] { $count } changements
+    }.

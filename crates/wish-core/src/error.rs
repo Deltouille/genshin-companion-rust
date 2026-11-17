@@ -33,6 +33,9 @@ pub enum Error {
 
     UnrecognizedFile,
 
+    /// Not a GOOD file (Irminsul's, Inventory Kamera's, Genshin Optimizer's).
+    NotGoodFile,
+
     UnknownItems(Vec<String>),
 
     InvalidPull {
@@ -187,6 +190,7 @@ impl fmt::Display for Error {
             Error::GameData(detail) => t!("error-game-data", detail = detail.as_str()),
             Error::NotPaimonExport => t!("error-not-paimon-export"),
             Error::UnrecognizedFile => t!("error-unrecognized-file"),
+            Error::NotGoodFile => t!("error-not-good-file"),
             Error::UnknownItems(items) => t!("error-unknown-items", items = items.join(", ")),
             Error::InvalidPull {
                 key,

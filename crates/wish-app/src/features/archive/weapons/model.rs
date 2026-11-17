@@ -9,7 +9,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use wish_core::archive::ArchiveData;
-use wish_core::collection::Collection;
+use wish_core::collection::{Collection, OwnedWeapon};
 use wish_core::planner::{Level, MaterialId, PlannerData, Weapon, WeaponGoal};
 use wish_ui::format;
 
@@ -269,11 +269,66 @@ pub(super) fn page(
     })
 }
 
+/// Copies alike (the same level, refinement, holder and favourite): one row
+/// on the page, however many they are (a GOOD import brings fodder by the
+/// hundred).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct CopyGroup {
+    /// The first of them, in the order they were added: the row edits it.
+    pub first: OwnedWeapon,
+    /// Every copy's id, `first`'s too.
+    pub ids: Vec<i64>,
+}
+
+/// `copies` in groups of copies alike, in the order the first of each was
+/// added.
+pub(super) fn copy_groups(copies: &[OwnedWeapon]) -> Vec<CopyGroup> {
+    let mut groups: Vec<CopyGroup> = Vec::new();
+    for copy in copies {
+        let alike = |group: &&mut CopyGroup| {
+            let first = &group.first;
+            (
+                first.level,
+                first.refinement,
+                &first.holder,
+                first.favourite,
+            ) == (copy.level, copy.refinement, &copy.holder, copy.favourite)
+        };
+        match groups.iter_mut().find(alike) {
+            Some(group) => group.ids.push(copy.id),
+            None => groups.push(CopyGroup {
+                first: copy.clone(),
+                ids: vec![copy.id],
+            }),
+        }
+    }
+    groups
+}
+
 #[cfg(test)]
 mod tests {
-    use wish_core::collection::OwnedWeapon;
-
     use super::*;
+
+    #[test]
+    fn copies_alike_make_one_row() {
+        let copy = |id: i64, level: Level, holder: Option<&str>| OwnedWeapon {
+            id,
+            level,
+            holder: holder.map(str::to_owned),
+            ..OwnedWeapon::new("coolsteel")
+        };
+        let copies = [
+            copy(1, Level::START, None),
+            copy(2, Level::MAX, Some("bennett")),
+            copy(3, Level::START, None),
+            copy(4, Level::START, None),
+            copy(5, Level::MAX, None),
+        ];
+        let groups = copy_groups(&copies);
+        let ids: Vec<&[i64]> = groups.iter().map(|g| g.ids.as_slice()).collect();
+        assert_eq!(ids, [&[1, 3, 4][..], &[2], &[5]]);
+        assert_eq!(groups[0].first.id, 1);
+    }
 
     fn data() -> (&'static PlannerData, &'static ArchiveData) {
         (PlannerData::embedded(), ArchiveData::embedded())

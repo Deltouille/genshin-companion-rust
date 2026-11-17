@@ -26,7 +26,7 @@ pub(super) fn into(target: &Option<Account>, game: &GameAccount) -> String {
 }
 
 /// "Characters: 112 to add, 3 to raise · Weapons: 110 to add, 2 to move".
-pub(super) fn summary(plan: &SyncPlan) -> String {
+pub(in crate::features::imports) fn summary(plan: &SyncPlan) -> String {
     let parts = |[added, raised, moved]: [usize; 3]| -> Option<String> {
         let parts: Vec<String> = [
             (added > 0).then(|| t!("hoyolab-to-add", count = added)),
@@ -61,7 +61,10 @@ pub(super) fn summary(plan: &SyncPlan) -> String {
 
 /// One line per character or weapon copy the sync adds (+), raises (↑) or
 /// moves to another holder (⇄): its sign and its text.
-pub(super) fn lines(plan: &SyncPlan, planner: &PlannerData) -> Vec<(&'static str, String)> {
+pub(in crate::features::imports) fn lines(
+    plan: &SyncPlan,
+    planner: &PlannerData,
+) -> Vec<(&'static str, String)> {
     let level = |level: Level| format!("{}/{}", level.level, level.cap());
     let name = |key: &str| {
         planner

@@ -50,6 +50,14 @@ The app opens on your account in figures, one tab each:
   hoyolab.com: `ltuid_v2`, `ltoken_v2`, `ltmid_v2`) for that sync only: the app never saves it and sends it to
   HoYoverse only. HoYoLAB doesn't show the weapons in your bag, nor your materials, nor whether a character at a
   level cap ascended (counted as not yet).
+- **Characters, weapons and materials from a GOOD file**, the format [Irminsul](https://github.com/konkers/irminsul),
+  [Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera) and
+  [Genshin Optimizer](https://frzyc.github.io/genshin-optimizer/) export (from a file, or Irminsul's copy in the
+  clipboard), into the account shown: your characters (level, ascension, constellations, talents), every weapon
+  copy in your bag with its holder, and your materials, which the planner then shares out. Characters and weapons
+  are only added or raised; the materials the planner uses take the file's counts (one the file lacks goes to 0,
+  the Mora is kept, since these files have none). A preview shows every change, and a backup comes first. The app
+  only reads the file: how the tool that wrote it gets your data is between you and that tool.
 - **Exports:** the lossless snapshot (every account: wishes, characters, weapons, plan and inventory), UIGF v4 and
   paimon.moe's spreadsheet.
 All of these are on the Import page; the wish imports are also on the Overview.
@@ -82,8 +90,13 @@ their level and constellation on the card; add or remove them from the list, and
 - **Talents:** values at any talent level.
 - **Constellations.**
 
+Every material too, under Resources, by type as the game's bag sorts them (Mora and EXP, gems, boss and weekly
+boss materials, talent materials, weapon materials, enemy drops, each region's local specialties), with how many
+you have; click one to set its count.
+
 Every weapon too, the ones you have first (with their best refinement and how many copies), filtered by type,
-rarity and favourites. A weapon's page lists your copies (level, refinement, the character holding it) above
+rarity and favourites. A weapon's page lists your copies (level, refinement, the character holding it; copies
+alike once, with their count) above
 its ATK and secondary stat at any level, what reaching it costs, and its passive at each refinement.
 
 ### Ascension planner
@@ -307,6 +320,7 @@ list of changes. A tag that doesn't match the version publishes nothing.
 - [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync's requests and
   their signing follow it (MIT License).
 - [UIGF](https://uigf.org): item ids for UIGF exports.
+- [GOOD](https://frzyc.github.io/genshin-optimizer/#/doc), Genshin Optimizer's data format: the GOOD import reads it.
 - [Google Sans Flex](https://github.com/googlefonts/googlesans-flex), under the SIL Open Font License 1.1, and
   [Lucide](https://lucide.dev) icons, under the ISC License.
 - [GPUI Kit](https://gpui-kit.com), under the Apache License 2.0.

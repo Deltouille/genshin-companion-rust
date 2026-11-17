@@ -94,6 +94,12 @@ impl Shell {
                 Page::Archive(ArchivePage::Weapons),
                 cx,
             ),
+            nested(
+                "resources",
+                t!("app-nav-resources").into(),
+                Page::Archive(ArchivePage::Resources),
+                cx,
+            ),
         ];
         let archive = group(
             Feature::Archive,

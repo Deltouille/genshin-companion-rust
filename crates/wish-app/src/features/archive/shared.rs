@@ -205,6 +205,106 @@ pub(super) fn materials(
         .into_any_element()
 }
 
+/// A list card's width, and its picture's height, in rems: the same on every
+/// archive page (the user's ask on 2026-11-17).
+pub(super) const CARD_REMS: f32 = 8.25;
+
+/// What a list card shows: the picture on its rarity tile, with an icon top
+/// left, buttons top right, what the account has bottom left and "New"
+/// bottom right; the name under it, on a parchment strip.
+pub(super) struct ItemCard {
+    /// The button's id.
+    pub id: SharedString,
+    pub icon: Option<ImageSource>,
+    pub rarity: u8,
+    /// Not owned: the tile and picture faded, the strip slate, the name
+    /// muted.
+    pub owned: bool,
+    pub name: String,
+    /// What a screen reader says of it.
+    pub label: String,
+    pub top_left: Option<AnyElement>,
+    pub corner: Option<AnyElement>,
+    /// What the account has of it: "Lv. 90 · C2", "R3 · ×2", a count.
+    pub summary: Option<String>,
+    pub new: bool,
+}
+
+/// A list card, the same on every archive page: the caller adds what a
+/// click does.
+pub(super) fn item_card(card: ItemCard, cx: &App) -> Button {
+    let theme = cx.theme();
+    let (ink, parchment) = wish_ui::theme::tile_label(cx);
+    let owned = card.owned;
+    let tile = wish_ui::theme::stars_tile(card.rarity, cx);
+    let picture = div()
+        .relative()
+        .w_full()
+        .h(rems(CARD_REMS))
+        .rounded_t(theme.radius_lg)
+        .rounded_br(rems(2.))
+        // Faded with its picture: the card reads as one not owned.
+        .bg(if owned { tile } else { tile.opacity(0.4) })
+        .children(card.icon.map(|icon| {
+            img(icon)
+                .size_full()
+                .object_fit(ObjectFit::Contain)
+                .when(!owned, |this| this.opacity(0.5))
+        }))
+        .children(
+            (card.top_left).map(|icon| div().absolute().top_1().left_1().size_6().child(icon)),
+        )
+        .children((card.corner).map(|corner| div().absolute().top_1().right_1().child(corner)))
+        .child(
+            div()
+                .absolute()
+                .bottom_1()
+                .left_1()
+                .right_1()
+                .h_flex()
+                .gap_1()
+                .children(card.summary.map(|text| {
+                    badge(text, (theme.foreground, theme.background.opacity(0.85)), cx)
+                }))
+                .child(div().flex_1())
+                .when(card.new, |this| {
+                    this.child(badge(
+                        t!("archive-new"),
+                        (theme.primary_foreground, theme.primary),
+                        cx,
+                    ))
+                }),
+        );
+    Button::new(card.id)
+        .ghost()
+        .p_0()
+        .w(rems(CARD_REMS))
+        .h_auto()
+        .rounded(theme.radius_lg)
+        .cursor_pointer()
+        .accessibility_label(card.label)
+        .child(
+            div()
+                .v_flex()
+                .w_full()
+                .rounded(theme.radius_lg)
+                .bg(if owned { parchment } else { theme.muted })
+                .child(picture)
+                .child(
+                    div()
+                        .w_full()
+                        .px_2()
+                        .py_1p5()
+                        .text_sm()
+                        .font_weight(FontWeight::BOLD)
+                        .text_center()
+                        .truncate()
+                        .text_color(if owned { ink } else { theme.muted_foreground })
+                        .child(card.name),
+                ),
+        )
+}
+
 /// A small round button in a card's corner, on a veil of the page's colour
 /// so it reads over any picture.
 pub(super) fn corner_button(

@@ -11,8 +11,8 @@ use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Context, Div, Entity, IntoElement, ParentElement as _,
-    SharedString, Styled as _, Subscription, Task, Window, div, rems,
+    AnyElement, App, AppContext as _, Context, Div, Entity, FontWeight, IntoElement,
+    ParentElement as _, SharedString, Styled as _, Subscription, Task, Window, div, rems,
 };
 use wish_core::collection::{MAX_REFINEMENT, OwnedWeapon};
 use wish_core::model::{AccountId, Rarity};
@@ -20,6 +20,7 @@ use wish_core::planner::{Level, Weapon};
 
 use super::super::level_options;
 use super::WeaponsView;
+use super::model::copy_groups;
 use crate::app::notices::{report, report_outcome};
 use wish_ui::{
     PickerEvent, PickerItem, PickerState, Segmented, button, card, card_title, dialog_footer,
@@ -115,8 +116,8 @@ impl WeaponsView {
     }
 
     /// Makes the pickers of the open weapon's copies follow what is stored:
-    /// one pair per copy, their choices set from it, those of removed copies
-    /// dropped.
+    /// one pair per row (a group of copies alike, edited through its first),
+    /// their choices set from it, those of rows gone dropped.
     pub(super) fn sync_copies(&mut self, cx: &mut Context<Self>) {
         let Some(key) = self.open.clone() else {
             self.copies.clear();
@@ -131,9 +132,12 @@ impl WeaponsView {
         };
         let steps = Level::weapon_steps(weapon.rarity);
         let copies: Vec<OwnedWeapon> = owned.copies(&key).cloned().collect();
+        let rows: Vec<OwnedWeapon> = (copy_groups(&copies).into_iter())
+            .map(|group| group.first)
+            .collect();
         self.copies
-            .retain(|controls| copies.iter().any(|c| c.id == controls.id));
-        for copy in copies {
+            .retain(|controls| rows.iter().any(|c| c.id == controls.id));
+        for copy in rows {
             let level = steps.iter().position(|l| *l == copy.level).unwrap_or(0);
             let holder = SharedString::from(copy.holder.clone().unwrap_or_default());
             // The owned characters who wield this type, and whoever holds it.
@@ -222,8 +226,8 @@ impl WeaponsView {
         }
     }
 
-    /// The panel of what the account has of `weapon`: a row per copy, and
-    /// the way to add one.
+    /// The panel of what the account has of `weapon`: how many copies, a row
+    /// per group of copies alike, and the way to add one.
     pub(super) fn my_copies(
         &self,
         weapon: &Weapon,
@@ -245,7 +249,10 @@ impl WeaponsView {
                 let (key, name) = (weapon.key.clone(), weapon.name.clone());
                 move |this, _, _, cx| this.add_copy(key.clone(), name.to_string(), cx)
             }));
-        let rows = copies.iter().enumerate().filter_map(|(ix, copy)| {
+        let groups = copy_groups(&copies);
+        let rows = groups.iter().enumerate().filter_map(|(ix, group)| {
+            let copy = &group.first;
+            let alike = group.ids.len();
             let controls = self.copies.iter().find(|c| c.id == copy.id)?;
             let refinement: AnyElement = if refinable {
                 let owned = copy.clone();
@@ -264,9 +271,15 @@ impl WeaponsView {
             } else {
                 div().text_sm().child("R1").into_any_element()
             };
+            // A favourite is every copy of the row's.
             let favourite = {
-                let mut owned = copy.clone();
-                owned.favourite = !copy.favourite;
+                let marked: Vec<OwnedWeapon> = (copies.iter())
+                    .filter(|c| group.ids.contains(&c.id))
+                    .map(|c| OwnedWeapon {
+                        favourite: !copy.favourite,
+                        ..c.clone()
+                    })
+                    .collect();
                 let (icon, label) = if copy.favourite {
                     (IconName::StarFill, t!("archive-remove-favourite"))
                 } else {
@@ -275,11 +288,20 @@ impl WeaponsView {
                 icon_button(format!("favourite-copy-{}", copy.id), icon, label)
                     .ghost()
                     .when(copy.favourite, |this| this.text_color(gold))
-                    .on_click(cx.listener(move |this, _, _, cx| this.save_copy(owned.clone(), cx)))
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        for copy in &marked {
+                            this.save_copy(copy.clone(), cx);
+                        }
+                    }))
             };
+            // Removing takes one copy of the row.
             let remove = button(SharedString::from(format!("remove-copy-{}", copy.id)))
                 .ghost()
-                .label(t!("archive-remove"))
+                .label(if alike > 1 {
+                    t!("archive-remove-one")
+                } else {
+                    t!("archive-remove")
+                })
                 .on_click(cx.listener({
                     let (id, name) = (copy.id, weapon.name.clone());
                     move |this, _, window, cx| {
@@ -294,6 +316,17 @@ impl WeaponsView {
                     .gap_x_6()
                     .gap_y_3()
                     .when(ix > 0, |this| this.pt_4().border_t_1().border_color(border))
+                    .when(alike > 1, |this| {
+                        this.child(field(
+                            &t!("archive-alike"),
+                            div()
+                                .h(rems(2.75))
+                                .h_flex()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(format!("×{alike}")),
+                            cx,
+                        ))
+                    })
                     .child(field(
                         &t!("archive-level"),
                         div().w(rems(9.)).child(
@@ -327,7 +360,16 @@ impl WeaponsView {
         card(cx)
             .p_4()
             .gap_4()
-            .child(card_title(t!("archive-my-copies"), cx).child(add))
+            .child(
+                card_title(
+                    match copies.len() {
+                        0 | 1 => t!("archive-my-copies"),
+                        count => t!("archive-my-copies-count", count = count),
+                    },
+                    cx,
+                )
+                .child(add),
+            )
             .when(rows.is_empty(), |this| {
                 this.child(
                     div()

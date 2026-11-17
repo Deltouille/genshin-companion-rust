@@ -4,6 +4,7 @@
 app-menu-import-game = Importer depuis le jeu…
 app-menu-import-file = Importer un fichier…
 app-menu-sync-hoyolab = Synchroniser avec HoYoLAB…
+app-menu-import-good = Importer un fichier GOOD…
 app-menu-quit = Quitter
 
 app-close = Fermer
@@ -19,6 +20,7 @@ app-nav-overview = Vue d’ensemble
 app-nav-wishes = Vœux
 app-nav-characters = Personnages
 app-nav-weapons = Armes
+app-nav-resources = Ressources
 app-nav-archive = Archives
 app-nav-planner = Planificateur
 app-nav-ascension = Élévation
@@ -46,6 +48,7 @@ app-already-open = { $app } est déjà ouvert. Une seule fenêtre à la fois peu
 ## Le titre de la fenêtre HoYoLAB
 
 app-sync-hoyolab-title = Synchroniser avec HoYoLAB
+app-import-good-title = Importer un fichier GOOD
 
 ## Écritures, exports et imports
 

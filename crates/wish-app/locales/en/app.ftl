@@ -3,6 +3,7 @@
 app-menu-import-game = Import from Game…
 app-menu-import-file = Import File…
 app-menu-sync-hoyolab = Sync from HoYoLAB…
+app-menu-import-good = Import a GOOD file…
 app-menu-quit = Quit
 
 app-close = Close
@@ -18,6 +19,7 @@ app-nav-overview = Overview
 app-nav-wishes = Wishes
 app-nav-characters = Characters
 app-nav-weapons = Weapons
+app-nav-resources = Resources
 app-nav-archive = Archive
 app-nav-planner = Planner
 app-nav-ascension = Ascension
@@ -45,6 +47,7 @@ app-already-open = { $app } is already open. Only one window at a time can use y
 ## The HoYoLAB dialog's title
 
 app-sync-hoyolab-title = Sync from HoYoLAB
+app-import-good-title = Import a GOOD file
 
 ## Writes, exports and imports
 

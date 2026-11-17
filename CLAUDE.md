@@ -38,13 +38,17 @@ starting a milestone, and tick its checkboxes when a step is done.
 - `cargo test --workspace`
 - `cargo run -p wish-core --example wishctl -- [--data-dir DIR] <command>`: command-line import, export and summary.
   Commands: `import-paimon`, `check-paimon`, `import-snapshot`, `find-link`, `fetch-game`, `import-game`, `undo`,
-  `export`, `summary`, `backup`, `hoyolab-check`, `hoyolab-fetch`, `hoyolab-sync`.
+  `export`, `summary`, `backup`, `hoyolab-check`, `hoyolab-fetch`, `hoyolab-sync`, `check-good`, `import-good`.
   - `check-paimon <file>` compares the engine with a paimon.moe save without touching any data.
   - `fetch-game <link>` fetches and plans a game import without writing anything.
   - `hoyolab-check [--raw DIR]` reads a HoYoLAB cookie from stdin and prints what HoYoLAB tells of the account
     (accounts, characters, talents, the authkey), writing nothing and never printing the cookie or the authkey.
   - `hoyolab-fetch [--uid U]` shows what a HoYoLAB sync would change in the collection, writing nothing;
     `hoyolab-sync` writes it, into the account `Store::sync_targets` suggests (the app lets the player choose). `--from FILE --uid U` reads the details `hoyolab-check --raw` saved, offline.
+  - `check-good <file>` shows what importing a GOOD file would change, writing nothing; `import-good` writes it.
+    Into the account of `--uid U` or `--account NAME`, else the only one (a new "Main" when there is none).
+    The cookie prompt of the `hoyolab-*` commands turns the terminal's echo off (`stty`), so a pasted cookie
+    neither shows nor stays in the scrollback.
   - `summary` lists import ids for `undo`.
   Without `--data-dir` it uses the real app data folder, so point it at a scratch folder when experimenting.
 - `node tools/extract-paimon-data.mjs`: regenerates `crates/wish-core/data/*.json` from `reference/`.
@@ -222,12 +226,28 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     suggested when it has none, else the only one without). `Store::apply_sync(target, game, …)` gives the chosen
     account the UID (and the server) or makes the new one, works the plan out again against the stored collection,
     and writes it all in one transaction after a `before-sync` backup.
+    `good.rs`: a GOOD file (Genshin Optimizer's format, which Irminsul, Inventory Kamera and Genshin Optimizer
+    export), `GoodFile::parse` (`Error::NotGoodFile` for anything else; the version isn't checked, each only added
+    fields) and `plan_good(file, collection, inventory, planner)` → `GoodPlan` (a `SyncPlan` of characters and
+    weapon copies, and the `MaterialChange`s). Keys are the English names run together (`good_key`: apostrophes
+    dropped, accents off, other symbols word breaks, each word capitalised), matched against `planner.json`'s
+    names; a weapon's holder `Traveler` is the file's Traveler. Characters come with their ascension phase,
+    talents without the constellations' boost, above 90 as 90/90 (said); raised as a sync does
+    (`sync::character_change`). Every weapon copy, fodder included: the one its holder holds, else a stored copy
+    alike, else the most levelled one below it (raised), else a new copy; one whose holder holds that weapon in the
+    file too is left to that holder; held copies first, then from the most levelled down. The bag is whole: the
+    planner's materials take its counts, one it lacks goes to 0, Mora apart (the files carry none: `SyncNote::NoMora`);
+    a file without materials leaves the inventory (`NoMaterials`); entries that aren't planner materials are
+    counted (`OtherItems`). Checked on a real Irminsul export (113 characters, 1,940 copies, 1,349 entries).
+    `Store::apply_good(target, file, planner)` (`None`: a new "Main") works it out again against what is stored
+    and writes it in one transaction after a `before-sync` backup.
   - `service/`: the use cases the app and `wishctl` share, without GPUI, each taking what it reaches (transport,
     store, game data) as parameters: `game::fetch` (the history behind a link, up to the first wish stored, then
-    planned), `hoyolab::fetch` / `preview` / `fetch_preview` (`HoyolabAccount`, `SyncChoice`), `export::snapshot` /
+    planned), `hoyolab::fetch` / `preview` / `fetch_preview` (`HoyolabAccount`, `SyncChoice`), `good::read` /
+    `preview` (`GoodPreview`), `export::snapshot` /
     `uigf` / `spreadsheet` (bytes and an `ExportSummary` the app puts into words). A service that fetches takes
     `&Mutex<Store>` and locks it (`service::lock`, which takes back a poisoned lock) before and after the requests,
-    never during. Writing stays `Store::apply_import` / `apply_sync`, through the app's write queue.
+    never during. Writing stays `Store::apply_import` / `apply_sync` / `apply_good`, through the app's write queue.
   - `import/paimon_check.rs`: compares the engine with the values paimon.moe stored in a save.
   - `import/api.rs` (link parsing, fetching behind a `Transport` trait), `import/game_cache.rs`
     (finding the link on disk), `import/api_plan.rs` (new wishes vs links vs held back).
@@ -237,6 +257,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     between two banners). Their stored values follow paimon's rules; keep them that way when editing.
   - `tests/import.rs`: end-to-end data tests on `tests/fixtures/paimon-sample.json`.
     They also run on real exports placed in `tests/fixtures/private/`.
+  - `tests/good.rs`: the GOOD import into the store, and real GOOD exports placed in `tests/fixtures/private/good/`
+    (apart: the tests above read every `.json` of `private/` as a paimon.moe save).
 - `crates/wish-ui`: the design system (shared layer, like shadcn's `ui/`). Depends on `gpui-kit` and `wish-core`'s
   types only, never on app state. Components take plain data and render it.
   - `theme.json` + `theme.rs`: the look, **after Genshin Impact's menus** (the user's choice on 2026-11-12, from
@@ -244,8 +266,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     genshinlist.vercel.app), **without any of the game's assets or its font**: colours and simple shapes only.
     Dark: a plain ink-blue slate page (`#151A26`), slate cards (`#1E2435`) with no border, parchment text
     (`#ECE5D8`), the primary a parchment fill with ink text (filled buttons, the current segment), gold (`#D3BC8E`)
-    for the focus ring, sliders and the ornaments (a diamond before each nested page in the sidebar; page and
-    section titles have no icon, the user's choice on 2026-11-13). Light: a
+    for the focus ring and sliders (the sidebar's nested pages have no ornament, the user's choice on 2026-11-17;
+    page and section titles have no icon, the user's choice on 2026-11-13). Light: a
     parchment page (`#E8E2D5`) and cards (`#F4F0E7`, a neutral hairline), ink text (`#3B4255`), an ink primary,
     and a slate sidebar as in the Paimon menu (the sidebar uses only the `sidebar.*` tokens). The user turned down
     a gradient page and gold borders (cards, the current page), then a closer copy of genshinlist.vercel.app (a
@@ -270,7 +292,7 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     high.
   - `components/`: `PageFrame` (the title, no icon; `.max_width` centres the title and body in a column, as Settings,
     Import and Credits do), `NavItem` (a sidebar entry; the current one on a
-    lighter panel; `nested` for a feature's pages, each led by a diamond),
+    lighter panel; `nested` for a feature's pages: no icon nor ornament, the label indented under the group's),
     `NavGroup` (a feature in the sidebar, folding), `card`, `card_title`, `MaterialTile` (a material and its count on its
     rarity tile; `.done` greys it out, `bare` drops the count, no icon shows "?", `.crafted(n)` a flask badge with how
     many are crafted from the tiers below, as genshin-center shows them), `rich_text` (game text whose `**…**` terms turn semibold), `stat` (title, value,
@@ -309,7 +331,7 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   **How data flows, and why, is documented at the top of `src/lib.rs`; follow it and update it when it changes.**
   In short:
   - each piece of state has one owner: data and settings → `Library`; selected account and the flow in progress
-    → `Session`; the page shown → `Shell`; app-wide commands → GPUI actions (`ImportFile`, `ImportFromGame`, `SyncFromHoyolab`);
+    → `Session`; the page shown → `Shell`; app-wide commands → GPUI actions (`ImportFile`, `ImportFromGame`, `SyncFromHoyolab`, `ImportGood`);
   - others hold an `Entity<…>`, read it and `observe` it; they change it only through its methods (fields stay
     private). Don't copy shared state into pages;
   - one flow for the whole window: start async flows with `Session::start_flow`, which cancels the previous one;
@@ -453,7 +475,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       direction, open character, level sliders; the shell calls `show_list`, `show_character`,
       `open_character_filters`), `model.rs` (the list and a character's numbers as plain data from pure functions,
       tested alone), `list.rs` and `page.rs` drawing them, `collection.rs`. `shared.rs`: what both pages draw alike
-      (the hero banner, facts, level badge, stats table, materials, corner buttons, section titles). `filters.rs`: the filter bar of both
+      (the hero banner, facts, level badge, stats table, materials, corner buttons, section titles, and `item_card`: the list
+      card of all three archive pages, `CARD_REMS` wide, the user's ask on 2026-11-17 that they match: picture on its
+      rarity tile with an icon top left, buttons top right, what the account has bottom left, "New" bottom right, the
+      name on a parchment strip, faded when not owned). `filters.rs`: the filter bar of both
       lists, after genshinlist.vercel.app's (search, "Filter" opening a drawer of filter buttons in groups,
       applied at once; "Sort by" as a picker; a button reversing the order, its icon telling the direction;
       chips for the filters on). The drawer is the app's own (`filter_drawer`, deferred over the page, its
@@ -461,7 +486,7 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       height); Escape, its cross, Done or a click on the veil close it.
       Never read the view's entity in its own render: `filter_groups` takes `&self` and a weak handle. `characters/list.rs`:
       the account's characters first ("Owned": level and constellation, ☆, ×), the others faded with + ("Not
-      owned"), 8.25 rem cards (icon on the rarity tile, element badge, "New" for the latest version).
+      owned"), `item_card`s (element badge, "New" for the latest version).
       `collection.rs`: owning, favourites, removing, and the "My character" panel. `page.rs`: a hero banner (the
       blurred backdrop faded into the card under the text, the art drawn 1.3× the banner's height and cropped, the
       stars, description and facts), "My character" when owned, then stacked sections as on genshin-list: Stats (at
@@ -475,12 +500,23 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       showing the best refinement and the copies, "R3 · ×2", with ☆ (every copy) and + (add a copy), then "Not
       owned" faded) and a weapon's page (the same `shared::hero_banner` with its upright wish art, "My copies",
       stats at the level slider and their cost, the passive by refinement, "Add to the planner").
-      `weapons/copies.rs`: the copies, one row each (level picker over `Level::weapon_steps`, refinement, "Held
-      by" among the owned characters of that weapon type, favourite, remove after asking), "Add a copy";
-      `CopyControls` are each copy's pickers, kept in step with the stored copies (`sync_copies`, on every change
+      `weapons/copies.rs`: the copies (their count in the title), one row per group of copies alike
+      (`model::copy_groups`: same level, refinement, holder and favourite; "×N"; a GOOD import brings fodder by the
+      hundred), the row editing its first copy (the favourite, all of them; "Remove one"): level picker over
+      `Level::weapon_steps`, refinement, "Held by" among the owned characters of that weapon type, favourite, remove
+      after asking; "Add a copy"; `CopyControls` are each row's pickers, kept in step with the stored copies (`sync_copies`, on every change
       of the library or the session). A character holds one copy: giving it another takes it from the first.
       The character's "My character" panel shows the weapon it holds. The planner's "Add a weapon…" opens the cards; a weapon card has a level
       range only (`Controls::steps` holds its rarity's levels).
+    - `archive/resources/`: `ResourcesView` (`Page::Archive(ArchivePage::Resources)`, "Resources" under Archive, the
+      user's ask on 2026-11-17): every material of the game data (placeholders apart) in sections as the game's bag
+      sorts them (`model.rs`, tested alone: Mora and EXP, gems, boss and weekly boss materials, talent materials with
+      the Crown, weapon materials, common and elite drops, each region's local specialties; boss from weekly and
+      common from elite by the planner's roles, `PlannerData::families`, since the game files them alike; a kind it
+      doesn't know goes to "Other", which a test keeps empty), each an `item_card` like the characters' and weapons' with the
+      account's count in its badge (faded at 0, the name and exact count in a tooltip), a search (current language or English) and "Owned only". A click
+      opens the planner's inventory dialog on the material's series: the shell gives the view an `EditMaterial`
+      callback to `Shell::open_inventory`, since pages don't know each other.
     - `imports/`: the Import page (`Imports`, `RenderOnce`, `Page::Imports`, in the sidebar's foot above Settings):
       every source on one page, a card each (the wish history: from the game, from a file; characters and weapons:
       HoYoLAB), their buttons sending the app's actions; the wish import buttons stay on the pages that had them.
@@ -494,6 +530,11 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       `SyncNote`'s `Display`, which `wishctl` prints too), then
       `Library::apply_hoyolab_sync` (into the account the player picks among `HoyolabAccount::choices`, each with
       its own `SyncPlan`; the session selects it). A weapon that only changes hands shows as moved (⇄). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
+      `good/`: `GoodImport`, the GOOD import's dialog (`ImportGood`, `Shell::open_good_import`; also in the app
+      menu): a file, or the clipboard's text (Irminsul copies its export there), `Library::preview_good` into the
+      account shown (`GoodSource`), a preview (`model.rs`: the words, tested alone; the characters' and weapons'
+      lines are the HoYoLAB preview's, identical lines once with their count, then the materials "before → after"),
+      then `Library::apply_good`. The Import page has a card for it (`good_import_button`).
     - `settings/`: `SettingsPage` (entity) and its rows (the language first: a picker, the system's or one chosen,
       `Preferences::set_language` → `crate::apply_language`, which redraws every window; pages that work text out
       ahead of a render do it again when the library notifies), in a centred column, or two on a page at least
@@ -539,7 +580,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   `SCREENSHOT_ONLY=overview,banners` only the captures whose names start with these, `SCREENSHOT_LANGUAGE=fr`
   the pages in French (English otherwise, whatever the data folder's settings say). The HoYoLAB sync's preview
   (`hoyolab-preview`) comes from a sample HoYoLAB in the tool (`SampleHoyolab`: Ganyu at 80 without her phase, a
-  character the data lacks), through `Shell::open_hoyolab_preview`; never the real one. Put `"manual_counting": true` in the
+  character the data lacks), through `Shell::open_hoyolab_preview`; never the real one. The GOOD import (`good`,
+  `good-preview`) reads `SAMPLE_GOOD`, a synthetic file in the tool, through `Shell::open_good_preview`; never a
+  real export. `SCREENSHOT_WEAPON=coolsteel` shoots another weapon's page (`weapon-`) than Amos' Bow. Put `"manual_counting": true` in the
   data dir's `settings.json` to also shoot the counting controls and the add-item dialog.
   To try the real app on scratch data, set `GENSHIN_COMPANION_DATA_DIR=<dir>` (the former
   `GENSHIN_WISHES_DATA_DIR` still works).
@@ -618,7 +661,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
 - The write queue's promises (a failed or panicking write reloads, the order kept, the newest state shown, a write
   finishing when its caller lets go, quitting counting the writes under way) are tested in
   `wish-app/src/app/library/tests.rs`, under the test scheduler's random order (`SEED=n` tries another).
-- Tests that use real exports (they contain UIDs) go in `crates/wish-core/tests/fixtures/private/`, which is git-ignored.
+- Tests that use real exports (they contain UIDs) go in `crates/wish-core/tests/fixtures/private/`, which is git-ignored;
+  GOOD exports in its `good/` folder.
 
 ## Domain rules
 

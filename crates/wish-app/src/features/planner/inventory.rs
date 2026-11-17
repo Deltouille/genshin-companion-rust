@@ -221,8 +221,13 @@ impl InventoryForm {
                     .gap_3()
                     .child(MaterialTile::bare(material.icon.clone(), material.stars))
                     .child(
+                        // The room left beside the tile, so the line under
+                        // the name wraps rather than running out of the
+                        // dialog (French is longer).
                         div()
                             .v_flex()
+                            .flex_1()
+                            .min_w_0()
                             .gap_0p5()
                             .child(
                                 div()

@@ -25,7 +25,7 @@
 //! | Settings, the game's images | [`Library`]'s own entities: `Preferences` and `ImageService` | reach them through the library (`settings(cx)`, `preferences()`, `images(cx)`, `image_service()`); an image arriving only redraws, it wakes none of the library's observers |
 //! | Selected account, flow in progress | [`Session`] | hold `Entity<Session>`, read and `observe` it; change it only with its methods |
 //! | Which page is shown | [`Shell`] | pages ask with a callback (`on_navigate`) or the shell calls the page (`HistoryView::set_pool`) |
-//! | App-wide commands (import) | GPUI actions | buttons and the menu send [`ImportFile`] / [`ImportFromGame`] / [`SyncFromHoyolab`]; the shell forwards them to the import flow or opens the HoYoLAB sync |
+//! | App-wide commands (import) | GPUI actions | buttons and the menu send [`ImportFile`] / [`ImportFromGame`] / [`SyncFromHoyolab`] / [`ImportGood`]; the shell forwards them to the import flow or opens the HoYoLAB sync or the GOOD import |
 //!
 //! Why these choices:
 //!
@@ -101,7 +101,7 @@ use gpui_kit::{
 
 pub use app::{AppAssets, ImageDownloads, Library, Services, Session};
 pub use shell::{
-    ArchivePage, Feature, ImportFile, ImportFromGame, OverviewTab, Page, Quit, Shell,
+    ArchivePage, Feature, ImportFile, ImportFromGame, ImportGood, OverviewTab, Page, Quit, Shell,
     SyncFromHoyolab, WishPage,
 };
 pub use startup_error::{
@@ -142,6 +142,7 @@ fn set_menus(cx: &mut App) {
             MenuItem::action(t!("app-menu-import-game"), ImportFromGame),
             MenuItem::action(t!("app-menu-import-file"), ImportFile),
             MenuItem::action(t!("app-menu-sync-hoyolab"), SyncFromHoyolab),
+            MenuItem::action(t!("app-menu-import-good"), ImportGood),
             MenuItem::separator(),
             MenuItem::action(t!("app-menu-quit"), Quit),
         ],

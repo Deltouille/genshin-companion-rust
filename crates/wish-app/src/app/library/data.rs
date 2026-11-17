@@ -192,6 +192,69 @@ impl Library {
         )
     }
 
+    /// Reads a GOOD file from `source` and works out what importing it into
+    /// `shown`, the account on screen, would change (`None`, no account yet:
+    /// a new one). Nothing is written.
+    pub fn preview_good(
+        &self,
+        source: GoodSource,
+        shown: Option<AccountId>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<GoodPreview>> {
+        let Some(store) = self.store.clone() else {
+            return Task::ready(Err(not_open()));
+        };
+        let planner = self.planner.clone();
+        cx.background_spawn(async move {
+            let file = match source {
+                GoodSource::File(path) => {
+                    let size = std::fs::metadata(&path)
+                        .map_err(|source| wish_core::error::Error::Io {
+                            action: IoAction::Reading,
+                            path: path.clone(),
+                            source,
+                        })?
+                        .len();
+                    if size > MAX_IMPORT_BYTES {
+                        return Err(anyhow!(t!(
+                            "app-import-too-large",
+                            file = path.display().to_string(),
+                            size = wish_ui::format::bytes(size)
+                        )));
+                    }
+                    service::good::read(&path)?
+                }
+                GoodSource::Text(text) => GoodFile::parse(text.as_bytes())?,
+            };
+            let store = lock(&store);
+            Ok(service::good::preview(file, &store, shown, &planner)?)
+        })
+    }
+
+    /// Writes a GOOD import the player confirmed, into the account its
+    /// preview names (a new "Main" when there was none). The plan is worked
+    /// out again against what is stored, then written in one transaction
+    /// after a backup. Returns the account and what changed.
+    pub fn apply_good(
+        &mut self,
+        preview: GoodPreview,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<(AccountId, GoodPlan)>> {
+        let planner = self.planner.clone();
+        let target = preview.account.as_ref().map(|account| account.id);
+        // The mirror's snapshot holds the collection and the inventory, and
+        // an account may be made.
+        self.write(
+            cx,
+            true,
+            move |store, _| {
+                let (account, plan, _) = store.apply_good(target, &preview.file, &planner)?;
+                Ok((account, plan))
+            },
+            |_, applied| applied,
+        )
+    }
+
     /// Writes a prepared batch (backup first, one transaction), then
     /// recomputes every account and refreshes the mirror folder.
     pub fn apply_import(

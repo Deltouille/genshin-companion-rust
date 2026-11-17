@@ -8,6 +8,10 @@ imports-wish-history-file = From a file: a paimon.moe save or spreadsheet, a UIG
 imports-collection = Characters and weapons
 imports-collection-help = From HoYoLAB: your characters as they are in the game (level, constellations, talents) and the weapon each holds, into your collection. Your HoYoLAB cookie is used for that sync only, and never saved.
 imports-collection-safe = It only adds or raises what you entered, never lowers it, and shows what would change before writing anything.
+imports-good = Characters, weapons and materials
+imports-good-help = From a GOOD file, which Irminsul, Inventory Kamera and Genshin Optimizer export: your characters, every weapon in your bag and your materials, into the account shown. The planner then counts with your real materials.
+imports-good-safe = Characters and weapons are only added or raised, never lowered; the materials take the file’s counts. A preview shows every change before anything is written.
+imports-good-button = Import a GOOD file…
 imports-undo = Every import can be undone, and a backup is taken before each: see Settings.
 
 ## The HoYoLAB dialog: the cookie
@@ -52,3 +56,33 @@ hoyolab-weapon-line = { $weapon } · { $level } · R{ $refinement }
 hoyolab-weapon-held = { $weapon } · { $level } · R{ $refinement } · held by { $holder }
 hoyolab-moved = { $weapon } · { $level } · R{ $refinement }: from { $from } to { $to }
 hoyolab-nobody = nobody
+
+## The GOOD import's dialog
+
+good-prompt = Choose a GOOD file
+good-intro = A GOOD file holds your characters, the weapons in your bag and your materials. It goes into the account shown, { $account }: to import into another, pick it in the sidebar first.
+good-intro-new = A GOOD file holds your characters, the weapons in your bag and your materials. It goes into a new account, “Main”.
+good-how-irminsul = Irminsul: start it, then the game; once it has read your data, export it to a file or to the clipboard.
+good-how-kamera = Inventory Kamera: scan your account, then choose the file it writes.
+good-how-optimizer = Genshin Optimizer: export your database, then choose the file.
+good-safe = Characters and weapons are only added or raised, never lowered. The materials the planner uses take the file’s counts, those the file lacks go to 0, and the Mora is kept. Nothing is written before you confirm, and a backup comes first.
+good-paste = Paste from the clipboard
+good-choose-file = Choose a file…
+good-clipboard-empty = The clipboard holds no text: copy the GOOD export first, or choose the file.
+good-reading = Reading the file…
+good-heading = From { $source }, { $into }
+good-heading-unnamed = From a GOOD file, { $into }
+good-into = into { $account }
+good-into-new = into a new account, “Main”
+good-materials = Materials: { $count } to change
+good-section-characters = Characters
+good-section-weapons = Weapons
+good-section-materials = Materials
+good-grouped = { $line } ×{ $count }
+good-material-line = { $name }: { $before } → { $after }
+good-nothing-new = Your collection and your inventory already have all of this.
+good-import = Import
+good-imported = The GOOD file is imported into { $account }: { $count ->
+        [one] { $count } change
+       *[other] { $count } changes
+    }.

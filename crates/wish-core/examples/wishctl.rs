@@ -44,6 +44,10 @@ Commands:
                           without a UID, which takes it; else a new one)
                           (--from F: read the details hoyolab-check --raw saved, with --uid, instead
                           of asking HoYoLAB)
+  check-good <file>       Show what importing a GOOD file (Irminsul, Inventory Kamera, Genshin
+                          Optimizer) would change, writing nothing: into the account of --uid U or
+                          --account NAME, else the only one (a new “Main” when there is none)
+  import-good <file>      The same, then write it, after a backup
 
 DIR defaults to the app's data folder.";
 
@@ -56,6 +60,7 @@ fn main() -> Result<()> {
     let raw = take_option(&mut args, "--raw")?;
     let uid = take_option(&mut args, "--uid")?;
     let from = take_option(&mut args, "--from")?;
+    let label = take_option(&mut args, "--account")?;
 
     // One process at a time writes to a data folder: a command that writes
     // takes its lock, as the app does, and stops while the app has it.
@@ -68,6 +73,7 @@ fn main() -> Result<()> {
                 | "undo"
                 | "backup"
                 | "hoyolab-sync"
+                | "import-good"
         )
     );
     let _lock = if writes {
@@ -119,6 +125,20 @@ fn main() -> Result<()> {
         ["hoyolab-sync"] => {
             hoyolab_sync(&paths, uid.as_deref(), from.as_deref().map(Path::new), true)
         }
+        ["check-good", file] => good(
+            &paths,
+            Path::new(file),
+            uid.as_deref(),
+            label.as_deref(),
+            false,
+        ),
+        ["import-good", file] => good(
+            &paths,
+            Path::new(file),
+            uid.as_deref(),
+            label.as_deref(),
+            true,
+        ),
         ["backup"] => {
             let store = Store::open(paths)?;
             println!(
@@ -639,17 +659,61 @@ fn hoyolab_check(raw: Option<&Path>) -> Result<()> {
 fn read_cookie() -> Result<hoyolab::Cookie> {
     use std::io::{BufRead as _, IsTerminal as _};
 
-    if std::io::stdin().is_terminal() {
-        eprintln!(
-            "Paste your HoYoLAB cookie as one line (ltuid_v2=…; ltoken_v2=…; ltmid_v2=…), then \
-             press Enter. It is used for this command only and never saved."
-        );
-    }
+    let terminal = std::io::stdin().is_terminal();
     let mut line = String::new();
-    std::io::stdin().lock().read_line(&mut line)?;
+    {
+        // A terminal shows what is pasted, and keeps it in its scrollback.
+        let hidden = terminal.then(HiddenInput::start).flatten();
+        if terminal {
+            eprintln!(
+                "Paste your HoYoLAB cookie as one line (ltuid_v2=…; ltoken_v2=…; ltmid_v2=…), \
+                 then press Enter. It is used for this command only and never saved."
+            );
+            if hidden.is_some() {
+                eprintln!("It won't show on the screen as you paste it.");
+            } else {
+                eprintln!("It will show on the screen: clear the terminal afterwards.");
+            }
+        }
+        std::io::stdin().lock().read_line(&mut line)?;
+    }
+    if terminal {
+        eprintln!();
+    }
     // Wiped from memory once read, like the cookie's fields.
     let pasted = hoyolab::Secret::new(line);
     Ok(hoyolab::Cookie::parse(pasted.expose())?)
+}
+
+/// The terminal's echo off until dropped, so a pasted cookie neither shows
+/// nor stays in the scrollback. `None` where it can't be turned off (no
+/// `stty`, or not Unix).
+struct HiddenInput;
+
+impl HiddenInput {
+    fn start() -> Option<Self> {
+        stty("-echo").then_some(HiddenInput)
+    }
+}
+
+impl Drop for HiddenInput {
+    fn drop(&mut self) {
+        stty("echo");
+    }
+}
+
+/// Runs `stty` on the terminal (its standard input, inherited).
+#[cfg(unix)]
+fn stty(setting: &str) -> bool {
+    std::process::Command::new("stty")
+        .arg(setting)
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+#[cfg(not(unix))]
+fn stty(_: &str) -> bool {
+    false
 }
 
 /// Fetches the characters of one game account from HoYoLAB and shows what a
@@ -662,8 +726,7 @@ fn hoyolab_sync(
     apply: bool,
 ) -> Result<()> {
     use wish_core::archive::ArchiveData;
-    use wish_core::collection::Change;
-    use wish_core::planner::{Level, PlannerData};
+    use wish_core::planner::PlannerData;
 
     let (account, details) = match from {
         Some(file) => saved_details(file, uid)?,
@@ -695,6 +758,116 @@ fn hoyolab_sync(
         }
     );
     let plan = &choice.plan;
+    print_sync(plan, planner);
+    print_notes(&plan.notes);
+
+    if !apply {
+        println!("\nNothing was written. `hoyolab-sync` writes it, after a backup.");
+        return Ok(());
+    }
+    let target = existing.map(|existing| existing.id);
+    let (_, applied, backup) =
+        store.apply_sync(target, account, &preview.details, planner, archive)?;
+    println!(
+        "\nWritten: {} changes. Backup: {}",
+        applied.changes(),
+        backup.display()
+    );
+    Ok(())
+}
+
+/// Shows what importing the GOOD file `file` would change, into the account
+/// with UID `uid` or named `label`, else the only account (a new "Main" when
+/// there is none); with `apply`, writes it after a backup.
+fn good(
+    paths: &AppPaths,
+    file: &Path,
+    uid: Option<&str>,
+    label: Option<&str>,
+    apply: bool,
+) -> Result<()> {
+    use wish_core::planner::PlannerData;
+
+    let good = service::good::read(file)?;
+    let mut store = Store::open(paths.clone())?;
+    let accounts = store.accounts()?;
+    let target = match (uid, label) {
+        (Some(uid), _) => Some(
+            (accounts.iter())
+                .find(|a| a.uid.as_deref() == Some(uid))
+                .with_context(|| format!("no account has the UID {uid}"))?
+                .id,
+        ),
+        (None, Some(label)) => Some(
+            (accounts.iter())
+                .find(|a| a.label == label)
+                .with_context(|| format!("no account is named “{label}”"))?
+                .id,
+        ),
+        (None, None) => match &accounts[..] {
+            [] => None,
+            [only] => Some(only.id),
+            _ => bail!(
+                "this data folder has several accounts: say which with --uid or --account ({})",
+                (accounts.iter())
+                    .map(|a| format!("“{}”", a.label))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        },
+    };
+    let planner = PlannerData::embedded();
+    let source = good.source.clone();
+    let preview = service::good::preview(good, &store, target, planner)?;
+    println!(
+        "GOOD file from {} → {}",
+        if source.is_empty() {
+            "an unnamed app"
+        } else {
+            &source
+        },
+        (preview.account.as_ref()).map_or("a new account, “Main”".to_owned(), |a| format!(
+            "“{}”",
+            a.label
+        ))
+    );
+    let plan = &preview.plan;
+    print_sync(&plan.collection, planner);
+    println!("\nMaterials: {} changed", plan.materials.len());
+    for change in &plan.materials {
+        let name = (planner.material(change.id))
+            .map_or_else(|| change.id.to_string(), |m| m.name.to_string());
+        println!("  {name}: {} → {}", change.before, change.after);
+    }
+    print_notes(&plan.collection.notes);
+
+    if !apply {
+        println!("\nNothing was written. `import-good` writes it, after a backup.");
+        return Ok(());
+    }
+    let (_, applied, backup) = store.apply_good(target, &preview.file, planner)?;
+    println!(
+        "\nWritten: {} changes. Backup: {}",
+        applied.changes(),
+        backup.display()
+    );
+    Ok(())
+}
+
+fn print_notes(notes: &[wish_core::collection::SyncNote]) {
+    if !notes.is_empty() {
+        println!("\nNotes:");
+    }
+    for note in notes {
+        println!("  ! {note}");
+    }
+}
+
+/// What a sync or a GOOD import adds and raises, identical lines once with
+/// their count (a GOOD file's fodder comes by the hundred).
+fn print_sync(plan: &wish_core::collection::SyncPlan, planner: &wish_core::planner::PlannerData) {
+    use wish_core::collection::Change;
+    use wish_core::planner::Level;
 
     let level = |level: Level| {
         const CAPS: [u8; 7] = [20, 40, 50, 60, 70, 80, 90];
@@ -730,70 +903,59 @@ fn hoyolab_sync(
                 .map_or(String::new(), |h| format!(", held by {}", name(h)))
         )
     };
-    let count = |changes: &[bool]| changes.iter().filter(|c| **c).count();
-    let added = plan
-        .characters
-        .iter()
-        .map(|c| matches!(c, Change::Added(_)));
-    let raised = plan
-        .characters
-        .iter()
-        .map(|c| matches!(c, Change::Raised { .. }));
-    println!(
-        "\nCharacters: {} added, {} raised, {} unchanged",
-        count(&added.collect::<Vec<_>>()),
-        count(&raised.collect::<Vec<_>>()),
-        plan.characters.iter().filter(|c| !c.changes()).count()
-    );
-    for change in &plan.characters {
-        match change {
-            Change::Added(c) => println!("  + {}", character(c)),
-            Change::Raised { before, after } => {
-                println!("  ↑ {}  (was {})", character(after), character(before));
+    fn tally<T>(changes: &[Change<T>]) -> (usize, usize, usize) {
+        changes
+            .iter()
+            .fold((0, 0, 0), |(added, raised, kept), change| match change {
+                Change::Added(_) => (added + 1, raised, kept),
+                Change::Raised { .. } => (added, raised + 1, kept),
+                Change::Unchanged(_) => (added, raised, kept + 1),
+            })
+    }
+    /// Each line once, in the order first seen, with how many times it came.
+    fn grouped(lines: impl Iterator<Item = String>) -> Vec<(String, usize)> {
+        let mut grouped: Vec<(String, usize)> = Vec::new();
+        for line in lines {
+            match grouped.iter_mut().find(|(seen, _)| *seen == line) {
+                Some((_, count)) => *count += 1,
+                None => grouped.push((line, 1)),
             }
-            Change::Unchanged(_) => {}
         }
+        grouped
     }
-    let added = plan.weapons.iter().map(|w| matches!(w, Change::Added(_)));
-    let raised = plan
-        .weapons
-        .iter()
-        .map(|w| matches!(w, Change::Raised { .. }));
-    println!(
-        "\nWeapons: {} added, {} raised, {} unchanged",
-        count(&added.collect::<Vec<_>>()),
-        count(&raised.collect::<Vec<_>>()),
-        plan.weapons.iter().filter(|w| !w.changes()).count()
-    );
-    for change in &plan.weapons {
-        match change {
-            Change::Added(w) => println!("  + {}", weapon(w)),
-            Change::Raised { before, after } => {
-                println!("  ↑ {}  (was {})", weapon(after), weapon(before));
+    let show = |lines: Vec<(String, usize)>| {
+        for (line, count) in lines {
+            match count {
+                1 => println!("  {line}"),
+                _ => println!("  {line}  ×{count}"),
             }
-            Change::Unchanged(_) => {}
         }
-    }
-    if !plan.notes.is_empty() {
-        println!("\nNotes:");
-    }
-    for note in &plan.notes {
-        println!("  ! {note}");
-    }
+    };
 
-    if !apply {
-        println!("\nNothing was written. `hoyolab-sync` writes it, after a backup.");
-        return Ok(());
-    }
-    let target = existing.map(|existing| existing.id);
-    let (_, applied, backup) =
-        store.apply_sync(target, account, &preview.details, planner, archive)?;
-    println!(
-        "\nWritten: {} changes. Backup: {}",
-        applied.changes(),
-        backup.display()
-    );
-    Ok(())
+    let (added, raised, kept) = tally(&plan.characters);
+    println!("\nCharacters: {added} added, {raised} raised, {kept} unchanged");
+    show(grouped(plan.characters.iter().filter_map(
+        |change| match change {
+            Change::Added(c) => Some(format!("+ {}", character(c))),
+            Change::Raised { before, after } => Some(format!(
+                "↑ {}  (was {})",
+                character(after),
+                character(before)
+            )),
+            Change::Unchanged(_) => None,
+        },
+    )));
+    let (added, raised, kept) = tally(&plan.weapons);
+    println!("\nWeapons: {added} added, {raised} raised, {kept} unchanged");
+    show(grouped(plan.weapons.iter().filter_map(
+        |change| match change {
+            Change::Added(w) => Some(format!("+ {}", weapon(w))),
+            Change::Raised { before, after } => {
+                Some(format!("↑ {}  (was {})", weapon(after), weapon(before)))
+            }
+            Change::Unchanged(_) => None,
+        },
+    )));
 }
 
 /// The details of one game account's characters, from HoYoLAB: `uid`'s, or

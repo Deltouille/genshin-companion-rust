@@ -40,9 +40,10 @@ use wish_core::planner::MaterialId;
 
 use crate::app::library::{Library, LoadState};
 use crate::app::{Notices, Session};
-use crate::features::archive::{CharactersView, WeaponsView};
+use crate::features::archive::{CharactersView, EditMaterial, ResourcesView, WeaponsView};
 use crate::features::credits::Credits;
 use crate::features::imports::Imports;
+use crate::features::imports::good::GoodImport;
 use crate::features::imports::hoyolab::HoyolabSync;
 use crate::features::overview::Overview;
 use crate::features::planner::PlannerView;
@@ -55,7 +56,13 @@ use wish_ui::{PickerEvent, PickerItem, PickerState};
 
 actions!(
     genshin_companion,
-    [ImportFile, ImportFromGame, SyncFromHoyolab, Quit]
+    [
+        ImportFile,
+        ImportFromGame,
+        SyncFromHoyolab,
+        ImportGood,
+        Quit
+    ]
 );
 
 /// A destination in the sidebar: a page of a feature, or one of the app's own
@@ -111,6 +118,8 @@ pub enum ArchivePage {
     Characters,
     /// Every weapon, and one weapon's page when one is open.
     Weapons,
+    /// Every material, by type, with how many the account has.
+    Resources,
 }
 
 /// A feature: a group in the sidebar, holding its pages. A new one (an
@@ -165,6 +174,7 @@ pub struct Shell {
     archive: Entity<CharactersView>,
     weapons: Entity<WeaponsView>,
     planner: Entity<PlannerView>,
+    resources: Entity<ResourcesView>,
     settings: Entity<SettingsPage>,
     import: Entity<ImportFlow>,
     /// Messages about work done in the background, drawn over everything.
@@ -181,6 +191,14 @@ impl Shell {
         let archive = cx.new(|cx| CharactersView::new(session.clone(), window, cx));
         let weapons = cx.new(|cx| WeaponsView::new(session.clone(), window, cx));
         let planner = cx.new(|cx| PlannerView::new(session.clone(), window, cx));
+        // A material's count is set in the planner's inventory dialog.
+        let shell = cx.weak_entity();
+        let edit: EditMaterial = std::rc::Rc::new(move |id, window, cx| {
+            shell
+                .update(cx, |shell, cx| shell.open_inventory(id, window, cx))
+                .ok();
+        });
+        let resources = cx.new(|cx| ResourcesView::new(session.clone(), edit, window, cx));
         let settings = cx.new(|cx| SettingsPage::new(session.clone(), cx));
         let import = cx.new(|cx| ImportFlow::new(session.clone(), cx));
         let notices = Notices::new(cx);
@@ -225,6 +243,7 @@ impl Shell {
             archive,
             weapons,
             planner,
+            resources,
             settings,
             import,
             notices,
@@ -466,6 +485,42 @@ impl Shell {
         self.open_hoyolab_sync(window, cx);
     }
 
+    fn import_good(&mut self, _: &ImportGood, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_good_import(window, cx);
+    }
+
+    /// Opens the GOOD import: the file (or the clipboard), then what it
+    /// changes.
+    pub fn open_good_import(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Option<Entity<GoodImport>> {
+        if !matches!(self.library.read(cx).state(), LoadState::Ready) {
+            return None;
+        }
+        let (library, session) = (self.library.clone(), self.session.clone());
+        let view = cx.new(|_| GoodImport::new(library, session));
+        let shown = view.clone();
+        window.open_dialog(cx, move |dialog, window, _| {
+            dialog
+                .title(t!("app-import-good-title"))
+                .w(window.rem_size() * 44.)
+                .child(shown.clone())
+        });
+        Some(view)
+    }
+
+    /// Opens the GOOD import on `text` at once, for the screenshot tool's
+    /// preview (it gives a sample file).
+    pub fn open_good_preview(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(view) = self.open_good_import(window, cx) {
+            view.update(cx, |view, cx| {
+                view.read(crate::app::library::GoodSource::Text(text), window, cx);
+            });
+        }
+    }
+
     /// Opens the HoYoLAB sync: the cookie, the fetch, then what it changes
     /// (the screenshot tool opens it this way).
     pub fn open_hoyolab_sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -533,6 +588,7 @@ impl Shell {
             Page::Wishes(WishPage::History(_)) => self.history.clone().into_any_element(),
             Page::Archive(ArchivePage::Characters) => self.archive.clone().into_any_element(),
             Page::Archive(ArchivePage::Weapons) => self.weapons.clone().into_any_element(),
+            Page::Archive(ArchivePage::Resources) => self.resources.clone().into_any_element(),
             Page::Planner => self.planner.clone().into_any_element(),
             Page::Overview(tab) => self.render_overview(tab, cx),
         }
@@ -618,6 +674,7 @@ impl Render for Shell {
             .on_action(cx.listener(Self::import_file))
             .on_action(cx.listener(Self::import_from_game))
             .on_action(cx.listener(Self::sync_from_hoyolab))
+            .on_action(cx.listener(Self::import_good))
             .child(self.render_sidebar(cx))
             .child(
                 div()

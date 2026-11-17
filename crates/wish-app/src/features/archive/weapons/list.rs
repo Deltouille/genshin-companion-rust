@@ -7,22 +7,21 @@ use std::rc::Rc;
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, Context, FontWeight, InteractiveElement as _, IntoElement, ObjectFit,
-    ParentElement as _, SharedString, Styled as _, StyledImage as _, div, img, rems,
+    AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _, SharedString,
+    Styled as _, div,
 };
 use wish_core::model::Rarity;
 
 use super::super::filters;
-use super::super::shared::{corner_button, section_title};
+use super::super::shared::{ItemCard, corner_button, item_card, section_title};
 use super::WeaponsView;
 use super::model::{self, Filters, WeaponCard};
 use crate::app::images::Images;
 use wish_core::planner::PlannerData;
-use wish_ui::{PageFrame, badge, theme};
+use wish_ui::{PageFrame, theme};
 
 impl WeaponsView {
     pub(super) fn render_list(&mut self, cx: &mut Context<Self>) -> AnyElement {
@@ -142,8 +141,6 @@ impl WeaponsView {
         images: &Images,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let theme = cx.theme();
-        let (ink, parchment) = theme::tile_label(cx);
         let (key, name) = (weapon.key.clone(), weapon.name.clone());
         let owned = weapon.owned;
         let add = corner_button(
@@ -188,75 +185,22 @@ impl WeaponsView {
         } else {
             div().child(add)
         };
-        let icon = planner.weapon(&key).and_then(|w| images.weapon(w));
-        let picture = div()
-            .relative()
-            .w_full()
-            .h(rems(8.25))
-            .rounded_t(theme.radius_lg)
-            .rounded_br(rems(2.))
-            .bg(if owned {
-                theme::stars_tile(weapon.rarity, cx)
-            } else {
-                // Faded with its picture: the card reads as one not owned.
-                theme::stars_tile(weapon.rarity, cx).opacity(0.4)
-            })
-            .children(icon.map(|icon| {
-                img(icon)
-                    .size_full()
-                    .object_fit(ObjectFit::Contain)
-                    .when(!owned, |this| this.opacity(0.5))
-            }))
-            .child(div().absolute().top_1().right_1().child(corner))
-            .child(
-                div()
-                    .absolute()
-                    .bottom_1()
-                    .left_1()
-                    .right_1()
-                    .h_flex()
-                    .gap_1()
-                    .children(weapon.summary.clone().map(|text| {
-                        badge(text, (theme.foreground, theme.background.opacity(0.85)), cx)
-                    }))
-                    .child(div().flex_1())
-                    .when(weapon.new, |this| {
-                        this.child(badge(
-                            t!("archive-new"),
-                            (theme.primary_foreground, theme.primary),
-                            cx,
-                        ))
-                    }),
-            );
-        Button::new(SharedString::from(format!("weapon-{key}")))
-            .ghost()
-            .p_0()
-            .w(rems(8.25))
-            .h_auto()
-            .rounded(theme.radius_lg)
-            .cursor_pointer()
-            .accessibility_label(weapon.label())
-            .child(
-                div()
-                    .v_flex()
-                    .w_full()
-                    .rounded(theme.radius_lg)
-                    .bg(if owned { parchment } else { theme.muted })
-                    .child(picture)
-                    .child(
-                        div()
-                            .w_full()
-                            .px_2()
-                            .py_1p5()
-                            .text_sm()
-                            .font_weight(FontWeight::BOLD)
-                            .text_center()
-                            .truncate()
-                            .text_color(if owned { ink } else { theme.muted_foreground })
-                            .child(name),
-                    ),
-            )
-            .on_click(cx.listener(move |this, _, _, cx| this.show_weapon(&key, cx)))
-            .into_any_element()
+        item_card(
+            ItemCard {
+                id: SharedString::from(format!("weapon-{key}")),
+                icon: planner.weapon(&key).and_then(|w| images.weapon(w)),
+                rarity: weapon.rarity,
+                owned,
+                name: name.clone(),
+                label: weapon.label(),
+                top_left: None,
+                corner: Some(corner.into_any_element()),
+                summary: weapon.summary.clone(),
+                new: weapon.new,
+            },
+            cx,
+        )
+        .on_click(cx.listener(move |this, _, _, cx| this.show_weapon(&key, cx)))
+        .into_any_element()
     }
 }

@@ -96,6 +96,7 @@ fn main() -> Result<()> {
             "history-standard",
             Page::Wishes(WishPage::History(Pool::Standard)),
         ),
+        ("resources", Page::Archive(ArchivePage::Resources)),
         ("imports", Page::Imports),
         ("settings", Page::Settings),
         ("credits", Page::Credits),
@@ -391,9 +392,14 @@ fn main() -> Result<()> {
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
         // The inventory dialog, on a talent book (its whole series, the
-        // guides crafted from the teachings), then on Hero's Wit (the three
-        // books, each worth its EXP).
-        for (id, name) in [(104314, "inventory"), (104003, "exp")] {
+        // guides crafted from the teachings), on Hero's Wit (the three books,
+        // each worth its EXP), then on Mora (one material, its line under the
+        // name long enough to wrap in French, and the ley line button).
+        for (id, name) in [
+            (104314, "inventory"),
+            (104003, "exp"),
+            (wish_core::planner::MORA, "mora"),
+        ] {
             cx.update_window(window, |_, window, cx| {
                 shell.update(cx, |shell, cx| shell.open_inventory(id, window, cx))
             })?;
@@ -532,7 +538,10 @@ fn main() -> Result<()> {
         });
         settle(&mut cx)?;
         shoot(&mut cx, format!("weapons-{mode_name}"))?;
-        cx.update(|cx| shell.update(cx, |shell, cx| shell.open_weapon("amosbow", cx)));
+        // SCREENSHOT_WEAPON=coolsteel shoots another weapon's page (one the
+        // account has many copies of, after a GOOD import).
+        let weapon = std::env::var("SCREENSHOT_WEAPON").unwrap_or_else(|_| "amosbow".to_owned());
+        cx.update(|cx| shell.update(cx, |shell, cx| shell.open_weapon(&weapon, cx)));
         settle(&mut cx)?;
         shoot(&mut cx, format!("weapon-{mode_name}"))?;
 
@@ -592,6 +601,38 @@ fn main() -> Result<()> {
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
+        // The GOOD import's first step, then its preview of a sample file:
+        // fodder grouped, materials, and the notes.
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_good_import(window, cx);
+            })
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("good-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.open_good_preview(SAMPLE_GOOD.to_owned(), window, cx)
+            })
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("good-preview-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
         // With counting by hand on: the "Add a 4★ or 5★" dialog.
         if manual_counting {
             cx.update(|cx| {
@@ -619,6 +660,45 @@ fn main() -> Result<()> {
     }
     Ok(())
 }
+
+/// A GOOD file as the screenshot tool shows it: a few characters (Skirk
+/// above 90, a Manekina the data lacks), their weapons, fodder by the dozen,
+/// a bow the data lacks, some materials and a steak; never a real export.
+const SAMPLE_GOOD: &str = r#"{
+    "format": "GOOD", "version": 3, "source": "Irminsul",
+    "characters": [
+        {"key": "Ganyu", "level": 80, "constellation": 1, "ascension": 6,
+         "talent": {"auto": 9, "skill": 8, "burst": 10}},
+        {"key": "Bennett", "level": 90, "constellation": 6, "ascension": 6,
+         "talent": {"auto": 1, "skill": 9, "burst": 10}},
+        {"key": "Xingqiu", "level": 80, "constellation": 6, "ascension": 5,
+         "talent": {"auto": 1, "skill": 8, "burst": 9}},
+        {"key": "Skirk", "level": 100, "constellation": 0, "ascension": 6,
+         "talent": {"auto": 10, "skill": 10, "burst": 10}},
+        {"key": "Manekina", "level": 20, "constellation": 0, "ascension": 0,
+         "talent": {"auto": 1, "skill": 1, "burst": 1}}
+    ],
+    "weapons": [
+        {"key": "AmosBow", "level": 90, "ascension": 6, "refinement": 1, "location": "Ganyu"},
+        {"key": "SkywardBlade", "level": 90, "ascension": 6, "refinement": 1, "location": "Bennett"},
+        {"key": "SacrificialSword", "level": 80, "ascension": 6, "refinement": 5, "location": "Xingqiu"},
+        {"key": "Azurelight", "level": 90, "ascension": 6, "refinement": 1, "location": "Skirk"},
+        {"key": "CoolSteel", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "CoolSteel", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "CoolSteel", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "CoolSteel", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "CoolSteel", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "HarbingerOfDawn", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "HarbingerOfDawn", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "HarbingerOfDawn", "level": 1, "ascension": 0, "refinement": 1, "location": ""},
+        {"key": "ANewBow", "level": 1, "ascension": 0, "refinement": 1, "location": ""}
+    ],
+    "materials": {
+        "HerosWit": 121, "AdventurersExperience": 340, "MysticEnhancementOre": 2000,
+        "TeachingsOfFreedom": 12, "GuideToFreedom": 30, "PhilosophiesOfFreedom": 2,
+        "CrownOfInsight": 3, "DeliciousSteak": 5
+    }
+}"#;
 
 /// HoYoLAB as the screenshot tool shows it: one Genshin account with Ganyu
 /// at level 80 (HoYoLAB doesn't say whether she ascended), Bennett, and a

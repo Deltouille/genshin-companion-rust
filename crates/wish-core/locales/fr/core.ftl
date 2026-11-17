@@ -25,6 +25,7 @@ error-schema-too-new = une version plus récente de Genshin Companion a écrit c
 error-game-data = données du jeu invalides : { $detail }
 error-not-paimon-export = ce n’est pas une sauvegarde paimon.moe : elle ne contient aucun historique de vœux
 error-unrecognized-file = ce fichier n’est ni une sauvegarde paimon.moe (Settings → Export, ou le fichier Google Drive) ni un instantané Genshin Companion
+error-not-good-file = ce n’est pas un fichier GOOD : exportez-en un depuis Irminsul, Inventory Kamera ou Genshin Optimizer
 error-unknown-items = le fichier contient des objets que cette version de Genshin Companion ne connaît pas encore : { $items }. Mettez l’app à jour, puis importez à nouveau le fichier
 error-invalid-pull = `{ $key }` vœu n° { $index } : { $detail }
 error-invalid-entry = `{ $key }` : { $detail }
@@ -118,6 +119,17 @@ sync-above-max = { $name } est niveau { $level } : compté comme 90/90, le plus
 sync-unknown-character = { $name } n’est pas dans les données du jeu de cette version : laissé de côté, avec son arme. Mettez l’app à jour pour le synchroniser.
 sync-unknown-weapon = L’arme { $name } n’est pas dans les données du jeu de cette version : laissée de côté. Mettez l’app à jour pour la synchroniser.
 sync-talents-unread = Les aptitudes de { $name } n’ont pas pu être lues : laissées telles quelles. Indiquez-les sur sa page.
+sync-good-unknown-character = { $name } n’est pas dans les données du jeu de cette version : laissé de côté. Mettez l’app à jour pour l’importer.
+sync-good-unknown-weapon = L’arme { $name } n’est pas dans les données du jeu de cette version : { $copies ->
+        [one] sa copie est laissée de côté.
+       *[other] ses { $copies } copies sont laissées de côté.
+    } Mettez l’app à jour pour l’importer.
+sync-other-items = { $count ->
+        [one] Une entrée du fichier n’est pas un matériau du planificateur (nourriture, gadget, objet de quête, ou matériau plus récent que cette version) : laissée de côté.
+       *[other] { $count } entrées du fichier ne sont pas des matériaux du planificateur (nourriture, gadgets, objets de quête, ou matériaux plus récents que cette version) : laissées de côté.
+    }
+sync-no-mora = Le fichier n’a pas de Moras : ceux de l’inventaire restent tels quels.
+sync-no-materials = Le fichier n’a pas de matériaux : l’inventaire reste tel quel.
 
 ## Le planificateur : le rôle de chaque matériau d’un personnage ou d’une arme personnalisés
 

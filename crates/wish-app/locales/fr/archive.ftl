@@ -116,6 +116,9 @@ archive-add-copy = Ajouter un exemplaire
 archive-refinement = Raffinement
 archive-held-by = Portée par
 archive-my-copies = Mes exemplaires
+archive-my-copies-count = Mes exemplaires · { $count }
+archive-alike = Identiques
+archive-remove-one = En retirer un
 archive-no-copies = Vous ne l’avez pas. Ajoutez un exemplaire pour noter son niveau, son raffinement et qui la porte.
 archive-weapons-not-saved = Vos armes n’ont pas été enregistrées
 
@@ -126,3 +129,23 @@ archive-kind-elemental-skill = Compétence élémentaire
 archive-kind-elemental-burst = Déchaînement élémentaire
 archive-kind-alternate-sprint = Sprint alternatif
 archive-kind-passive = Aptitude passive
+
+## Archives → Ressources
+
+resources-title = Ressources
+resources-subtitle = Vous avez { $owned } matériaux sur { $total } · cliquez sur l’un d’eux pour indiquer combien vous en avez
+resources-search = Chercher un matériau…
+resources-owned-only = Possédés seulement
+resources-mora-exp = Moras et EXP
+resources-gems = Gemmes d’élévation
+resources-boss = Matériaux de boss
+resources-weekly = Matériaux de boss hebdomadaires
+resources-talent = Matériaux d’aptitude
+resources-weapon = Matériaux d’élévation d’arme
+resources-common-drops = Butins d’ennemis ordinaires
+resources-elite-drops = Butins d’ennemis d’élite
+resources-local-specialties = Spécialités locales
+resources-other = Autres matériaux
+resources-tip = { $name } · { $count }
+resources-no-match = Aucun matériau ne correspond.
+resources-none-owned = Ce compte n’a encore aucun matériau : importez un fichier GOOD, ou cliquez sur un matériau pour indiquer combien vous en avez.

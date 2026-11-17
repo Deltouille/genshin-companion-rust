@@ -12,8 +12,9 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
 /// A sidebar destination, as in Material 3's navigation drawer: a 56 px pill
 /// with a 24 px icon, the current one on the secondary container. A page
-/// inside a [`super::NavGroup`] is [`NavItem::nested`]: no icon, a 48 px
-/// row.
+/// inside a [`super::NavGroup`] is [`NavItem::nested`]: no icon, nor any
+/// ornament (the user's choice on 2026-11-17), its label indented under the
+/// group's, a 48 px row.
 ///
 /// GPUI Kit's `SidebarMenuItem` has a fixed 28 px height, so this builds on
 /// its `Button` instead, which keeps keyboard focus, activation and the
@@ -77,26 +78,14 @@ impl RenderOnce for NavItem {
             self.label.to_string()
         };
         let nested = self.icon.is_none();
-        let gold = crate::theme::palette(cx).gold;
         // The current page on a lighter panel, drawn behind a ghost button so
-        // hovering lays the state layer over it. The pages of a group lead
-        // with a diamond, gold for the current one.
+        // hovering lays the state layer over it.
         let (fill, text) = if self.active {
             (theme.sidebar_primary, theme.sidebar_primary_foreground)
         } else {
             (theme.transparent, theme.sidebar_foreground)
         };
-        let icon = self.icon.or_else(|| {
-            Some(
-                Icon::new(gpui_kit::assets::IconName::Diamond)
-                    .size_3()
-                    .text_color(if self.active {
-                        gold
-                    } else {
-                        theme.sidebar_foreground.opacity(0.6)
-                    }),
-            )
-        });
+        let icon = self.icon;
         let button = Button::new(self.id)
             .ghost()
             .text_color(text)
@@ -109,6 +98,9 @@ impl RenderOnce for NavItem {
                 }
             })
             .px_4()
+            // A group's page starts where the diamond's text did: under the
+            // group's label, so the hierarchy still reads.
+            .when(nested, |this| this.pl(rems(2.5)))
             .rounded_full()
             .cursor_pointer()
             .accessibility_label(label)
@@ -117,13 +109,7 @@ impl RenderOnce for NavItem {
                     .w_full()
                     .h_flex()
                     .gap_3()
-                    .children(icon.map(|icon| {
-                        if nested {
-                            icon.flex_shrink_0()
-                        } else {
-                            icon.size_6().flex_shrink_0()
-                        }
-                    }))
+                    .children(icon.map(|icon| icon.size_6().flex_shrink_0()))
                     .child(
                         div()
                             .map(|this| {

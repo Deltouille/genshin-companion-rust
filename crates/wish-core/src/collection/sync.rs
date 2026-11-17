@@ -72,6 +72,19 @@ pub enum SyncNote {
     /// Talents the archive doesn't name: left as they were (1 for a new
     /// character), to set on its page.
     TalentsUnread { name: String },
+    /// A GOOD file's character the game data doesn't have (by its key):
+    /// left out (a weapon it holds comes without a holder).
+    UnknownGoodCharacter { key: String },
+    /// A GOOD file's weapon the game data doesn't have: its copies left out.
+    UnknownGoodWeapon { key: String, copies: usize },
+    /// Entries of a GOOD file's bag that aren't materials the planner uses
+    /// (food, gadgets, quest items, or materials newer than the data).
+    OtherItems { count: usize },
+    /// A GOOD file's bag without Mora (Irminsul's has none): the inventory's
+    /// is kept.
+    NoMora,
+    /// A GOOD file without materials: the inventory is kept.
+    NoMaterials,
 }
 
 /// What the player reads of a note, in the sync's preview and `wishctl`.
@@ -92,6 +105,18 @@ impl std::fmt::Display for SyncNote {
                 t!("sync-unknown-weapon", name = item_name(name))
             }
             SyncNote::TalentsUnread { name } => t!("sync-talents-unread", name = item_name(name)),
+            // A key is the English name run together: shown as it is.
+            SyncNote::UnknownGoodCharacter { key } => {
+                t!("sync-good-unknown-character", name = key.as_str())
+            }
+            SyncNote::UnknownGoodWeapon { key, copies } => t!(
+                "sync-good-unknown-weapon",
+                name = key.as_str(),
+                copies = *copies
+            ),
+            SyncNote::OtherItems { count } => t!("sync-other-items", count = *count),
+            SyncNote::NoMora => t!("sync-no-mora"),
+            SyncNote::NoMaterials => t!("sync-no-materials"),
         };
         f.write_str(&text)
     }
@@ -147,27 +172,7 @@ pub fn plan_sync(
             talents: talents.unwrap_or([1; 3]),
             favourite: false,
         };
-        let change = match current.character(&key) {
-            None => Change::Added(synced),
-            Some(before) => {
-                let mut after = before.clone();
-                after.level = after.level.max(synced.level);
-                after.constellation = after.constellation.max(synced.constellation);
-                if let Some(talents) = talents {
-                    for (have, read) in after.talents.iter_mut().zip(talents) {
-                        *have = (*have).max(read);
-                    }
-                }
-                if after == *before {
-                    Change::Unchanged(after)
-                } else {
-                    Change::Raised {
-                        before: before.clone(),
-                        after,
-                    }
-                }
-            }
-        };
+        let change = character_change(current.character(&key), synced, talents.is_some());
         // The level note matters only when HoYoLAB's level is the one kept.
         if let Some(note) = note
             && change.after().level == level
@@ -198,6 +203,35 @@ pub fn plan_sync(
         }
     }
     plan
+}
+
+/// What `synced` changes in `before`, the character as entered: each value
+/// raised, never lowered (its talents only when `talents` were read), the
+/// favourite kept.
+pub(super) fn character_change(
+    before: Option<&OwnedCharacter>,
+    synced: OwnedCharacter,
+    talents: bool,
+) -> Change<OwnedCharacter> {
+    let Some(before) = before else {
+        return Change::Added(synced);
+    };
+    let mut after = before.clone();
+    after.level = after.level.max(synced.level);
+    after.constellation = after.constellation.max(synced.constellation);
+    if talents {
+        for (have, read) in after.talents.iter_mut().zip(synced.talents) {
+            *have = (*have).max(read);
+        }
+    }
+    if after == *before {
+        Change::Unchanged(after)
+    } else {
+        Change::Raised {
+            before: before.clone(),
+            after,
+        }
+    }
 }
 
 /// The planner's key of the character in `detail`.

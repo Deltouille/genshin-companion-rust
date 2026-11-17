@@ -24,6 +24,7 @@ error-schema-too-new = a newer version of Genshin Companion wrote this database 
 error-game-data = invalid game data: { $detail }
 error-not-paimon-export = this isn’t a paimon.moe save: it holds no wish history
 error-unrecognized-file = this file is neither a paimon.moe save (Settings → Export, or the Google Drive file) nor a Genshin Companion snapshot
+error-not-good-file = this isn’t a GOOD file: export one from Irminsul, Inventory Kamera or Genshin Optimizer
 error-unknown-items = the file has items this version of Genshin Companion doesn’t know yet: { $items }. Update the app, then import the file again
 error-invalid-pull = `{ $key }` pull #{ $index }: { $detail }
 error-invalid-entry = `{ $key }`: { $detail }
@@ -117,6 +118,17 @@ sync-above-max = { $name } is level { $level }: counted as 90/90, the highest th
 sync-unknown-character = { $name } isn’t in this version’s game data: left out, with their weapon. Update the app to sync them.
 sync-unknown-weapon = The weapon { $name } isn’t in this version’s game data: left out. Update the app to sync it.
 sync-talents-unread = { $name }’s talents couldn’t be read: left as they were. Set them on their page.
+sync-good-unknown-character = { $name } isn’t in this version’s game data: left out. Update the app to import them.
+sync-good-unknown-weapon = The weapon { $name } isn’t in this version’s game data: { $copies ->
+        [one] its copy is left out.
+       *[other] its { $copies } copies are left out.
+    } Update the app to import it.
+sync-other-items = { $count ->
+        [one] One entry of the file isn’t a material the planner uses (food, a gadget, a quest item, or a material newer than this version): left out.
+       *[other] { $count } entries of the file aren’t materials the planner uses (food, gadgets, quest items, or materials newer than this version): left out.
+    }
+sync-no-mora = The file has no Mora: the inventory’s is left as it is.
+sync-no-materials = The file has no materials: the inventory is left as it is.
 
 ## The planner: what each material does for a custom character or weapon
 
