@@ -116,6 +116,13 @@ Like [genshin-center](https://genshin-center.com/planner)'s planner.
   <img src="docs/screenshots/planner.png" width="49%" alt="The ascension planner">
 </p>
 
+### Languages
+
+The app is in **English** and **French**: the interface, and the game's own names and texts (characters, weapons,
+materials, descriptions, talents, constellations, passives), as the game writes them in each language. It opens in
+your system's language when it has it, else in English; *Settings → Language* changes it at once. Banner names
+stay in English (paimon.moe has them in English only).
+
 ## Download
 
 The builds are on the [Releases](https://github.com/Deltouille/genshin-companion-rust/releases) page. Unpack the
@@ -210,6 +217,7 @@ The game data is generated from other projects, then committed:
 |---|---|---|
 | `crates/wish-core/data/items.json`, `banners.json` | Banners and items | paimon.moe |
 | `crates/wish-core/data/planner.json`, `archive.json` | Planner and archive data | genshin-db |
+| `crates/wish-core/data/fr.json` | The game's names and texts in French | genshin-db |
 
 ```sh
 # Banners and items, from a paimon.moe clone in reference/
@@ -220,6 +228,8 @@ node tools/extract-paimon-data.mjs
 git clone --depth 1 --filter=blob:none --sparse https://github.com/theBowja/genshin-db
 git -C genshin-db sparse-checkout set src/data/English/characters src/data/English/talents \
   src/data/English/weapons src/data/English/materials src/data/English/constellations \
+  src/data/French/characters src/data/French/talents src/data/French/weapons \
+  src/data/French/materials src/data/French/constellations \
   src/data/image src/data/stats src/data/curve src/data/version
 node tools/extract-genshin-db.mjs
 
@@ -253,6 +263,18 @@ cargo run -p wish-ui --example gallery -- <out-dir>
 # shipped in the release archives (needs cargo-about; CI checks the file is current)
 tools/third-party-licenses.sh
 ```
+
+### Translating
+
+Every text the app shows comes from [Fluent](https://projectfluent.org) files, one per part of each crate:
+`crates/<crate>/locales/<language>/<part>.ftl`. Plurals and variants are written in the translation itself, so a
+language gets them right without changing the code. The tests check that every language has every text, with the
+same variables, that every text the code names exists, and the French typography (a no-break space before `?` `!`
+`:` `;` and inside « »). `SCREENSHOT_LANGUAGE=fr` shoots the pages in French.
+
+To add a language: add it to `Language` (`crates/wish-core/src/i18n/mod.rs`) and to the `texts!` macro there, copy
+each `locales/en/` folder and translate it, then add it to `LANGUAGES` in `tools/extract-genshin-db.mjs` (and to
+the sparse checkout) for the game's texts, which go in `crates/wish-core/data/<code>.json`.
 
 CI runs fmt, clippy, the tests and a release build on Linux, Windows and macOS, checks that
 `THIRD-PARTY-LICENSES.txt` is current, and audits the dependencies for known vulnerabilities (cargo-deny) on every

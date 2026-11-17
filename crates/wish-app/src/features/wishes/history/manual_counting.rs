@@ -61,7 +61,7 @@ impl HistoryView {
         let task = self
             .library
             .update(cx, |library, cx| library.apply_import(batch, cx));
-        report(task, "Couldn’t save the wish", cx);
+        report(task, t!("history-save-failed"), cx);
     }
 
     /// Opens "Add a 4★ or 5★" for `pool`.
@@ -71,7 +71,7 @@ impl HistoryView {
         };
         let form = cx.new(|cx| AddItemForm::new(pool, data, window, cx));
         let view = cx.entity().downgrade();
-        let title = SharedString::from(format!("Add a 4★ or 5★ to {}", pool.display_name()));
+        let title = SharedString::from(t!("history-add-title", pool = pool.display_name()));
         let item = form.read(cx).item.clone();
         let focus_once = Cell::new(true);
         window.open_dialog(cx, move |dialog, window, cx| {
@@ -83,7 +83,9 @@ impl HistoryView {
                 .title(title.clone())
                 .child(form.clone())
                 .footer(dialog_footer(
-                    button("confirm-add-item").primary().label("Add"),
+                    button("confirm-add-item")
+                        .primary()
+                        .label(t!("history-add")),
                 ))
                 .on_ok(move |_, _, cx| {
                     let Some((item, pity)) = form.update(cx, |form, cx| form.submit(cx)) else {
@@ -114,20 +116,23 @@ impl HistoryView {
         };
         let view = cx.entity().downgrade();
         let what = match wish.item_key {
-            Some(_) => wish.name.clone(),
-            None => format!("the {}★ wish", wish.rarity.stars()),
+            Some(_) => wish_core::i18n::item_name(&wish.name).to_owned(),
+            None => t!("history-delete-the-wish", stars = wish.rarity.stars()),
         };
-        let title = SharedString::from(format!(
-            "Delete {what} of {}?",
-            wish.time.naive().format("%-d %b %Y, %H:%M")
+        let title = SharedString::from(t!(
+            "history-delete-title",
+            what = what,
+            time = format::date_time(&wish.time.naive())
         ));
         window.open_alert_dialog(cx, move |alert, _, _| {
             let (view, id) = (view.clone(), wish.id.clone());
             alert
                 .title(title.clone())
-                .description("It was entered by hand. A backup is taken first.")
+                .description(t!("history-delete-help"))
                 .footer(dialog_footer(
-                    button("confirm").danger().label("Delete wish"),
+                    button("confirm")
+                        .danger()
+                        .label(t!("history-delete-button")),
                 ))
                 .on_ok(move |_, _, cx| {
                     let id = id.clone();
@@ -144,8 +149,8 @@ impl HistoryView {
         });
         report_outcome(
             task,
-            "Couldn’t delete the wish",
-            |_| "Wish deleted.".to_owned(),
+            t!("history-delete-failed"),
+            |_| t!("history-deleted"),
             cx,
         );
     }
@@ -178,7 +183,7 @@ impl AddItemForm {
             pool,
             item: cx.new(|cx| PickerState::searchable(options, None, window, cx)),
             pity: cx
-                .new(|cx| InputState::new(window, cx).placeholder("Counted from earlier wishes")),
+                .new(|cx| InputState::new(window, cx).placeholder(t!("history-pity-placeholder"))),
             data,
             error: None,
         }
@@ -199,7 +204,7 @@ impl AddItemForm {
             .selected_value()
             .and_then(|key| self.data.items.by_key(key))
         else {
-            return Err("Choose the item you got.".into());
+            return Err(t!("history-choose-item-error").into());
         };
         let text = self.pity.read(cx).value();
         let text = text.trim();
@@ -212,10 +217,7 @@ impl AddItemForm {
         };
         match text.parse::<u32>() {
             Ok(pity) if (1..=most).contains(&pity) => Ok((item.clone(), Some(pity))),
-            _ => Err(format!(
-                "Pity is a whole number from 1 to {most}. Leave it empty to count it."
-            )
-            .into()),
+            _ => Err(t!("history-pity-error", most = most).into()),
         }
     }
 }
@@ -229,17 +231,17 @@ impl Render for AddItemForm {
             .child(
                 v_form()
                     .child(
-                        field().label("Item").child(
+                        field().label(t!("history-item")).child(
                             picker("add-item", &self.item)
-                                .placeholder("Choose an item")
-                                .accessibility_label("Item")
+                                .placeholder(t!("history-choose-item"))
+                                .accessibility_label(t!("history-item"))
                                 .menu_width(rems(24.)),
                         ),
                     )
                     .child(
                         field()
-                            .label("Pity")
-                            .description("Leave empty to count it from the wishes before it.")
+                            .label(t!("history-pity"))
+                            .description(t!("history-pity-help"))
                             .child(input(&self.pity, cx)),
                     ),
             )
@@ -251,17 +253,13 @@ impl Render for AddItemForm {
 
 /// An entry of the item picker: "Name · 5★ character", standing for its key.
 fn item_option(item: &Item) -> PickerItem<String> {
+    let (name, stars) = (wish_core::i18n::item_name(&item.name), item.rarity.stars());
     PickerItem::new(
-        format!(
-            "{} · {}★ {}",
-            item.name,
-            item.rarity.stars(),
-            match item.item_type {
-                ItemType::Character => "character",
-                ItemType::Weapon => "weapon",
-                ItemType::Unknown => "item",
-            }
-        ),
+        match item.item_type {
+            ItemType::Character => t!("history-item-character", name = name, stars = stars),
+            ItemType::Weapon => t!("history-item-weapon", name = name, stars = stars),
+            ItemType::Unknown => t!("history-item-other", name = name, stars = stars),
+        },
         item.key.clone(),
     )
 }
@@ -277,11 +275,7 @@ impl super::HistoryView {
         let add = |count: u32, cx: &mut Context<Self>| {
             button(SharedString::from(format!("manual-add-{count}")))
                 .label(format!("+{count}"))
-                .tooltip(format!(
-                    "Add {} 3★ {} made now",
-                    format::count(count),
-                    format::plural(count, "wish", "wishes")
-                ))
+                .tooltip(t!("history-add-three", count = count))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.on_manual(&ManualAction::AddThreeStars(pool, count), window, cx)
                 }))
@@ -296,7 +290,7 @@ impl super::HistoryView {
             .child(
                 button("manual-add-item")
                     .icon(IconName::Plus)
-                    .label("Add 4★ or 5★…")
+                    .label(t!("history-add-item"))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.on_manual(&ManualAction::AddItem(pool), window, cx)
                     })),
@@ -305,8 +299,8 @@ impl super::HistoryView {
                 this.child(
                     button("manual-delete")
                         .ghost()
-                        .label("Delete…")
-                        .tooltip("Delete the selected wish you entered by hand")
+                        .label(t!("history-delete"))
+                        .tooltip(t!("history-delete-tooltip"))
                         .unavailable(selected.is_none())
                         .on_click(cx.listener(move |this, _, window, cx| {
                             if let Some(wish) = selected.clone() {

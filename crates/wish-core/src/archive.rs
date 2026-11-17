@@ -16,7 +16,8 @@ use std::sync::LazyLock;
 use serde::Deserialize;
 
 use crate::data::DataSource;
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
+use crate::i18n::{self, Text, decimal};
 use crate::planner::{Level, MAX_LEVEL};
 
 pub const ARCHIVE_FILE: &str = "archive.json";
@@ -31,13 +32,13 @@ pub const MAX_TALENT_LEVEL: u8 = 15;
 pub struct CharacterPage {
     /// The planner's key for the same character.
     pub key: String,
-    pub title: Option<String>,
-    pub description: Option<String>,
-    pub region: Option<String>,
-    pub affiliation: Option<String>,
-    pub birthday: Option<String>,
+    pub title: Option<Text>,
+    pub description: Option<Text>,
+    pub region: Option<Text>,
+    pub affiliation: Option<Text>,
+    pub birthday: Option<Text>,
     /// The constellation's name (Sinae Unicornis).
-    pub constellation: Option<String>,
+    pub constellation: Option<Text>,
     /// The game version that brought the character ("1.2").
     pub version: Option<String>,
     /// The game's file name of the wish art.
@@ -89,20 +90,20 @@ pub struct Talent {
     /// "Normal Attack", "Elemental Skill", "Alternate Sprint",
     /// "Elemental Burst" or "Passive".
     pub kind: String,
-    pub name: String,
+    pub name: Text,
     /// Plain text; `**…**` marks a term the game highlights.
-    pub description: String,
+    pub description: Text,
     pub icon: Option<String>,
     /// Each row's label and value template (`{param1:F1P}`).
-    rows: Vec<(String, String)>,
+    rows: Vec<(Text, Text)>,
     /// Each parameter's value at talent levels 1 to 15.
     params: BTreeMap<String, Vec<f64>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Constellation {
-    pub name: String,
-    pub description: String,
+    pub name: Text,
+    pub description: Text,
     pub icon: Option<String>,
 }
 
@@ -110,7 +111,7 @@ pub struct Constellation {
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct WeaponPage {
     pub key: String,
-    pub description: Option<String>,
+    pub description: Option<Text>,
     /// The version it came out in ("1.0").
     pub version: Option<String>,
     /// The game's file name of its wish art (`UI_Gacha_EquipIcon_Bow_Amos`).
@@ -139,8 +140,8 @@ pub struct WeaponStats {
 /// A weapon's passive: its name, and its text at refinements 1 to 5.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Passive {
-    pub name: String,
-    pub refinements: Vec<String>,
+    pub name: Text,
+    pub refinements: Vec<Text>,
 }
 
 /// A weapon's ATK and secondary stat at a level.
@@ -178,7 +179,7 @@ impl ArchiveData {
         match fs::read_to_string(&path) {
             Ok(json) => Self::from_json(&json),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::embedded().clone()),
-            Err(e) => Err(Error::io("reading", &path)(e)),
+            Err(e) => Err(Error::io(IoAction::Reading, &path)(e)),
         }
     }
 
@@ -194,7 +195,7 @@ impl ArchiveData {
         }
         let file: File = serde_json::from_str(json)
             .map_err(|e| Error::GameData(format!("{ARCHIVE_FILE}: {e}")))?;
-        let data = Self {
+        let mut data = Self {
             by_key: file
                 .characters
                 .iter()
@@ -209,8 +210,85 @@ impl ArchiveData {
             characters: file.characters,
             weapons: file.weapons,
         };
+        data.translate();
         data.check()?;
         Ok(data)
+    }
+
+    /// Merges in the texts the other languages give (`data/<code>.json`).
+    /// Talent rows only where they use the English rows' parameters, so the
+    /// values are the same.
+    fn translate(&mut self) {
+        let set = |text: &mut Option<Text>, language, theirs: &Option<String>| {
+            if let Some(text) = text {
+                i18n::translate(text, language, theirs.as_ref());
+            }
+        };
+        for (language, texts) in i18n::translations() {
+            let language = *language;
+            for page in &mut self.characters {
+                let Some(theirs) = texts.characters.get(&page.key) else {
+                    continue;
+                };
+                set(&mut page.title, language, &theirs.title);
+                set(&mut page.description, language, &theirs.description);
+                set(&mut page.region, language, &theirs.region);
+                set(&mut page.affiliation, language, &theirs.affiliation);
+                set(&mut page.birthday, language, &theirs.birthday);
+                set(&mut page.constellation, language, &theirs.constellation);
+                for (talent, theirs) in page.talents.iter_mut().zip(&theirs.talents) {
+                    i18n::translate(&mut talent.name, language, theirs.name.as_ref());
+                    i18n::translate(
+                        &mut talent.description,
+                        language,
+                        theirs.description.as_ref(),
+                    );
+                    let rows = theirs.rows.as_ref().filter(|rows| {
+                        rows.len() == talent.rows.len()
+                            && (rows.iter().zip(&talent.rows)).all(|((_, theirs), (_, ours))| {
+                                let params = |template: &str| -> Vec<String> {
+                                    placeholders(template).map(|(p, _)| p.to_owned()).collect()
+                                };
+                                params(theirs) == params(ours.english())
+                            })
+                    });
+                    for ((label, template), (their_label, their_template)) in
+                        talent.rows.iter_mut().zip(rows.into_iter().flatten())
+                    {
+                        label.set(language, their_label.clone());
+                        template.set(language, their_template.clone());
+                    }
+                }
+                for (constellation, theirs) in
+                    page.constellations.iter_mut().zip(&theirs.constellations)
+                {
+                    i18n::translate(&mut constellation.name, language, theirs.name.as_ref());
+                    i18n::translate(
+                        &mut constellation.description,
+                        language,
+                        theirs.description.as_ref(),
+                    );
+                }
+            }
+            for page in &mut self.weapons {
+                let Some(theirs) = texts.weapons.get(&page.key) else {
+                    continue;
+                };
+                set(&mut page.description, language, &theirs.description);
+                if let (Some(passive), Some(their_passive)) = (&mut page.passive, &theirs.passive)
+                    && passive.refinements.len() == their_passive.refinements.len()
+                {
+                    passive.name.set(language, their_passive.name.clone());
+                    for (text, theirs) in passive
+                        .refinements
+                        .iter_mut()
+                        .zip(&their_passive.refinements)
+                    {
+                        text.set(language, theirs.clone());
+                    }
+                }
+            }
+        }
     }
 
     pub fn character(&self, key: &str) -> Option<&CharacterPage> {
@@ -330,8 +408,9 @@ impl Talent {
         self.rows
             .iter()
             .map(|(label, template)| {
+                let template: &str = template;
                 let mut value = String::new();
-                let mut rest = template.as_str();
+                let mut rest = template;
                 for (param, format) in placeholders(template) {
                     let token = format!("{{{param}:{format}}}");
                     let start = rest.find(&token).expect("found by `placeholders`");
@@ -340,7 +419,7 @@ impl Talent {
                     rest = &rest[start + token.len()..];
                 }
                 value.push_str(rest);
-                (label.clone(), value)
+                (label.to_string(), value)
             })
             .collect()
     }
@@ -369,20 +448,43 @@ pub fn format_value(value: f64, format: &str) -> String {
         .and_then(|f| f.trim_end_matches('P').parse::<usize>().ok())
         .unwrap_or(0);
     if percent {
-        format!("{:.digits$}%", value * 100.0)
+        t!(
+            "archive-percent",
+            value = decimal(value * 100.0, digits, digits)
+        )
     } else {
-        let text = format!("{value:.digits$}");
-        if text.contains('.') {
-            text.trim_end_matches('0').trim_end_matches('.').to_owned()
-        } else {
-            text
-        }
+        decimal(value, 0, digits)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_pages_read_in_french_with_the_same_values() {
+        use crate::i18n::{Language, with_language};
+        let archive = ArchiveData::embedded();
+        let ganyu = archive.character("ganyu").unwrap();
+        let attack = &ganyu.talents[0];
+        assert_eq!(attack.name.english(), "Liutian Archery");
+        let (english, french) = (
+            with_language(Language::English, || attack.values(1)),
+            with_language(Language::French, || attack.values(1)),
+        );
+        assert_eq!(english[0], ("1-Hit DMG".to_owned(), "31.7%".to_owned()));
+        assert_eq!(
+            french[0],
+            ("DGT 1er coup".to_owned(), "31,7\u{202f}%".to_owned())
+        );
+        assert_eq!(english.len(), french.len());
+        with_language(Language::French, || {
+            assert_eq!(&*attack.name, "Archerie Liutian");
+            assert_eq!(ganyu.birthday.as_deref(), Some("2 décembre"));
+            let amos = archive.weapon("amosbow").unwrap().passive.as_ref().unwrap();
+            assert_eq!(&*amos.name, "Flèche de la volonté");
+        });
+    }
 
     #[test]
     fn values_format_like_the_game() {

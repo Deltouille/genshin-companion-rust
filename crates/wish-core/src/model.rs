@@ -146,13 +146,26 @@ impl Pool {
         10
     }
 
-    pub fn display_name(self) -> &'static str {
+    /// Its name in the current language: "Character Event".
+    pub fn display_name(self) -> String {
         match self {
-            Pool::Beginners => "Beginners' Wish",
-            Pool::Standard => "Standard",
-            Pool::CharacterEvent => "Character Event",
-            Pool::WeaponEvent => "Weapon Event",
-            Pool::Chronicled => "Chronicled Wish",
+            Pool::Beginners => t!("pool-beginners"),
+            Pool::Standard => t!("pool-standard"),
+            Pool::CharacterEvent => t!("pool-character-event"),
+            Pool::WeaponEvent => t!("pool-weapon-event"),
+            Pool::Chronicled => t!("pool-chronicled"),
+        }
+    }
+
+    /// Its name where it is listed under "Wishes" (the sidebar): "Character
+    /// Event", or in French just "Personnage".
+    pub fn short_name(self) -> String {
+        match self {
+            Pool::Beginners => t!("pool-short-beginners"),
+            Pool::Standard => t!("pool-short-standard"),
+            Pool::CharacterEvent => t!("pool-short-character-event"),
+            Pool::WeaponEvent => t!("pool-short-weapon-event"),
+            Pool::Chronicled => t!("pool-short-chronicled"),
         }
     }
 }

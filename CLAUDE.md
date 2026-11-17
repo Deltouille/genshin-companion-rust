@@ -55,7 +55,11 @@ starting a milestone, and tick its checkboxes when a step is done.
   with their values at levels 1–15, constellations, art and icon names) from `genshin-db/`, a sparse clone of https://github.com/theBowja/genshin-db
   (`git clone --depth 1 --filter=blob:none --sparse …`, then `git sparse-checkout set src/data/English/characters
   src/data/English/talents src/data/English/weapons src/data/English/materials src/data/English/constellations
-  src/data/image src/data/stats src/data/curve src/data/version`). The EXP tables,
+  src/data/French/characters src/data/French/talents src/data/French/weapons src/data/French/materials
+  src/data/French/constellations src/data/image src/data/stats src/data/curve src/data/version`), and `fr.json`
+  (the same names and texts in French, by key; materials by id; `names`: every character's and weapon's name by its
+  English one, for the wish history; `LANGUAGES` in the script). Talent rows in another language are kept only
+  with the English rows' parameters, so the values are the same. The EXP tables,
   which genshin-db lacks, come from the game's data (AnimeGameData); icon names genshin-db lacks yet (the newest
   characters), from Project Amber's API. Run it after `git -C genshin-db pull` and commit the JSON. It fails on a
   cost naming an unknown material. Characters without talent data (the Manekins) are skipped, and listed.
@@ -99,9 +103,30 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   **Never depends on GPUI.** All logic and tests go here. Its domain (`model`, `engine`, `stats`, `planner`,
   `collection`, `archive`) reaches no database, network or file: `tests/layers.rs` reads their sources and fails on
   such an import (its `KNOWN` list holds the crossings still there, ARCH-11 of the architecture audit).
-  - `error.rs`: `Error`. Its messages reach the player as they are: what happened and what to do ("update the
+  - `error.rs`: `Error`. Its messages reach the player as they are, in the current language (`Display` reads
+    `locales/*/core.ftl`; `IoAction` names what was done to a file): what happened and what to do ("update the
     app"), never a developer's step (a command, a script); a test checks it. The app's own repeated cases are one
     function each (`library::not_open`).
+  - `i18n/`: **every text a player reads** (the interface's and the core's own) is a Fluent message
+    (`crates/<crate>/locales/<code>/<part>.ftl`, https://projectfluent.org), read by each crate's `t!("key",
+    name = value)` over `tr!`; a crate declares its parts with `texts!(…)`. Never a literal in a view, never
+    `format!` of words: pass numbers as numbers (Fluent picks plurals, formats them with the language's
+    separators, `NUMBER($x, minimumFractionDigits: 1)` for decimals) and let the message order the words. The key
+    is a literal, so `check::check` (each crate's `…_texts_are_complete` test) finds them all: every key in every
+    language with the same variables, every key the code names in English with the variables it passes, no key
+    unused, every text formats, and French typography (a no-break space U+00A0, or the narrow U+202F, before
+    `? ! : ;` and inside « », the curly ’). One language for the process (`language()`, `set_language`): tests
+    use `with_language` (thread-local), never `set_language`, since they run side by side. `Language` (English,
+    French), `Language::system()`, `Settings::language` (`None`: the system's; a code this version doesn't know
+    reads as `None`), `Settings::read_language` (read alone in `main` before the first message or window).
+    `number.rs`: `integer`, `decimal` (`12 800,5` in French). `text.rs`: `Text`, the game's own texts in
+    every language (planner and archive names, descriptions, talents and their rows, constellations, passives,
+    materials and domains), merged from `data/<code>.json` as the data loads; it reads (`Deref`, `Display`) in
+    the current language, else English. **Match what the game, HoYoLAB or a file says against `Text::english()`**
+    (the sync's talents), a typed name against `Text::matches` (any language); `Text` has no `==` with a string,
+    so the compiler shows each comparison. `game.rs`: the translations, and `item_name` (the wish history's
+    English item names in the current language). Account names an import creates ("Main", "Account 3") stay
+    English: imports find the account again by them.
   - `model.rs`: domain types (`Pool`, `GachaType`, `Wish`, `WishTime`…). Text-stored enums use `text_enum!`.
   - `data.rs`: embedded `items.json` / `banners.json`, overridable from `<data dir>/game-data/`.
     `GameData::load` never fails: a copy that can't be read, or older than the embedded one (an item missing,
@@ -268,7 +293,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     takes `.cursor_pointer()` itself.
     A new piece used by two pages or more goes here; one used by a single page stays in its feature.
   - `assets.rs`: `UiAssets` (component icons plus the Lucide icons listed in `icon_assets!`) and `pool_icon`.
-  - `format.rs`: number and label text.
+  - `format.rs`: numbers, sizes, dates (`date`, `date_time`, `month_year`…), quotes and the game's fixed terms
+    (`element`, `weapon_type`, `stat`: from the data's English) in the current language. Never chrono's
+    `format("%b")` for a player: its names are English.
   - Charts: the user wants as few bar charts as possible; prefer areas, lines with dots, donuts. Give a chart
     card a definite height and its chart `flex_1().min_h_0()`, never a `min_h` larger than its row.
   - `axis.rs`: tick counts and axis tops that keep a counting chart's ticks on whole numbers (the kit spaces
@@ -467,7 +494,9 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       `SyncNote`'s `Display`, which `wishctl` prints too), then
       `Library::apply_hoyolab_sync` (into the account the player picks among `HoyolabAccount::choices`, each with
       its own `SyncPlan`; the session selects it). A weapon that only changes hands shows as moved (⇄). `hoyolab_sync_button` also sits in Archive → Characters and the Overview's Characters tab.
-    - `settings/`: `SettingsPage` (entity) and its rows, in a centred column, or two on a page at least
+    - `settings/`: `SettingsPage` (entity) and its rows (the language first: a picker, the system's or one chosen,
+      `Preferences::set_language` → `crate::apply_language`, which redraws every window; pages that work text out
+      ahead of a render do it again when the library notifies), in a centred column, or two on a page at least
       `TWO_COLUMNS_REMS` wide (your data and recent imports on the left, the rest on the right); `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
       `images.rs` (the image cache: size, empty, download all for offline use).
     - `credits/`: `Credits` (`RenderOnce`). It must keep paimon.moe's, genshin-db's and genshin.py's MIT notices
@@ -507,7 +536,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
   For realistic volume, `node tools/sample-save.mjs <out.json>` writes a synthetic ~600-wish paimon.moe save to
   import into a scratch folder (never use it for engine tests).
   `SCREENSHOT_HEIGHT=1500` renders a taller window to see a whole page, `SCREENSHOT_WIDTH=2000` a wider one,
-  `SCREENSHOT_ONLY=overview,banners` only the captures whose names start with these. The HoYoLAB sync's preview
+  `SCREENSHOT_ONLY=overview,banners` only the captures whose names start with these, `SCREENSHOT_LANGUAGE=fr`
+  the pages in French (English otherwise, whatever the data folder's settings say). The HoYoLAB sync's preview
   (`hoyolab-preview`) comes from a sample HoYoLAB in the tool (`SampleHoyolab`: Ganyu at 80 without her phase, a
   character the data lacks), through `Shell::open_hoyolab_preview`; never the real one. Put `"manual_counting": true` in the
   data dir's `settings.json` to also shoot the counting controls and the add-item dialog.

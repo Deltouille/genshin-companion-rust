@@ -26,20 +26,18 @@ impl SettingsPage {
         let theme = cx.theme();
 
         let cache = row(
-            "Downloaded images",
+            t!("settings-images-downloaded"),
             help(
-                format!(
-                    "{} {}, {}. Pages download the images they show, once, from paimon.moe \
-                     and Project Amber; they stay on this computer.",
-                    format::count(files as u64),
-                    format::plural(files as u32, "image", "images"),
-                    format::bytes(bytes)
+                t!(
+                    "settings-images-help",
+                    count = files,
+                    size = format::bytes(bytes)
                 ),
                 cx,
             ),
             button("empty-image-cache")
                 .ghost()
-                .label("Empty…")
+                .label(t!("settings-images-empty"))
                 .unavailable(files == 0 || running)
                 .on_click(cx.listener(|this, _, window, cx| this.confirm_empty_cache(window, cx))),
         );
@@ -47,82 +45,73 @@ impl SettingsPage {
         let detail = match &download {
             Some(download) if download.is_running() => {
                 let shown = if download.state == DownloadState::Stopping {
-                    "Stopping…".to_owned()
+                    t!("settings-images-stopping")
                 } else {
-                    format!(
-                        "Downloading {} of {}…",
-                        format::count(download.done as u64),
-                        format::count(download.total as u64)
+                    t!(
+                        "settings-images-downloading",
+                        done = download.done,
+                        total = download.total
                     )
                 };
                 let share = download.done as f32 / download.total.max(1) as f32;
                 div().v_flex().gap_2().child(help(shown, cx)).child(
                     Progress::new("image-download-progress")
                         .value(share * 100.)
-                        .accessibility_label("Images downloaded"),
+                        .accessibility_label(t!("settings-images-progress")),
                 )
             }
             other => {
                 let outcome = other.as_ref().and_then(|download| {
-                    let count = |n: usize| format::count(n as u64);
-                    let lacking = match download.not_found {
-                        0 => String::new(),
-                        n => format!(" ({} not on paimon.moe or Project Amber)", count(n)),
-                    };
+                    let missing = download.not_found;
                     Some(match download.state {
                         DownloadState::Done if download.failed == 0 => {
-                            (format!("Every image is downloaded{lacking}."), false)
+                            (t!("settings-images-done", missing = missing), false)
                         }
                         DownloadState::Done => (
-                            format!(
-                                "{} couldn’t be downloaded{lacking}: try again later.",
-                                count(download.failed)
+                            t!(
+                                "settings-images-failed",
+                                failed = download.failed,
+                                missing = missing
                             ),
                             true,
                         ),
                         DownloadState::Stopped => (
-                            format!(
-                                "Stopped: {} of {} downloaded.",
-                                count(download.stored),
-                                count(download.total)
+                            t!(
+                                "settings-images-stopped",
+                                stored = download.stored,
+                                total = download.total
                             ),
                             false,
                         ),
-                        DownloadState::Unreachable => (
-                            "Couldn’t reach paimon.moe or Project Amber. Check the connection, \
-                             then try again."
-                                .to_owned(),
-                            true,
-                        ),
+                        DownloadState::Unreachable => (t!("settings-images-unreachable"), true),
                         DownloadState::Running | DownloadState::Stopping => return None,
                     })
                 });
                 div()
                     .v_flex()
                     .gap_0p5()
-                    .child(help(
-                        "Download them now, so that every page has its pictures without a \
-                         connection. Icons cover the wish counter and the planner; everything \
-                         adds the banner art and the characters' wish art.",
-                        cx,
-                    ))
+                    .child(help(t!("settings-images-offline-help"), cx))
                     .children(outcome.map(|(text, problem)| {
                         help(text, cx).when(problem, |this| this.text_color(theme.danger))
                     }))
             }
         };
-        let offer = |id: &'static str, label: &str, (count, size): (usize, u64)| {
+        let offer = |id: &'static str, label: String, (count, size): (usize, u64)| {
             let text = if count == 0 {
-                format!("{label}: done")
+                t!("settings-images-offer-done", what = label)
             } else {
-                format!("{label} (~{})", format::bytes(size))
+                t!(
+                    "settings-images-offer-size",
+                    what = label,
+                    size = format::bytes(size)
+                )
             };
             button(id).label(text).unavailable(count == 0)
         };
         let controls = if running {
             div().child(
                 button("stop-image-download")
-                    .label("Stop")
+                    .label(t!("settings-images-stop"))
                     .unavailable(
                         download.as_ref().map(|d| d.state) == Some(DownloadState::Stopping),
                     )
@@ -135,20 +124,28 @@ impl SettingsPage {
             div()
                 .h_flex()
                 .gap_2()
-                .child(offer("download-icons", "Icons", icons).on_click(
-                    cx.listener(|this, _, _, cx| this.download_all_images(Collection::Icons, cx)),
-                ))
                 .child(
-                    offer("download-everything", "Everything", everything)
-                        .primary()
-                        .on_click(cx.listener(|this, _, _, cx| {
-                            this.download_all_images(Collection::Everything, cx)
-                        })),
+                    offer("download-icons", t!("settings-images-icons"), icons).on_click(
+                        cx.listener(|this, _, _, cx| {
+                            this.download_all_images(Collection::Icons, cx)
+                        }),
+                    ),
+                )
+                .child(
+                    offer(
+                        "download-everything",
+                        t!("settings-images-everything"),
+                        everything,
+                    )
+                    .primary()
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        this.download_all_images(Collection::Everything, cx)
+                    })),
                 )
         };
-        let offline = row("For offline use", detail, controls);
+        let offline = row(t!("settings-images-offline"), detail, controls);
 
-        group("Images", vec![cache, offline], cx)
+        group(t!("settings-group-images"), vec![cache, offline], cx)
     }
 
     fn download_all_images(&mut self, collection: Collection, cx: &mut Context<Self>) {
@@ -161,12 +158,13 @@ impl SettingsPage {
         window.open_alert_dialog(cx, move |alert, _, _| {
             let page = page.clone();
             alert
-                .title("Empty the downloaded images?")
-                .description(
-                    "They are downloaded again when pages show them. None of your data is \
-                     touched.",
-                )
-                .footer(dialog_footer(button("confirm").danger().label("Empty")))
+                .title(t!("settings-images-empty-title"))
+                .description(t!("settings-images-empty-help"))
+                .footer(dialog_footer(
+                    button("confirm")
+                        .danger()
+                        .label(t!("settings-images-empty-button")),
+                ))
                 .on_ok(move |_, _, cx| {
                     page.update(cx, |page, cx| page.empty_cache(cx)).ok();
                     true
@@ -177,6 +175,6 @@ impl SettingsPage {
     fn empty_cache(&mut self, cx: &mut Context<Self>) {
         let service = self.library.read(cx).image_service().clone();
         let task = service.update(cx, |service, cx| service.clear_cache(cx));
-        report(task, "Couldn’t empty the downloaded images", cx);
+        report(task, t!("settings-images-empty-failed"), cx);
     }
 }

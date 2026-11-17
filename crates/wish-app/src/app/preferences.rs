@@ -14,6 +14,7 @@ use anyhow::Result;
 use gpui_kit::{AppContext as _, Context, SharedString, Task};
 use std::path::PathBuf;
 use wish_core::AppPaths;
+use wish_core::i18n::Language;
 use wish_core::planner::ResinOptions;
 use wish_core::settings::Settings;
 
@@ -98,6 +99,17 @@ impl Preferences {
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
         self.change(|settings| settings.resin = options, cx)
+    }
+
+    /// Puts the interface in `language`, or the system's (`None`), at once.
+    pub fn set_language(
+        &mut self,
+        language: Option<Language>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        let task = self.change(|settings| settings.language = language, cx);
+        crate::apply_language(self.settings.language(), cx);
+        task
     }
 
     /// Remembers the game folder the player pointed to.

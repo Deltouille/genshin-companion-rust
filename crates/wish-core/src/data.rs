@@ -10,7 +10,7 @@ use std::sync::LazyLock;
 
 use serde::Deserialize;
 
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
 use crate::model::{ItemType, Pool, Rarity, WishTime};
 
 pub const ITEMS_FILE: &str = "items.json";
@@ -273,7 +273,10 @@ impl GameData {
                 Ok(json) => Some(json),
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
                 Err(e) => {
-                    warnings.push(format!("{file}: {}", Error::io("reading", &path)(e)));
+                    warnings.push(format!(
+                        "{file}: {}",
+                        Error::io(IoAction::Reading, &path)(e)
+                    ));
                     None
                 }
             }

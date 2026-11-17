@@ -17,7 +17,13 @@ use wish_core::planner::{
 use wish_ui::format;
 
 /// The talent rows' names, in the order of the goal's talents.
-pub(super) const TALENTS: [&str; 3] = ["Normal Attack", "Elemental Skill", "Elemental Burst"];
+pub(crate) fn talent_names() -> [String; 3] {
+    [
+        t!("planner-normal-attack"),
+        t!("planner-elemental-skill"),
+        t!("planner-elemental-burst"),
+    ]
+}
 
 #[derive(Default)]
 pub(super) struct PlannerModel {
@@ -37,7 +43,7 @@ pub(super) struct EntryModel {
     pub detail: Option<String>,
     pub portrait: Portrait,
     /// Why the entry costs nothing: what it names left the game data.
-    pub warning: Option<&'static str>,
+    pub warning: Option<String>,
     /// What its sliders are set to; none for a custom entry of earlier
     /// versions.
     pub ranges: Option<Ranges>,
@@ -218,10 +224,16 @@ fn describe(
         PlanTarget::Character { key, goal } => {
             let character = planner.character(key);
             (
-                character.map_or(key.clone(), |c| c.name.clone()),
-                character.map(|c| format!("{} · {}", c.element, c.weapon)),
+                character.map_or(key.clone(), |c| c.name.to_string()),
+                character.map(|c| {
+                    format!(
+                        "{} · {}",
+                        format::element(&c.element),
+                        format::weapon_type(&c.weapon)
+                    )
+                }),
                 Portrait::Character(key.clone(), character.map_or(4, |c| c.rarity)),
-                (character.is_none()).then_some("This character is no longer in the game data."),
+                (character.is_none()).then(|| t!("planner-character-gone")),
                 Some(character_ranges(goal)),
             )
         }
@@ -229,10 +241,10 @@ fn describe(
             let weapon = planner.weapon(key);
             let rarity = weapon.map_or(5, |w| w.rarity);
             (
-                weapon.map_or(key.clone(), |w| w.name.clone()),
-                weapon.map(|w| format!("{} · {}★", w.weapon, w.rarity)),
+                weapon.map_or(key.clone(), |w| w.name.to_string()),
+                weapon.map(|w| format!("{} · {}★", format::weapon_type(&w.weapon), w.rarity)),
                 Portrait::Weapon(key.clone(), rarity),
-                (weapon.is_none()).then_some("This weapon is no longer in the game data."),
+                (weapon.is_none()).then(|| t!("planner-weapon-gone")),
                 Some(weapon_ranges(rarity, goal)),
             )
         }
@@ -240,7 +252,7 @@ fn describe(
             name, stars, goal, ..
         } => (
             name.clone(),
-            Some(format!("Custom character · {stars}★")),
+            Some(t!("planner-custom-character", stars = *stars)),
             Portrait::Custom(*stars),
             None,
             Some(character_ranges(goal)),
@@ -249,7 +261,7 @@ fn describe(
             name, stars, goal, ..
         } => (
             name.clone(),
-            Some(format!("Custom weapon · {stars}★")),
+            Some(t!("planner-custom-weapon", stars = *stars)),
             Portrait::CustomWeapon(*stars),
             None,
             Some(weapon_ranges(*stars, goal)),
@@ -258,7 +270,7 @@ fn describe(
         // but no longer made.
         PlanTarget::Custom { name, .. } => (
             name.clone(),
-            Some("Custom entry".to_owned()),
+            Some(t!("planner-custom-entry")),
             Portrait::Entry,
             None,
             None,
@@ -288,23 +300,17 @@ fn materials(
     planner: &PlannerData,
 ) -> MaterialsModel {
     let tip = |name: &str, item: &CustomItem, need: u64, lack: u64| match count {
-        Count::Entry if lack == 0 => {
-            format!(
-                "{name}: {} needed, covered by your inventory",
-                format::count(need)
-            )
+        Count::Entry if lack == 0 => t!("planner-tip-covered", name = name, need = need),
+        Count::Entry if lack < need => {
+            t!("planner-tip-partly", name = name, need = need, lack = lack)
         }
-        Count::Entry if lack < need => format!(
-            "{name}: {} needed, {} still to get",
-            format::count(need),
-            format::count(lack)
-        ),
-        Count::Entry => format!("{name}: {} needed", format::count(need)),
-        Count::Plan => format!(
-            "{name}: {} for the whole plan, {} owned, {} still to get",
-            format::count(need),
-            format::count(inventory.owned(item)),
-            format::count(lack)
+        Count::Entry => t!("planner-tip-needed", name = name, need = need),
+        Count::Plan => t!(
+            "planner-tip-plan",
+            name = name,
+            need = need,
+            owned = inventory.owned(item),
+            lack = lack
         ),
     };
 
@@ -323,10 +329,7 @@ fn materials(
             let crafted = crafted.get(&id).copied().unwrap_or(0);
             let mut tip = tip(&material.name, &CustomItem::Material(id), need, lack);
             if crafted > 0 {
-                tip.push_str(&format!(
-                    "; {} crafted from the tiers below",
-                    format::count(crafted)
-                ));
+                tip = t!("planner-tip-crafted", tip = tip, crafted = crafted);
             }
             KnownMaterial {
                 id,
@@ -348,7 +351,7 @@ fn materials(
                 name: name.clone(),
                 need,
                 lack,
-                tip: format!("{} (not in the game data)", tip(name, &item, need, lack)),
+                tip: t!("planner-tip-unknown", tip = tip(name, &item, need, lack)),
             }
         })
         .collect();

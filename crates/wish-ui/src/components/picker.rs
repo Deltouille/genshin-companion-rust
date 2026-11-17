@@ -92,7 +92,7 @@ impl<V: Clone + PartialEq + 'static> PickerState<V> {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder(t!("ui-search")));
         let changes = cx.subscribe(&search, |this, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
                 this.highlighted = 0;
@@ -205,7 +205,7 @@ pub fn picker<V: Clone + PartialEq + 'static>(
     Picker {
         id: id.into(),
         state: state.clone(),
-        placeholder: "Choose…".into(),
+        placeholder: t!("ui-choose").into(),
         prefix: None,
         label: None,
         menu_width: rems(16.),
@@ -263,7 +263,11 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
         };
         let (open, focus) = (state.open, state.focus.clone());
         let label = match &self.label {
-            Some(label) => format!("{label}: {title}"),
+            Some(label) => t!(
+                "ui-picker-label",
+                label = label.as_ref(),
+                choice = title.as_ref()
+            ),
             None => title.to_string(),
         };
         // Faded ink, still 4.9:1 on parchment.
@@ -390,7 +394,7 @@ fn menu<V: Clone + PartialEq + 'static>(
                     .py_2()
                     .text_sm()
                     .text_color(ink.opacity(0.8))
-                    .child("Nothing matches."),
+                    .child(t!("ui-nothing-matches")),
             )
         })
         .into_any_element()

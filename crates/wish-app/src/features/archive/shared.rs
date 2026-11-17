@@ -102,7 +102,7 @@ pub(super) fn hero_banner(
 }
 
 /// Facts in two columns of label and value; those without a value left out.
-pub(super) fn facts_grid(facts: &[(&str, Option<&str>)], cx: &App) -> Div {
+pub(super) fn facts_grid(facts: &[(String, Option<String>)], cx: &App) -> Div {
     let theme = cx.theme();
     div()
         .grid()
@@ -110,8 +110,8 @@ pub(super) fn facts_grid(facts: &[(&str, Option<&str>)], cx: &App) -> Div {
         .gap_x_6()
         .gap_y_1()
         .text_sm()
-        .children(facts.iter().filter_map(|&(label, value)| {
-            let value = value?;
+        .children(facts.iter().filter_map(|(label, value)| {
+            let value = value.as_ref()?;
             Some(
                 div()
                     .h_flex()
@@ -121,9 +121,9 @@ pub(super) fn facts_grid(facts: &[(&str, Option<&str>)], cx: &App) -> Div {
                             .w(rems(6.5))
                             .flex_shrink_0()
                             .text_color(theme.muted_foreground)
-                            .child(label.to_owned()),
+                            .child(label.clone()),
                     )
-                    .child(div().truncate().child(value.to_owned())),
+                    .child(div().truncate().child(value.clone())),
             )
         }))
 }
@@ -175,7 +175,7 @@ pub(super) fn materials(
         return div()
             .text_sm()
             .text_color(cx.theme().muted_foreground)
-            .child("Nothing to spend.")
+            .child(t!("archive-nothing-to-spend"))
             .into_any_element();
     }
     items.sort_by_key(|(material, _)| (material.sort, material.id));
@@ -192,8 +192,11 @@ pub(super) fn materials(
                     format::compact(count),
                 ))
                 .tooltip({
-                    let text =
-                        SharedString::from(format!("{} × {}", format::count(count), material.name));
+                    let text = SharedString::from(t!(
+                        "archive-material",
+                        count = count,
+                        name = material.name.as_str()
+                    ));
                     move |window, cx| {
                         gpui_kit::component::tooltip::Tooltip::new(text.clone()).build(window, cx)
                     }
@@ -207,7 +210,7 @@ pub(super) fn materials(
 pub(super) fn corner_button(
     id: impl Into<SharedString>,
     icon: IconName,
-    label: &'static str,
+    label: String,
     cx: &App,
 ) -> Button {
     let theme = cx.theme();
@@ -218,13 +221,13 @@ pub(super) fn corner_button(
         .rounded_full()
         .bg(theme.background.opacity(0.8))
         .icon(icon)
-        .tooltip(label)
+        .tooltip(label.clone())
         .accessibility_label(label)
         .cursor_pointer()
 }
 
 /// A part of the list: its name and how many it holds, as a chip.
-pub(super) fn section_title(title: &str, count: usize, cx: &App) -> Div {
+pub(super) fn section_title(title: String, count: usize, cx: &App) -> Div {
     let theme = cx.theme();
     div()
         .h_flex()
@@ -233,7 +236,7 @@ pub(super) fn section_title(title: &str, count: usize, cx: &App) -> Div {
             div()
                 .text_lg()
                 .font_weight(FontWeight::SEMIBOLD)
-                .child(title.to_owned()),
+                .child(title),
         )
         .child(badge(
             count.to_string(),

@@ -30,6 +30,7 @@ use super::Sort;
 use super::filters::{self, FilterGroup, FilterOption};
 use crate::app::{Library, Session};
 use copies::CopyControls;
+use wish_ui::format;
 use wish_ui::{PickerEvent, PickerState};
 
 const TYPES: [&str; 5] = ["Sword", "Claymore", "Polearm", "Bow", "Catalyst"];
@@ -66,12 +67,16 @@ pub struct WeaponsView {
 impl WeaponsView {
     pub fn new(session: Entity<Session>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let library = session.read(cx).library().clone();
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search a weapon"));
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("archive-search-weapon")));
         let (level, level_subscription) = Self::level_slider(5, cx);
         let sort_select = cx.new(|cx| PickerState::new(filters::sort_options(), Some(0), cx));
         let subscriptions = vec![
             // New data, or another account: the copies' pickers follow.
-            cx.observe(&library, |this, _, cx| {
+            cx.observe_in(&library, window, |this, _, window, cx| {
+                // A change of language among others.
+                let placeholder = t!("archive-search-weapon");
+                filters::refresh_texts(&this.sort_select, &this.search, placeholder, window, cx);
                 this.sync_copies(cx);
                 cx.notify();
             }),
@@ -167,7 +172,7 @@ impl WeaponsView {
         let types = TYPES
             .iter()
             .map(|kind| FilterOption {
-                label: (*kind).into(),
+                label: format::weapon_type(kind).into(),
                 icon: None,
                 on: this.types.contains(kind),
                 toggle: toggle(Rc::new(move |this| Self::toggle(&mut this.types, *kind))),
@@ -183,22 +188,22 @@ impl WeaponsView {
             })
             .collect();
         let collection = vec![FilterOption {
-            label: "Favourites".into(),
+            label: t!("archive-favourites").into(),
             icon: None,
             on: this.favourites,
             toggle: toggle(Rc::new(|this| this.favourites = !this.favourites)),
         }];
         vec![
             FilterGroup {
-                title: "Type",
+                title: t!("archive-group-type"),
                 options: types,
             },
             FilterGroup {
-                title: "Rarity",
+                title: t!("archive-group-rarity"),
                 options: stars,
             },
             FilterGroup {
-                title: "Collection",
+                title: t!("archive-group-collection"),
                 options: collection,
             },
         ]
@@ -259,11 +264,13 @@ impl WeaponsView {
         });
         crate::app::notices::report_outcome(
             task,
-            format!("{name} was not added to the planner"),
+            t!("archive-not-planned", name = name.as_str()),
             move |_| {
-                format!(
-                    "{name} is in the planner, from level {} to {}.",
-                    goal.from.level, goal.to.level
+                t!(
+                    "archive-weapon-planned",
+                    name = name.as_str(),
+                    from = goal.from.level,
+                    to = goal.to.level
                 )
             },
             cx,

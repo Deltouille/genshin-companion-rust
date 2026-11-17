@@ -39,16 +39,31 @@ pub(super) struct FilterOption {
 
 /// A group of filters in the sheet, under its title.
 pub(super) struct FilterGroup {
-    pub title: &'static str,
+    pub title: String,
     pub options: Vec<FilterOption>,
+}
+
+/// Puts the texts a list worked out ahead in the current language: the
+/// sort options and the search's placeholder (after a change of language).
+pub(super) fn refresh_texts(
+    sort: &Entity<PickerState<Sort>>,
+    search: &Entity<InputState>,
+    placeholder: String,
+    window: &mut Window,
+    cx: &mut App,
+) {
+    sort.update(cx, |sort, cx| sort.set_items(sort_options(), cx));
+    search.update(cx, |search, cx| {
+        search.set_placeholder(placeholder, window, cx)
+    });
 }
 
 /// The orders, as the sort pill lists them, newest first.
 pub(super) fn sort_options() -> Vec<PickerItem<Sort>> {
     vec![
-        PickerItem::new("Version", Sort::Newest),
-        PickerItem::new("Name", Sort::Name),
-        PickerItem::new("Rarity", Sort::Rarity),
+        PickerItem::new(t!("archive-sort-version"), Sort::Newest),
+        PickerItem::new(t!("archive-sort-name"), Sort::Name),
+        PickerItem::new(t!("archive-sort-rarity"), Sort::Rarity),
     ]
 }
 
@@ -73,9 +88,9 @@ pub(super) fn filter_bar(
     let filter = button("open-filters")
         .icon(Icon::new(IconName::Funnel))
         .label(if on.is_empty() {
-            "Filter".to_owned()
+            t!("archive-filter")
         } else {
-            format!("Filter · {}", on.len())
+            t!("archive-filter-count", count = on.len())
         })
         .on_click(open_filters);
     // The direction shows in the icon: every button has the same parchment.
@@ -87,9 +102,9 @@ pub(super) fn filter_bar(
             IconName::ArrowDownWideNarrow
         },
         if reversed {
-            "Order reversed"
+            t!("archive-order-reversed")
         } else {
-            "Reverse the order"
+            t!("archive-reverse-order")
         },
     )
     .on_click(reverse);
@@ -103,7 +118,7 @@ pub(super) fn filter_bar(
             .cursor_pointer()
             .icon(Icon::new(IconName::Close))
             .label(option.label.clone())
-            .accessibility_label(format!("Remove the filter {}", option.label))
+            .accessibility_label(t!("archive-remove-filter", filter = option.label.as_ref()))
             .on_click(move |_, window, cx| toggle(window, cx))
     });
     div()
@@ -118,8 +133,8 @@ pub(super) fn filter_bar(
                 .child(
                     div().w(rems(13.)).child(
                         picker("sort", sort)
-                            .title_prefix("Sort by ")
-                            .accessibility_label("Order")
+                            .title_prefix(t!("archive-sort-by"))
+                            .accessibility_label(t!("archive-order"))
                             .menu_width(rems(13.)),
                     ),
                 )
@@ -131,7 +146,7 @@ pub(super) fn filter_bar(
                     button("clear-filters")
                         .ghost()
                         .h_8()
-                        .label("Clear all")
+                        .label(t!("archive-clear-all"))
                         .on_click(move |_, window, cx| clear(window, cx)),
                 ),
             )
@@ -250,10 +265,10 @@ pub(super) fn filter_drawer(
                         .text_2xl()
                         .font_weight(FontWeight::BOLD)
                         .text_color(gold)
-                        .child("Filter"),
+                        .child(t!("archive-filter")),
                 )
                 .child(
-                    icon_button("close-filters", IconName::Close, "Close")
+                    icon_button("close-filters", IconName::Close, t!("archive-close"))
                         .ghost()
                         .on_click({
                             let close = close.clone();
@@ -280,13 +295,13 @@ pub(super) fn filter_drawer(
                 .child(
                     button("filters-clear")
                         .ghost()
-                        .label("Clear all")
+                        .label(t!("archive-clear-all"))
                         .on_click(move |_, window, cx| clear(window, cx)),
                 )
                 .child(div().flex_1())
                 .child(
                     button("filters-done")
-                        .label("Done")
+                        .label(t!("archive-done"))
                         .on_click(move |_, window, cx| close(window, cx)),
                 ),
         )
@@ -325,7 +340,7 @@ fn filter_button(option: FilterOption, cx: &App) -> Button {
             }
         })
         .accessibility_label(if on {
-            format!("{label}, on")
+            t!("archive-filter-on", filter = label.as_ref())
         } else {
             label.to_string()
         })

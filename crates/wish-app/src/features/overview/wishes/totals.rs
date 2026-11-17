@@ -19,8 +19,8 @@ pub(super) fn totals_row(
     let colors = cx.theme();
     let average = |stats: RarityStats| match stats.average_pity() {
         // In the precision of the banner tables and the pity chart below.
-        Some(pity) => format!("Average pity {}", format::number(pity)),
-        None => "None yet".to_owned(),
+        Some(pity) => t!("overview-average-pity", pity = format::number(pity)),
+        None => t!("overview-none-yet"),
     };
     let rate = match totals.win_rate() {
         Some(rate) => format::whole_percent(rate),
@@ -28,13 +28,16 @@ pub(super) fn totals_row(
     };
     let cells = [
         stat(
-            "Wishes",
+            t!("overview-wishes"),
             big_number(format::count(totals.wishes), colors.foreground),
             div()
                 .h_flex()
                 .gap_1p5()
                 .children(primogem.map(|primogem| img(primogem).size_4()))
-                .child(format!("{} primogems", format::primogems(totals.wishes))),
+                .child(t!(
+                    "overview-primogems",
+                    count = format::primogems(totals.wishes)
+                )),
             cx,
         ),
         stat(
@@ -56,9 +59,13 @@ pub(super) fn totals_row(
             cx,
         ),
         stat(
-            "50/50 won",
+            t!("overview-rate-won"),
             big_number(rate, colors.foreground),
-            format!("{} won · {} lost", totals.five_won, totals.five_lost),
+            t!(
+                "overview-won-lost",
+                won = totals.five_won,
+                lost = totals.five_lost
+            ),
             cx,
         ),
     ];

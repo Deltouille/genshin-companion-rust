@@ -72,7 +72,7 @@ impl RenderOnce for NavItem {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
         let label = if self.active {
-            format!("{}, current page", self.label)
+            t!("ui-current-page", label = self.label.as_ref())
         } else {
             self.label.to_string()
         };

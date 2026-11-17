@@ -56,7 +56,7 @@ pub(super) fn pool_card(
     let odds = |guaranteed: bool, color| {
         let text = format::next_rate_up(pool.pool, guaranteed);
         if guaranteed {
-            badge("Guaranteed", theme::soft(color), cx)
+            badge(t!("overview-guaranteed"), theme::soft(color), cx)
         } else {
             badge(text, (theme.muted_foreground, theme.group_box), cx)
         }
@@ -64,7 +64,7 @@ pub(super) fn pool_card(
     // The odds of the next item sit by its label, leaving the right side
     // to the number.
     let pity_label =
-        |label: &'static str, odds: Option<Div>| div().h_flex().gap_2().child(label).children(odds);
+        |label: String, odds: Option<Div>| div().h_flex().gap_2().child(label).children(odds);
 
     let header = div()
         .h_flex()
@@ -97,7 +97,7 @@ pub(super) fn pool_card(
             icon_button(
                 SharedString::from(format!("history-{}", pool.pool)),
                 IconName::ChevronRight,
-                format!("{} history", pool.pool.display_name()),
+                t!("overview-history", pool = pool.pool.display_name()),
             )
             .ghost()
             .on_click(on_history),
@@ -107,14 +107,20 @@ pub(super) fn pool_card(
         .v_flex()
         .gap_2()
         .child(stat_tile(
-            pity_label("5★ pity", pool.guarantee.map(|g| odds(g.five, gold))),
-            format!("Guaranteed at {}", pool.pool.hard_pity_five()),
+            pity_label(
+                t!("overview-five-pity"),
+                pool.guarantee.map(|g| odds(g.five, gold)),
+            ),
+            t!("overview-guaranteed-at", pity = pool.pool.hard_pity_five()),
             big_number(pity5.to_string(), gold),
             cx,
         ))
         .child(stat_tile(
-            pity_label("4★ pity", pool.guarantee.map(|g| odds(g.four, purple))),
-            format!("Guaranteed at {}", pool.pool.hard_pity_four()),
+            pity_label(
+                t!("overview-four-pity"),
+                pool.guarantee.map(|g| odds(g.four, purple)),
+            ),
+            t!("overview-guaranteed-at", pity = pool.pool.hard_pity_four()),
             big_number(pity4.to_string(), purple),
             cx,
         ))
@@ -142,11 +148,7 @@ pub(super) fn pool_card(
             div()
                 .flex_1()
                 .font_weight(FontWeight::SEMIBOLD)
-                .child(format!(
-                    "{} {}",
-                    format::count(total),
-                    format::plural(total, "wish", "wishes")
-                )),
+                .child(t!("overview-wish-count", count = total)),
         )
         .child(
             div()
@@ -155,7 +157,7 @@ pub(super) fn pool_card(
                 .text_sm()
                 .text_color(theme.muted_foreground)
                 .children(primogem.map(|primogem| img(primogem).size_4()))
-                .child(format!("{} primogems", format::primogems(total))),
+                .child(t!("overview-primogems", count = format::primogems(total))),
         );
 
     card(cx)
@@ -177,21 +179,13 @@ pub(super) fn pool_card(
 fn notes(pool: &PoolAnalysis) -> Vec<String> {
     let mut notes = Vec::new();
     if pool.outside_banners > 0 {
-        notes.push(format!(
-            "{} {} outside every banner this version knows: update the app.",
-            pool.outside_banners,
-            format::plural(pool.outside_banners, "wish falls", "wishes fall"),
-        ));
+        notes.push(t!("overview-outside-banners", count = pool.outside_banners));
     }
     if pool.unknown_items > 0 {
-        notes.push(format!(
-            "{} {} an item this version doesn’t know.",
-            pool.unknown_items,
-            format::plural(pool.unknown_items, "wish has", "wishes have"),
-        ));
+        notes.push(t!("overview-unknown-items", count = pool.unknown_items));
     }
     if pool.manual_counters {
-        notes.push("Counters typed by hand in paimon.moe.".to_owned());
+        notes.push(t!("overview-manual-counters"));
     }
     notes
 }

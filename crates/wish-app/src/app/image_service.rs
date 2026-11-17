@@ -275,7 +275,7 @@ impl ImageService {
             .as_ref()
             .is_some_and(ImageDownload::is_running)
         {
-            return Task::ready(Err(anyhow!("images are downloading: stop that first")));
+            return Task::ready(Err(anyhow!(t!("app-images-busy"))));
         }
         let cache = self.cache.clone();
         cx.spawn(async move |this, cx| {

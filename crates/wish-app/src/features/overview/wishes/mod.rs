@@ -14,6 +14,7 @@ use gpui_kit::{
 use wish_core::data::GameData;
 use wish_core::engine::PoolAnalysis;
 use wish_core::model::{Pool, Rarity};
+use wish_ui::format;
 
 use super::NavigateHandler;
 use crate::app::images::Images;
@@ -127,8 +128,8 @@ fn five_star_pity(analysis: &wish_core::engine::Analysis, cx: &App) -> impl Into
                 tick: time.format("%Y-%m").to_string().into(),
                 title: format!(
                     "{} · {} · {}",
-                    pull.wish.name,
-                    time.format("%-d %b %Y"),
+                    wish_core::i18n::item_name(&pull.wish.name),
+                    format::date(&time),
                     pool.display_name()
                 )
                 .into(),

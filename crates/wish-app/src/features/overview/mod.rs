@@ -116,11 +116,11 @@ impl RenderOnce for Overview {
         let account = self.summary.as_ref().map(|summary| &summary.account);
         let title: SharedString = match account {
             Some(account) => account.label.clone().into(),
-            None => "Overview".into(),
+            None => t!("overview-title").into(),
         };
         let frame = PageFrame::new(title, body).toolbar(div().h_flex().child(tabs));
         let frame = match account.and_then(|account| account.uid.as_ref()) {
-            Some(uid) => frame.subtitle(format!("UID {uid}")),
+            Some(uid) => frame.subtitle(t!("overview-uid", uid = uid.as_str())),
             None => frame,
         };
         // Without wishes, the tab's own buttons say how to import them.
@@ -146,10 +146,8 @@ impl RenderOnce for Overview {
 fn no_wishes(manual_counting: bool, busy: bool, cx: &App) -> Div {
     let muted = cx.theme().muted_foreground;
     empty_state(
-        "No wishes yet",
-        "Import your wish history from the game, or your paimon.moe data: in paimon.moe, open \
-         Settings and choose Export, or download the save file from your Google Drive. Import \
-         both to keep the history paimon.moe holds from before the game’s last six months.",
+        t!("overview-no-wishes"),
+        t!("overview-no-wishes-help"),
         div()
             .v_flex()
             .items_center()
@@ -160,7 +158,7 @@ fn no_wishes(manual_counting: bool, busy: bool, cx: &App) -> Div {
                         .text_sm()
                         .text_center()
                         .text_color(muted)
-                        .child("Or open a banner in the sidebar to count your wishes by hand."),
+                        .child(t!("overview-no-wishes-manual")),
                 )
             })
             .child(
@@ -177,7 +175,7 @@ fn no_wishes(manual_counting: bool, busy: bool, cx: &App) -> Div {
 /// What a tab shows with nothing to count: a title, where its figures come
 /// from, and what to do to get some.
 fn empty_state(
-    title: &'static str,
+    title: String,
     text: impl Into<SharedString>,
     next: impl IntoElement,
     cx: &App,
@@ -206,7 +204,7 @@ fn empty_state(
 }
 
 /// A card with a title over `content`.
-fn section(title: &'static str, content: impl IntoElement, cx: &App) -> Div {
+fn section(title: String, content: impl IntoElement, cx: &App) -> Div {
     card(cx)
         .p_5()
         .gap_4()

@@ -13,7 +13,7 @@ use rusqlite::backup::Progress;
 use rusqlite::{Connection, MAIN_DB, OpenFlags};
 
 use super::Store;
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
 use crate::model::text_enum;
 
 /// How many backups are kept, besides the hourly ones; older ones are
@@ -85,7 +85,7 @@ impl Store {
     pub fn restore(&mut self, file: &Path) -> Result<PathBuf> {
         let latest = super::MIGRATIONS.len() as i64;
         {
-            fs::metadata(file).map_err(Error::io("reading", file))?;
+            fs::metadata(file).map_err(Error::io(IoAction::Reading, file))?;
             let not_a_backup = |_| Error::NotABackup(file.to_path_buf());
             let source = Connection::open_with_flags(file, OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .map_err(not_a_backup)?;
@@ -148,7 +148,7 @@ impl Store {
     /// Copies the whole database to a new backup file.
     fn write_backup(&self, reason: BackupReason) -> Result<PathBuf> {
         let dir = self.paths.backups();
-        fs::create_dir_all(&dir).map_err(Error::io("creating", &dir))?;
+        fs::create_dir_all(&dir).map_err(Error::io(IoAction::Creating, &dir))?;
 
         // Two backups within the same millisecond would share a name and the
         // second would replace the first; wait for the clock to move instead.
@@ -167,7 +167,7 @@ impl Store {
         // file that looks like a valid backup.
         let tmp = dir.join(format!(".{name}.tmp"));
         self.conn.backup(MAIN_DB, &tmp, None::<fn(Progress)>)?;
-        fs::rename(&tmp, &path).map_err(Error::io("renaming", &tmp))?;
+        fs::rename(&tmp, &path).map_err(Error::io(IoAction::Renaming, &tmp))?;
         Ok(path)
     }
 
@@ -222,12 +222,12 @@ fn list(dir: &Path) -> Result<Vec<BackupFile>> {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
-        Err(e) => return Err(Error::io("listing", dir)(e)),
+        Err(e) => return Err(Error::io(IoAction::Listing, dir)(e)),
     };
 
     let mut backups = Vec::new();
     for entry in entries {
-        let entry = entry.map_err(Error::io("listing", dir))?;
+        let entry = entry.map_err(Error::io(IoAction::Listing, dir))?;
         let name = entry.file_name();
         if let Some((taken_at, reason)) = name.to_str().and_then(parse_name) {
             backups.push(BackupFile {
@@ -275,7 +275,7 @@ fn prune(dir: &Path) -> Result<()> {
         };
         *seen += 1;
         if *seen > keep {
-            fs::remove_file(&backup.path).map_err(Error::io("deleting", &backup.path))?;
+            fs::remove_file(&backup.path).map_err(Error::io(IoAction::Deleting, &backup.path))?;
         }
     }
     Ok(())

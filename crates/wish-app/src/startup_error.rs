@@ -34,6 +34,16 @@ fn error_file() -> PathBuf {
     folder.join(format!("{APP_ID}-errors.txt"))
 }
 
+/// Why the data folder couldn't be prepared, for [`show_startup_error`].
+pub fn folder_failed_message(error: impl std::fmt::Display) -> String {
+    t!("app-folder-failed", error = error.to_string())
+}
+
+/// Says another window has the data folder, for [`show_startup_error`].
+pub fn already_open_message() -> String {
+    t!("app-already-open", app = APP_TITLE)
+}
+
 /// Adds `message` to the error file, with the time, and prints it.
 pub fn record_error(message: &str) {
     eprintln!("{APP_ID}: {message}");
@@ -124,21 +134,19 @@ impl Render for StartupError {
                         div()
                             .text_xl()
                             .font_weight(FontWeight::BOLD)
-                            .child(format!("{APP_TITLE} can’t start")),
+                            .child(t!("app-cant-start", app = APP_TITLE)),
                     )
                     .child(div().text_base().child(self.message.clone()))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Also written to {}.", error_file().display())),
-                    ),
+                    .child(div().text_sm().text_color(theme.muted_foreground).child(t!(
+                        "app-error-file",
+                        file = error_file().display().to_string()
+                    ))),
             )
             .child(
                 div().h_flex().justify_end().child(
                     button("close")
                         .primary()
-                        .label("Close")
+                        .label(t!("app-close"))
                         .on_click(|_, _, cx| cx.quit()),
                 ),
             )

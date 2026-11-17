@@ -71,14 +71,28 @@ pub(super) struct CharacterCard {
 impl CharacterCard {
     /// What a screen reader says of the card.
     pub fn label(&self) -> String {
-        format!(
-            "{}, {}★ {} {}{}",
-            self.name,
-            self.rarity,
-            self.element,
-            self.weapon,
-            if self.owned.is_some() { ", owned" } else { "" }
-        )
+        let (name, stars) = (self.name.as_str(), self.rarity);
+        let (element, weapon) = (
+            format::element(&self.element),
+            format::weapon_type(&self.weapon),
+        );
+        if self.owned.is_some() {
+            t!(
+                "archive-character-label-owned",
+                name = name,
+                stars = stars,
+                element = element,
+                weapon = weapon
+            )
+        } else {
+            t!(
+                "archive-character-label",
+                name = name,
+                stars = stars,
+                element = element,
+                weapon = weapon
+            )
+        }
     }
 }
 
@@ -125,13 +139,17 @@ pub(super) fn list(
     mine.sort_by_key(|c| !owned.character(&c.key).is_some_and(|o| o.favourite));
     let card = |character: &Character| CharacterCard {
         key: character.key.clone(),
-        name: character.name.clone(),
+        name: character.name.to_string(),
         rarity: character.rarity,
         element: character.element.clone(),
         weapon: character.weapon.clone(),
         owned: owned.character(&character.key).map(|o| {
             (
-                format!("Lv. {} · C{}", o.level.level, o.constellation),
+                t!(
+                    "archive-owned-level",
+                    level = o.level.level,
+                    constellation = o.constellation
+                ),
                 o.favourite,
             )
         }),
@@ -179,12 +197,15 @@ pub(super) fn stats(
         )
         .materials_with_exp();
     Stats {
-        level_label: format!("Lv. {}/{}", level.level, level.cap()),
+        level_label: t!("archive-level-cap", level = level.level, cap = level.cap()),
         rows: [
-            ("Base HP".to_owned(), count(stats.hp)),
-            ("Base ATK".to_owned(), count(stats.attack)),
-            ("Base DEF".to_owned(), count(stats.defense)),
-            (page.stats.special.clone(), special(page, stats.special)),
+            (format::stat("Base HP"), count(stats.hp)),
+            (format::stat("Base ATK"), count(stats.attack)),
+            (format::stat("Base DEF"), count(stats.defense)),
+            (
+                format::stat(&page.stats.special),
+                special(page, stats.special),
+            ),
         ],
         cost,
     }
@@ -196,7 +217,7 @@ fn special(page: &CharacterPage, value: f64) -> String {
     if page.stats.special == "Elemental Mastery" {
         format::count(value.round() as u64)
     } else {
-        format!("{:.1}%", value * 100.0)
+        format::percent(value)
     }
 }
 
@@ -257,9 +278,9 @@ pub(super) fn talent_cost(planner: &PlannerData, character: &Character, level: u
     TalentCost {
         level,
         note: if level > 10 {
-            "Levels 11 to 15 come from constellations; the materials stop at 10.".to_owned()
+            t!("archive-talents-past-ten")
         } else {
-            format!("Raising one talent from 1 to {level}:")
+            t!("archive-talent-cost", level = level)
         },
         cost: (to > 1).then(|| need.materials_with_exp()),
     }

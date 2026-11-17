@@ -34,11 +34,11 @@ const MAX_LEVEL = 90;
 const EXP_MATERIALS = [104001, 104002, 104003, 104011, 104012, 104013];
 
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'));
-const readCategory = (category) =>
+const readCategory = (category, language = 'English') =>
   Object.fromEntries(
-    readdirSync(join(dataDir, 'English', category))
+    readdirSync(join(dataDir, language, category))
       .filter((file) => file.endsWith('.json'))
-      .map((file) => [file.slice(0, -'.json'.length), readJson(join(dataDir, 'English', category, file))]),
+      .map((file) => [file.slice(0, -'.json'.length), readJson(join(dataDir, language, category, file))]),
   );
 const fail = (message) => {
   console.error(`error: ${message}`);
@@ -354,6 +354,118 @@ const archive = {
 };
 writeData(archiveFile, archive);
 console.log(`${archiveCharacters.length} character and ${archiveWeapons.length} weapon pages → ${archiveFile}`);
+
+// The game's texts in the other languages the app is written in: the names
+// and texts of planner.json and archive.json, by key (materials by id), in
+// `data/<code>.json`. What a language lacks shows in English. Talent rows
+// keep the English parameters, so their values are the same.
+const LANGUAGES = [['fr', 'French']];
+for (const [code, language] of LANGUAGES) {
+  const their = {
+    characters: readCategory('characters', language),
+    talents: readCategory('talents', language),
+    weapons: readCategory('weapons', language),
+    materials: readCategory('materials', language),
+    constellations: readCategory('constellations', language),
+  };
+  const params = (template) => [...template.matchAll(/\{(param\d+):[^}]*\}/g)].map(([, p]) => p).sort().join();
+  // The elements' names, from the characters: the Traveler's goes in theirs.
+  const elementNames = {};
+  for (const [key, character] of Object.entries(characters)) {
+    const translated = their.characters[key]?.elementText;
+    if (translated && character.elementText) elementNames[character.elementText] = translated;
+  }
+  const texts = { source: { repo: 'https://github.com/theBowja/genshin-db', commit }, characters: {}, weapons: {}, materials: {}, names: {} };
+  for (const page of archiveCharacters) {
+    const { key } = page;
+    const profileKey = key.startsWith('traveler') ? 'aether' : key;
+    const character = their.characters[profileKey];
+    const talent = their.talents[key];
+    const constellation = their.constellations[key];
+    if (!character || !talent || !constellation) {
+      console.log(`${code}: no texts for ${key}`);
+      continue;
+    }
+    const planned = plannedCharacters.find((c) => c.key === key);
+    let name = character.name;
+    if (key.startsWith('traveler')) {
+      const element = planned.element;
+      name = `${({ fr: 'Voyageur' })[code] ?? 'Traveler'} (${elementNames[element] ?? element})`;
+    }
+    const englishTalent = talents[key];
+    const slots = [
+      ...Object.keys(TALENT_KINDS).filter((slot) => englishTalent[slot]?.name),
+      ...['passive1', 'passive2', 'passive3', 'passive4'].filter((slot) => englishTalent[slot]?.name),
+    ];
+    texts.characters[key] = {
+      name,
+      title: character.title || null,
+      description: character.description || null,
+      region: character.region || null,
+      affiliation: character.affiliation || null,
+      birthday: character.birthday || null,
+      constellation: character.constellation || null,
+      talents: slots.map((slot, ix) => {
+        const theirs = talent[slot] ?? {};
+        const english = page.talents[ix].rows;
+        let rows = (theirs.attributes?.labels ?? []).map((label) => {
+          const at = label.indexOf('|');
+          return [label.slice(0, at), label.slice(at + 1)];
+        });
+        // Rows that don't match the English ones (a count or a parameter
+        // apart) would show other values: the English rows stay then.
+        const same = rows.length === english.length && rows.every(([, t], i) => params(t) === params(english[i][1]));
+        if (english.length && !same) {
+          console.log(`${code}: ${key}'s ${englishTalent[slot].name} rows differ: left in English`);
+          rows = null;
+        }
+        return {
+          name: theirs.name || null,
+          description: theirs.description || null,
+          rows: english.length ? rows : null,
+        };
+      }),
+      constellations: [1, 2, 3, 4, 5, 6].map((n) => ({
+        name: constellation[`c${n}`]?.name || null,
+        description: constellation[`c${n}`]?.description || null,
+      })),
+    };
+  }
+  for (const page of archiveWeapons) {
+    const weapon = their.weapons[page.key];
+    if (!weapon) {
+      console.log(`${code}: no texts for weapon ${page.key}`);
+      continue;
+    }
+    const refinements = [1, 2, 3, 4, 5].map((r) => weapon[`r${r}`]?.description).filter(Boolean);
+    texts.weapons[page.key] = {
+      name: weapon.name,
+      description: weapon.description || null,
+      passive:
+        page.passive && weapon.effectName && refinements.length === page.passive.refinements.length
+          ? { name: weapon.effectName, refinements }
+          : null,
+    };
+  }
+  for (const material of plannedMaterials) {
+    const theirs = their.materials[material.key];
+    if (!theirs) continue;
+    texts.materials[material.id] = { name: theirs.name, domain: theirs.dropDomainName ?? null };
+  }
+  // Every character's and weapon's name, by its English one: the wish
+  // history names items as the game did, in English.
+  for (const [category, english] of [['characters', characters], ['weapons', weapons]]) {
+    for (const [key, entry] of Object.entries(english)) {
+      const translated = their[category][key]?.name;
+      if (translated && translated !== entry.name) texts.names[entry.name] = translated;
+    }
+  }
+  const textFile = join(repoRoot, 'crates', 'wish-core', 'data', `${code}.json`);
+  writeData(textFile, texts);
+  console.log(
+    `${code}: ${Object.keys(texts.characters).length} characters, ${Object.keys(texts.weapons).length} weapons, ${Object.keys(texts.materials).length} materials → ${textFile}`,
+  );
+}
 
 // One line per list of numbers or names (a cost, an EXP table, the days, a
 // talent's values) and per cost list keeps the files readable and their

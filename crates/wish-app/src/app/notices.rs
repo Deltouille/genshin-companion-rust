@@ -57,7 +57,11 @@ impl Notice {
 
     /// What didn't happen, then why: "The plan was not saved: …".
     pub fn failure(what: impl Display, error: &anyhow::Error) -> Self {
-        Self::failed(format!("{what}: {error:#}"))
+        Self::failed(t!(
+            "app-failure",
+            what = what.to_string(),
+            why = format!("{error:#}")
+        ))
     }
 
     /// How long a [`NoticeKind::Done`] stays: 4 s, longer for a long

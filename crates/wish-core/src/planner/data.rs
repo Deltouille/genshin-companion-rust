@@ -15,7 +15,8 @@ use chrono::Weekday;
 use serde::Deserialize;
 
 use crate::data::DataSource;
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
+use crate::i18n::{self, Text};
 
 use super::custom::{PLACEHOLDER_IDS, Role, Roles};
 
@@ -48,7 +49,7 @@ pub struct Material {
     pub id: MaterialId,
     /// genshin-db's key, such as `philosophiesofdiligence`.
     pub key: String,
-    pub name: String,
+    pub name: Text,
     pub rarity: u8,
     /// What it is for, as the game says: "Character Talent Material".
     pub kind: String,
@@ -57,7 +58,7 @@ pub struct Material {
     /// The days its domain gives it, for talent and weapon materials.
     #[serde(deserialize_with = "weekdays")]
     pub days: Vec<Weekday>,
-    pub domain: Option<String>,
+    pub domain: Option<Text>,
     /// The game's file name for its icon (`UI_ItemIcon_104315`).
     pub icon: Option<String>,
 }
@@ -76,7 +77,7 @@ pub struct Character {
     /// (`travelergeo`).
     pub key: String,
     pub id: u32,
-    pub name: String,
+    pub name: Text,
     pub rarity: u8,
     pub element: String,
     /// The weapon type: "Bow", "Sword"…
@@ -92,7 +93,7 @@ pub struct Character {
 pub struct Weapon {
     pub key: String,
     pub id: u32,
-    pub name: String,
+    pub name: Text,
     pub rarity: u8,
     pub weapon: String,
     pub icon: Option<String>,
@@ -144,7 +145,7 @@ impl PlannerData {
         match fs::read_to_string(&path) {
             Ok(json) => Self::from_json(&json),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::embedded().clone()),
-            Err(e) => Err(Error::io("reading", &path)(e)),
+            Err(e) => Err(Error::io(IoAction::Reading, &path)(e)),
         }
     }
 
@@ -184,11 +185,36 @@ impl PlannerData {
             craft_families: Vec::new(),
             craft_family_of: HashMap::new(),
         };
+        data.translate();
         data.check()?;
         // Crafting first: telling elite drops from common ones uses it.
         data.index_crafting();
         data.index_roles();
         Ok(data)
+    }
+
+    /// Merges in the names the other languages give (`data/<code>.json`).
+    fn translate(&mut self) {
+        for (language, texts) in i18n::translations() {
+            for character in &mut self.characters {
+                if let Some(theirs) = texts.characters.get(&character.key) {
+                    i18n::translate(&mut character.name, *language, theirs.name.as_ref());
+                }
+            }
+            for weapon in &mut self.weapons {
+                if let Some(theirs) = texts.weapons.get(&weapon.key) {
+                    i18n::translate(&mut weapon.name, *language, theirs.name.as_ref());
+                }
+            }
+            for material in &mut self.materials {
+                if let Some(theirs) = texts.materials.get(&material.id) {
+                    i18n::translate(&mut material.name, *language, theirs.name.as_ref());
+                    if let Some(domain) = &mut material.domain {
+                        i18n::translate(domain, *language, theirs.domain.as_ref());
+                    }
+                }
+            }
+        }
     }
 
     pub fn characters(&self) -> &[Character] {

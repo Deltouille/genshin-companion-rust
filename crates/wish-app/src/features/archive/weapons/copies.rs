@@ -59,13 +59,8 @@ impl WeaponsView {
         });
         report_outcome(
             task,
-            format!("{name} wasn’t added"),
-            move |_| {
-                format!(
-                    "A copy of {name} is in your weapons. Set its level, refinement and holder \
-                     on its page."
-                )
-            },
+            t!("archive-not-added", name = name.as_str()),
+            move |_| t!("archive-copy-added", name = name.as_str()),
             cx,
         );
     }
@@ -97,22 +92,22 @@ impl WeaponsView {
             return;
         };
         let library = self.library.downgrade();
-        let title = SharedString::from(format!("Remove this copy of {name}?"));
+        let title = SharedString::from(t!("archive-remove-copy-title", name = name.as_str()));
         window.open_alert_dialog(cx, move |alert, _, _| {
             let library = library.clone();
             alert
                 .title(title.clone())
-                .description(
-                    "Its level, refinement and holder are forgotten. A backup is taken first.",
-                )
-                .footer(dialog_footer(button("confirm").danger().label("Remove")))
+                .description(t!("archive-remove-copy-help"))
+                .footer(dialog_footer(
+                    button("confirm").danger().label(t!("archive-remove")),
+                ))
                 .on_ok(move |_, _, cx| {
                     let task = library.update(cx, |library, cx| {
                         library.remove_owned_weapon(account, id, cx)
                     });
                     if let Ok(task) = task {
                         // A failed removal brings the copy back: say why.
-                        report(task, "The copy wasn’t removed", cx);
+                        report(task, t!("archive-copy-not-removed"), cx);
                     }
                     true
                 })
@@ -142,7 +137,10 @@ impl WeaponsView {
             let level = steps.iter().position(|l| *l == copy.level).unwrap_or(0);
             let holder = SharedString::from(copy.holder.clone().unwrap_or_default());
             // The owned characters who wield this type, and whoever holds it.
-            let mut holders = vec![PickerItem::new("Nobody", SharedString::default())];
+            let mut holders = vec![PickerItem::new(
+                t!("archive-nobody"),
+                SharedString::default(),
+            )];
             holders.extend(
                 planner
                     .characters()
@@ -151,7 +149,9 @@ impl WeaponsView {
                         (c.weapon == weapon.weapon && owned.character(&c.key).is_some())
                             || copy.holder.as_deref() == Some(c.key.as_str())
                     })
-                    .map(|c| PickerItem::new(c.name.clone(), SharedString::from(c.key.clone()))),
+                    .map(|c| {
+                        PickerItem::new(c.name.to_string(), SharedString::from(c.key.clone()))
+                    }),
             );
             match self.copies.iter().find(|c| c.id == copy.id) {
                 Some(controls) => {
@@ -237,13 +237,13 @@ impl WeaponsView {
         let add = button("add-copy")
             .icon(IconName::Plus)
             .label(if copies.is_empty() {
-                "I have it"
+                t!("archive-i-have-it")
             } else {
-                "Add a copy"
+                t!("archive-add-copy")
             })
             .on_click(cx.listener({
                 let (key, name) = (weapon.key.clone(), weapon.name.clone());
-                move |this, _, _, cx| this.add_copy(key.clone(), name.clone(), cx)
+                move |this, _, _, cx| this.add_copy(key.clone(), name.to_string(), cx)
             }));
         let rows = copies.iter().enumerate().filter_map(|(ix, copy)| {
             let controls = self.copies.iter().find(|c| c.id == copy.id)?;
@@ -268,9 +268,9 @@ impl WeaponsView {
                 let mut owned = copy.clone();
                 owned.favourite = !copy.favourite;
                 let (icon, label) = if copy.favourite {
-                    (IconName::StarFill, "Remove from favourites")
+                    (IconName::StarFill, t!("archive-remove-favourite"))
                 } else {
-                    (IconName::Star, "Add to favourites")
+                    (IconName::Star, t!("archive-add-favourite"))
                 };
                 icon_button(format!("favourite-copy-{}", copy.id), icon, label)
                     .ghost()
@@ -279,11 +279,11 @@ impl WeaponsView {
             };
             let remove = button(SharedString::from(format!("remove-copy-{}", copy.id)))
                 .ghost()
-                .label("Remove")
+                .label(t!("archive-remove"))
                 .on_click(cx.listener({
                     let (id, name) = (copy.id, weapon.name.clone());
                     move |this, _, window, cx| {
-                        this.confirm_remove_copy(id, name.clone(), window, cx)
+                        this.confirm_remove_copy(id, name.to_string(), window, cx)
                     }
                 }));
             Some(
@@ -295,26 +295,26 @@ impl WeaponsView {
                     .gap_y_3()
                     .when(ix > 0, |this| this.pt_4().border_t_1().border_color(border))
                     .child(field(
-                        "Level",
+                        &t!("archive-level"),
                         div().w(rems(9.)).child(
                             picker(
                                 SharedString::from(format!("copy-level-{}", copy.id)),
                                 &controls.level,
                             )
-                            .accessibility_label("Level")
+                            .accessibility_label(t!("archive-level"))
                             .menu_width(rems(9.)),
                         ),
                         cx,
                     ))
-                    .child(field("Refinement", refinement, cx))
+                    .child(field(&t!("archive-refinement"), refinement, cx))
                     .child(field(
-                        "Held by",
+                        &t!("archive-held-by"),
                         div().w(rems(13.)).child(
                             picker(
                                 SharedString::from(format!("copy-holder-{}", copy.id)),
                                 &controls.holder,
                             )
-                            .accessibility_label("Held by")
+                            .accessibility_label(t!("archive-held-by"))
                             .menu_width(rems(13.)),
                         ),
                         cx,
@@ -327,11 +327,14 @@ impl WeaponsView {
         card(cx)
             .p_4()
             .gap_4()
-            .child(card_title("My copies", cx).child(add))
+            .child(card_title(t!("archive-my-copies"), cx).child(add))
             .when(rows.is_empty(), |this| {
-                this.child(div().text_sm().text_color(muted).child(
-                    "You don’t have it. Add a copy to note its level, refinement and who holds it.",
-                ))
+                this.child(
+                    div()
+                        .text_sm()
+                        .text_color(muted)
+                        .child(t!("archive-no-copies")),
+                )
             })
             .children(rows)
             .into_any_element()
@@ -354,5 +357,5 @@ fn field(label: &str, control: impl IntoElement, cx: &App) -> Div {
 
 /// Shows a notice if a write of the weapons fails.
 fn report_weapons<T: 'static>(task: Task<anyhow::Result<T>>, cx: &mut App) {
-    report(task, "Your weapons were not saved", cx);
+    report(task, t!("archive-weapons-not-saved"), cx);
 }

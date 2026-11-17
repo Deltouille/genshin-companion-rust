@@ -12,14 +12,14 @@ impl SettingsPage {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some(SharedString::from("Mirror here")),
+            prompt: Some(SharedString::from(t!("settings-mirror-prompt"))),
         });
         let flow = cx.spawn_in(window, async move |this, cx| {
             let folder = match picked.await {
                 Ok(Ok(Some(mut folders))) => folders.pop(),
                 Ok(Err(err)) => {
                     this.update_in(cx, |_, _, cx| {
-                        notify(Notice::failure("Couldn’t open the folder picker", &err), cx);
+                        notify(Notice::failure(t!("app-folder-picker-failed"), &err), cx);
                     })
                     .ok();
                     None
@@ -43,6 +43,6 @@ impl SettingsPage {
         let task = self
             .library
             .update(cx, |library, cx| library.set_mirror_folder(folder, cx));
-        report(task, "Couldn’t change the mirror folder", cx);
+        report(task, t!("settings-mirror-change-failed"), cx);
     }
 }

@@ -14,14 +14,14 @@ impl HoyolabSync {
                     .h_flex()
                     .gap_2()
                     .child(Spinner::new())
-                    .child("Asking HoYoLAB for your characters…"),
+                    .child(t!("hoyolab-asking")),
             )
             .child(
-                footer().child(button("cancel-fetch").label("Cancel").on_click(cx.listener(
-                    |this, _, _, _| {
+                footer().child(button("cancel-fetch").label(t!("app-cancel")).on_click(
+                    cx.listener(|this, _, _, _| {
                         this.control.cancel();
-                    },
-                ))),
+                    }),
+                )),
             )
             .into_any_element()
     }
@@ -50,7 +50,11 @@ impl HoyolabSync {
             accounts
                 .iter()
                 .fold(Segmented::new("hoyolab-account"), |segments, a| {
-                    segments.option(format!("{} · AR {}", a.account.nickname, a.account.level))
+                    segments.option(t!(
+                        "hoyolab-account",
+                        nickname = a.account.nickname.as_str(),
+                        level = a.account.level
+                    ))
                 })
                 .selected(*choice)
                 .on_select(cx.listener(|this, ix: &usize, _, cx| {
@@ -81,11 +85,11 @@ impl HoyolabSync {
             div()
                 .v_flex()
                 .gap_2()
-                .child(div().text_sm().child(format!(
-                    "No account here has UID {} yet. Choose the one whose wish history is this \
-                     player’s: it takes the UID, so the next import from the game goes there too.",
-                    game.uid
-                )))
+                .child(
+                    div()
+                        .text_sm()
+                        .child(t!("hoyolab-choose-target", uid = game.uid.as_str())),
+                )
                 .child(div().h_flex().child(segments))
         });
         let into = model::into(&chosen.target, game);
@@ -105,11 +109,12 @@ impl HoyolabSync {
             .gap_3()
             .children(choices.map(|choices| div().h_flex().child(choices)))
             .children(destinations)
-            .child(
-                div()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(format!("UID {} · {}, {into}", game.uid, game.nickname)),
-            )
+            .child(div().font_weight(FontWeight::SEMIBOLD).child(t!(
+                "hoyolab-heading",
+                uid = game.uid.as_str(),
+                nickname = game.nickname.as_str(),
+                into = into
+            )))
             .child(div().text_sm().child(model::summary(plan)))
             .when(!lines.is_empty(), |this| {
                 this.child(
@@ -127,7 +132,7 @@ impl HoyolabSync {
                     div()
                         .text_sm()
                         .text_color(muted)
-                        .child("Your collection already has all of this."),
+                        .child(t!("hoyolab-nothing-new")),
                 )
             })
             // What HoYoLAB left unclear, or the game data lacks: said, so a
@@ -148,14 +153,18 @@ impl HoyolabSync {
                 footer()
                     .child(
                         button("cancel")
-                            .label(if changes == 0 { "Close" } else { "Cancel" })
+                            .label(if changes == 0 {
+                                t!("app-close")
+                            } else {
+                                t!("app-cancel")
+                            })
                             .on_click(|_, window, cx| window.close_dialog(cx)),
                     )
                     .when(changes > 0, |this| {
                         this.child(
                             button("apply-hoyolab")
                                 .primary()
-                                .label("Sync")
+                                .label(t!("hoyolab-sync"))
                                 .loading(busy)
                                 .unavailable(busy)
                                 .on_click(
@@ -180,13 +189,13 @@ impl HoyolabSync {
                 footer()
                     .child(
                         button("close")
-                            .label("Close")
+                            .label(t!("app-close"))
                             .on_click(|_, window, cx| window.close_dialog(cx)),
                     )
                     .child(
                         button("try-again")
                             .primary()
-                            .label("Try again")
+                            .label(t!("hoyolab-try-again"))
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.step = Step::Form;
                                 cx.notify();

@@ -29,7 +29,7 @@ pub(super) fn grid(
         return div()
             .text_sm()
             .text_color(theme.muted_foreground)
-            .child("Nothing to spend.")
+            .child(t!("planner-nothing-to-spend"))
             .into_any_element();
     }
     let tiles = (materials.known.iter()).filter_map(|line| {

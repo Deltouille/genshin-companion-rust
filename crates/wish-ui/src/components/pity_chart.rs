@@ -23,14 +23,14 @@ pub fn pity_chart(points: Vec<PityPoint>, top: u32, cx: &App) -> Div {
     let theme = cx.theme();
     let average = (!points.is_empty())
         .then(|| points.iter().map(|p| f64::from(p.pity)).sum::<f64>() / points.len() as f64);
-    let title = card_title("5★ pity", cx).child(
+    let title = card_title(t!("ui-pity-title"), cx).child(
         div()
             .flex_none()
             .text_sm()
             .text_color(theme.muted_foreground)
             .child(match average {
                 Some(average) if points.len() > 1 => {
-                    format!("average {}", format::number(average))
+                    t!("ui-pity-average", average = format::number(average))
                 }
                 _ => String::new(),
             }),
@@ -40,11 +40,15 @@ pub fn pity_chart(points: Vec<PityPoint>, top: u32, cx: &App) -> Div {
         return frame.child(
             div()
                 .text_color(theme.muted_foreground)
-                .child(format!("One 5★ so far, at pity {}.", only.pity)),
+                .child(t!("ui-pity-one", pity = only.pity)),
         );
     }
     if points.is_empty() {
-        return frame.child(div().text_color(theme.muted_foreground).child("No 5★ yet."));
+        return frame.child(
+            div()
+                .text_color(theme.muted_foreground)
+                .child(t!("ui-pity-none")),
+        );
     }
 
     // The 5★ series colour, validated against both card surfaces.
@@ -66,7 +70,7 @@ pub fn pity_chart(points: Vec<PityPoint>, top: u32, cx: &App) -> Div {
         .y_padding(0.0, 0.0)
         .y_tick_count(crate::axis::whole_ticks(top, 5))
         .y_tick_format(|v| format!("{v:.0}"))
-        .name("Pity")
+        .name(t!("ui-pity"))
         .tooltip_title(|p: &PityPoint| p.title.clone())
         .tooltip_value(|p: &PityPoint, _| p.pity.to_string().into());
     if let Some(average) = average {

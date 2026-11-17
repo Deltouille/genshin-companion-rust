@@ -229,11 +229,11 @@ impl Render for HistoryView {
         let title = self
             .shown
             .as_ref()
-            .map_or("History", |s| s.pool.display_name());
+            .map_or_else(|| t!("history-title"), |s| s.pool.display_name());
         let mode = self.mode;
         let switch = Segmented::new("history-mode")
-            .option("Wishes")
-            .option("Banners")
+            .option(t!("history-mode-wishes"))
+            .option(t!("history-mode-banners"))
             .selected(match mode {
                 Mode::Wishes => 0,
                 Mode::Banners => 1,
@@ -264,11 +264,11 @@ impl Render for HistoryView {
                         on,
                         cx,
                     )
-                    .tooltip(format!(
-                        "{} the {}★ wishes",
-                        if on { "Hide" } else { "Show" },
-                        rarity.stars()
-                    ))
+                    .tooltip(if on {
+                        t!("history-hide-rarity", stars = rarity.stars())
+                    } else {
+                        t!("history-show-rarity", stars = rarity.stars())
+                    })
                     .on_click(cx.listener(move |this, _, _, cx| this.toggle(rarity, !on, cx)))
                 }));
         let manual = self
@@ -334,7 +334,10 @@ impl Render for HistoryView {
                                                 window.rem_size() * table::HEADER_REMS,
                                             )
                                             .bordered(false)
-                                            .accessibility_label(format!("{title} wishes")),
+                                            .accessibility_label(t!(
+                                                "history-table-label",
+                                                title = title.as_str()
+                                            )),
                                     ),
                                 )
                                 .child(self.render_pager(cx)),

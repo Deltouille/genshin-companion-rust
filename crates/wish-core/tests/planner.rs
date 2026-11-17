@@ -443,7 +443,12 @@ mod custom_characters {
                 let material = data.material(*id).unwrap();
                 assert!(material.is_placeholder(), "{role}");
                 assert!(material.icon.is_none() && material.days.is_empty());
-                assert!(material.name.starts_with(role.placeholder_name()));
+                assert!(
+                    material
+                        .name
+                        .english()
+                        .starts_with(&role.placeholder_name())
+                );
             }
             // The tiers of the series it stands for.
             if let Some(model) = ganyu.get(role) {
@@ -460,9 +465,11 @@ mod custom_characters {
             data.families(Role::TalentBook)[0],
             [9_000_500, 9_000_501, 9_000_502]
         );
+        let name = &data.material(9_000_501).unwrap().name;
+        assert_eq!(name.english(), "Unknown talent book (3★)");
         assert_eq!(
-            data.material(9_000_501).unwrap().name,
-            "Unknown talent book (3★)"
+            name.get(wish_core::i18n::Language::French),
+            "Livre d’aptitude inconnu (3★)"
         );
         assert_eq!(data.families(Role::BossMaterial)[0], [9_000_300]);
         assert_eq!(

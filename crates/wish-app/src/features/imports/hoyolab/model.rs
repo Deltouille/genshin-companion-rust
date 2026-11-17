@@ -12,27 +12,31 @@ use wish_ui::format;
 /// account named after the game's nickname.
 pub(super) fn target_label(target: &Option<Account>, game: &GameAccount) -> String {
     match target {
-        Some(account) => format!("“{}”", account.label),
-        None => format!("A new account, “{}”", game.nickname),
+        Some(account) => format::quoted(&account.label),
+        None => t!("hoyolab-new-account", name = format::quoted(&game.nickname)),
     }
 }
 
 /// Where the sync goes, after the UID: "into “Main”".
 pub(super) fn into(target: &Option<Account>, game: &GameAccount) -> String {
     match target {
-        Some(account) => format!("into “{}”", account.label),
-        None => format!("into a new account, “{}”", game.nickname),
+        Some(account) => t!("hoyolab-into", account = format::quoted(&account.label)),
+        None => t!("hoyolab-into-new", name = format::quoted(&game.nickname)),
     }
 }
 
 /// "Characters: 112 to add, 3 to raise · Weapons: 110 to add, 2 to move".
 pub(super) fn summary(plan: &SyncPlan) -> String {
-    let count = |counts: [(usize, &str); 3], what: &str| -> Option<String> {
-        let parts: Vec<String> = (counts.iter())
-            .filter(|(n, _)| *n > 0)
-            .map(|(n, verb)| format!("{} to {verb}", format::count(*n as u64)))
-            .collect();
-        (!parts.is_empty()).then(|| format!("{what}: {}", parts.join(", ")))
+    let parts = |[added, raised, moved]: [usize; 3]| -> Option<String> {
+        let parts: Vec<String> = [
+            (added > 0).then(|| t!("hoyolab-to-add", count = added)),
+            (raised > 0).then(|| t!("hoyolab-to-raise", count = raised)),
+            (moved > 0).then(|| t!("hoyolab-to-move", count = moved)),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        (!parts.is_empty()).then(|| parts.join(", "))
     };
     let (characters_added, characters_raised) = tally(&plan.characters);
     let (weapons_added, weapons_raised) = tally(&plan.weapons);
@@ -40,28 +44,16 @@ pub(super) fn summary(plan: &SyncPlan) -> String {
         .filter(|change| moved(change).is_some())
         .count();
     let parts: Vec<String> = [
-        count(
-            [
-                (characters_added, "add"),
-                (characters_raised, "raise"),
-                (0, ""),
-            ],
-            "Characters",
-        ),
-        count(
-            [
-                (weapons_added, "add"),
-                (weapons_raised - weapons_moved, "raise"),
-                (weapons_moved, "move"),
-            ],
-            "Weapons",
-        ),
+        parts([characters_added, characters_raised, 0])
+            .map(|parts| t!("hoyolab-characters", parts = parts)),
+        parts([weapons_added, weapons_raised - weapons_moved, weapons_moved])
+            .map(|parts| t!("hoyolab-weapons", parts = parts)),
     ]
     .into_iter()
     .flatten()
     .collect();
     if parts.is_empty() {
-        "Nothing to change.".to_owned()
+        t!("hoyolab-nothing")
     } else {
         parts.join(" · ")
     }
@@ -79,32 +71,48 @@ pub(super) fn lines(plan: &SyncPlan, planner: &PlannerData) -> Vec<(&'static str
     };
     let character = |c: &OwnedCharacter| {
         let [a, e, q] = c.talents;
-        format!(
-            "{} · {} · C{} · talents {a}/{e}/{q}",
-            name(&c.key),
-            level(c.level),
-            c.constellation
+        t!(
+            "hoyolab-character-line",
+            name = name(&c.key),
+            level = level(c.level),
+            constellation = c.constellation,
+            talents = format!("{a}/{e}/{q}")
         )
     };
     let weapon = |w: &OwnedWeapon| {
         let weapon = planner
             .weapon(&w.key)
             .map_or(w.key.as_str(), |w| w.name.as_str());
-        let holder = w
-            .holder
-            .as_deref()
-            .map_or(String::new(), |h| format!(" · held by {}", name(h)));
-        format!("{weapon} · {} · R{}{holder}", level(w.level), w.refinement)
+        match w.holder.as_deref() {
+            Some(holder) => t!(
+                "hoyolab-weapon-held",
+                weapon = weapon,
+                level = level(w.level),
+                refinement = w.refinement,
+                holder = name(holder)
+            ),
+            None => t!(
+                "hoyolab-weapon-line",
+                weapon = weapon,
+                level = level(w.level),
+                refinement = w.refinement
+            ),
+        }
     };
     let characters = plan.characters.iter().filter_map(|change| match change {
         Change::Added(c) => Some(("+", character(c))),
         Change::Raised { before, after } => Some((
             "↑",
-            format!("{}  (was {})", character(after), character(before)),
+            t!(
+                "hoyolab-was",
+                after = character(after),
+                before = character(before)
+            ),
         )),
         Change::Unchanged(_) => None,
     });
-    let holder = |holder: &Option<String>| holder.as_deref().map_or("nobody".to_owned(), name);
+    let holder =
+        |holder: &Option<String>| holder.as_deref().map_or_else(|| t!("hoyolab-nobody"), name);
     let weapons = plan.weapons.iter().filter_map(|change| match change {
         Change::Added(w) => Some(("+", weapon(w))),
         Change::Raised { .. } if let Some((before, after)) = moved(change) => {
@@ -113,18 +121,24 @@ pub(super) fn lines(plan: &SyncPlan, planner: &PlannerData) -> Vec<(&'static str
                 .map_or(after.key.as_str(), |w| w.name.as_str());
             Some((
                 "⇄",
-                format!(
-                    "{name} · {} · R{}: from {} to {}",
-                    level(after.level),
-                    after.refinement,
-                    holder(&before.holder),
-                    holder(&after.holder)
+                t!(
+                    "hoyolab-moved",
+                    weapon = name,
+                    level = level(after.level),
+                    refinement = after.refinement,
+                    from = holder(&before.holder),
+                    to = holder(&after.holder)
                 ),
             ))
         }
-        Change::Raised { before, after } => {
-            Some(("↑", format!("{}  (was {})", weapon(after), weapon(before))))
-        }
+        Change::Raised { before, after } => Some((
+            "↑",
+            t!(
+                "hoyolab-was",
+                after = weapon(after),
+                before = weapon(before)
+            ),
+        )),
         Change::Unchanged(_) => None,
     });
     characters.chain(weapons).collect()

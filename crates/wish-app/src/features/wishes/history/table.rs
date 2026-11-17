@@ -226,7 +226,7 @@ impl TableDelegate for PullTable {
             Some((sorted, sort)) if sorted == col => sort,
             _ => ColumnSort::Default,
         };
-        let column = Column::new(col.name(), col.name()).sort(sort);
+        let column = Column::new(col.key(), col.name()).sort(sort);
         // On a wide window, the item and banner names share the spare room
         // rather than leaving it empty on the right.
         let base: f32 = self.cols.iter().map(|col| self.base_rems(*col)).sum();
@@ -337,7 +337,7 @@ impl TableDelegate for PullTable {
                     div()
                         .truncate()
                         .text_color(muted)
-                        .child(model::kind(pull.wish.item_type)),
+                        .children(model::kind(pull.wish.item_type)),
                 ),
             Col::RateUp => match pull.rate_up.map(|r| r.outcome()) {
                 Some(outcome) => div().h_flex().child(outcome_badge(outcome, cx)),
@@ -375,7 +375,7 @@ impl TableDelegate for PullTable {
             .justify_center()
             .text_sm()
             .text_color(cx.theme().muted_foreground)
-            .child("No wishes match the selected rarities")
+            .child(t!("history-no-match"))
     }
 }
 
@@ -443,7 +443,7 @@ impl super::HistoryView {
                     .items_center()
                     .gap_3()
                     .text_color(theme.muted_foreground)
-                    .child("Rows per page")
+                    .child(t!("history-rows-per-page"))
                     .child(sizes),
             )
             .child(

@@ -16,6 +16,10 @@ use crate::model::{Account, GachaType, ItemType, Pool, Rarity, Source, Wish, Wis
 /// The label of the account that counting by hand creates when there is none.
 pub const NEW_ACCOUNT_LABEL: &str = "Main";
 
+/// The stored name of a 3★ counted by hand, whose item isn't known. Stored
+/// as it is (the app shows it in the player's language).
+pub const UNKNOWN_ITEM: &str = "Unknown";
+
 /// `count` 3★ wishes without an item, made now.
 pub fn three_stars(
     account: Option<&Account>,
@@ -30,7 +34,7 @@ pub fn three_stars(
             gacha_type: pool.default_gacha_type(),
             time,
             seq: ix,
-            name: "Unknown".to_owned(),
+            name: UNKNOWN_ITEM.to_owned(),
             item_type: ItemType::Unknown,
             rarity: Rarity::Three,
             item_key: None,

@@ -703,12 +703,12 @@ fn hoyolab_sync(
     let name = |key: &str| {
         planner
             .character(key)
-            .map_or(key.to_owned(), |c| c.name.clone())
+            .map_or(key.to_owned(), |c| c.name.to_string())
     };
     let weapon_name = |key: &str| {
         planner
             .weapon(key)
-            .map_or(key.to_owned(), |w| w.name.clone())
+            .map_or(key.to_owned(), |w| w.name.to_string())
     };
     let character = |c: &wish_core::collection::OwnedCharacter| {
         let [a, e, q] = c.talents;

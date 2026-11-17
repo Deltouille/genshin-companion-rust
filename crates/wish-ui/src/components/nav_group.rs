@@ -79,7 +79,11 @@ impl RenderOnce for NavGroup {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
         let (current, expanded) = (self.current, self.expanded);
-        let state = if expanded { "expanded" } else { "collapsed" };
+        let read_aloud = if expanded {
+            t!("ui-expanded", label = self.label.as_ref())
+        } else {
+            t!("ui-collapsed", label = self.label.as_ref())
+        };
         let header = Button::new(self.id)
             .ghost()
             .text_color(if current {
@@ -92,7 +96,7 @@ impl RenderOnce for NavGroup {
             .px_4()
             .rounded_full()
             .cursor_pointer()
-            .accessibility_label(format!("{}, {state}", self.label))
+            .accessibility_label(read_aloud)
             .child(
                 div()
                     .w_full()

@@ -37,12 +37,12 @@ impl Shell {
         };
         // A feature: its header opens it, or folds it when already there.
         let group = |feature: Feature,
-                     label: &'static str,
+                     label: String,
                      icon: Icon,
                      items: Vec<NavItem>,
                      cx: &mut Context<Self>| {
             NavGroup::new(
-                SharedString::from(format!("nav-group-{label}")),
+                SharedString::from(format!("nav-group-{feature:?}")),
                 label,
                 icon,
             )
@@ -55,7 +55,7 @@ impl Shell {
         // The app's home, above the features; it opens on the tab last shown.
         let overview = NavItem::new(
             "nav-overview",
-            "Overview",
+            t!("app-nav-overview"),
             Icon::new(IconName::LayoutDashboard),
         )
         .active(matches!(self.page, Page::Overview(_)))
@@ -67,7 +67,7 @@ impl Shell {
             .map(|pool| {
                 nested(
                     pool.as_str(),
-                    pool.display_name().into(),
+                    pool.short_name().into(),
                     Page::Wishes(WishPage::History(pool)),
                     cx,
                 )
@@ -75,7 +75,7 @@ impl Shell {
             .collect();
         let wishes = group(
             Feature::Wishes,
-            "Wishes",
+            t!("app-nav-wishes"),
             Icon::new(gpui_kit::assets::IconName::Gem),
             wish_pages,
             cx,
@@ -84,29 +84,34 @@ impl Shell {
         let archive_pages = vec![
             nested(
                 "characters",
-                "Characters".into(),
+                t!("app-nav-characters").into(),
                 Page::Archive(ArchivePage::Characters),
                 cx,
             ),
             nested(
                 "weapons",
-                "Weapons".into(),
+                t!("app-nav-weapons").into(),
                 Page::Archive(ArchivePage::Weapons),
                 cx,
             ),
         ];
         let archive = group(
             Feature::Archive,
-            "Archive",
+            t!("app-nav-archive"),
             Icon::new(IconName::BookOpen),
             archive_pages,
             cx,
         );
         let planner = group(
             Feature::Planner,
-            "Planner",
+            t!("app-nav-planner"),
             Icon::new(gpui_kit::assets::IconName::Calculator),
-            vec![nested("ascension", "Ascension".into(), Page::Planner, cx)],
+            vec![nested(
+                "ascension",
+                t!("app-nav-ascension").into(),
+                Page::Planner,
+                cx,
+            )],
             cx,
         );
 
@@ -140,7 +145,7 @@ impl Shell {
                     .when(has_accounts, |this| {
                         this.child(
                             picker("account", &self.account_select)
-                                .accessibility_label("Account")
+                                .accessibility_label(t!("app-account"))
                                 .menu_width(gpui_kit::rems(14.5)),
                         )
                     }),
@@ -170,21 +175,21 @@ impl Shell {
                     .py_3()
                     .child(item(
                         "imports",
-                        "Import".into(),
+                        t!("app-nav-import").into(),
                         Icon::new(gpui_kit::assets::IconName::Import),
                         Page::Imports,
                         cx,
                     ))
                     .child(item(
                         "settings",
-                        "Settings".into(),
+                        t!("app-nav-settings").into(),
                         Icon::new(IconName::Settings),
                         Page::Settings,
                         cx,
                     ))
                     .child(item(
                         "credits",
-                        "Credits".into(),
+                        t!("app-nav-credits").into(),
                         Icon::new(IconName::Info),
                         Page::Credits,
                         cx,

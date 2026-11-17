@@ -124,6 +124,7 @@ fn account_label(account: &str) -> String {
         return "Main".to_owned();
     }
     match account_number(account) {
+        // Not translated: imports find the account again by this name.
         Some(number) => format!("Account {number}"),
         None => account.to_owned(),
     }
@@ -184,10 +185,7 @@ impl<'a> Counter<'a> {
         let counter: &Map<String, Value> = match value {
             Value::Object(counter) => counter,
             Value::String(_) => {
-                return Err(invalid(
-                    "stored in paimon.moe's old format; open the wish counter on paimon.moe \
-                     once so it converts the data, then export again",
-                ));
+                return Err(invalid(&t!("import-paimon-old-format")));
             }
             _ => return Err(invalid("expected an object")),
         };
@@ -371,18 +369,20 @@ impl<'a> PoolReader<'a> {
         let pool = self.pool.display_name();
         let mut warnings = Vec::new();
         if self.out_of_order > 0 {
-            warnings.push(format!(
-                "{account}, {pool}: {} wish(es) are not in time order in paimon.moe's data; \
-                 they are sorted by time here, which can change their pity",
-                self.out_of_order,
+            warnings.push(t!(
+                "import-paimon-out-of-order",
+                account = account,
+                pool = pool.as_str(),
+                count = self.out_of_order,
             ));
         }
         if self.foreign_codes > 0 {
-            warnings.push(format!(
-                "{account}, {pool}: {} wish(es) carried another banner's gacha type; \
-                 recorded as {}",
-                self.foreign_codes,
-                self.pool.default_gacha_type(),
+            warnings.push(t!(
+                "import-paimon-foreign-codes",
+                account = account,
+                pool = pool.as_str(),
+                count = self.foreign_codes,
+                code = self.pool.default_gacha_type().to_string(),
             ));
         }
         warnings

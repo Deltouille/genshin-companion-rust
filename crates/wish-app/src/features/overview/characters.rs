@@ -31,16 +31,15 @@ pub(super) fn characters_tab(
     if owned.characters.is_empty() {
         let on_navigate = on_navigate.clone();
         return empty_state(
-            "No characters yet",
-            "Sync them from HoYoLAB, or mark the characters you have in the archive: they are \
-             counted here, by rarity, element, weapon and constellation.",
+            t!("overview-no-characters"),
+            t!("overview-no-characters-help"),
             div()
                 .h_flex()
                 .gap_2()
                 .child(crate::features::imports::hoyolab_sync_button().primary())
                 .child(
                     button("open-characters")
-                        .label("Open the characters")
+                        .label(t!("overview-open-characters"))
                         .on_click(move |_, window, cx| {
                             on_navigate(Page::Archive(ArchivePage::Characters), window, cx)
                         }),
@@ -52,12 +51,12 @@ pub(super) fn characters_tab(
     let room = card_room(window);
     let foreground = cx.theme().foreground;
     let count = |n: usize| format::count(n as u64);
-    let of = |tally: Tally| format!("of {}", count(tally.total));
+    let of = |tally: Tally| t!("overview-of", total = tally.total);
 
     let totals = figures(
         [
             stat(
-                "Characters",
+                t!("overview-characters"),
                 big_number(count(stats.all.owned), foreground),
                 of(stats.all),
                 cx,
@@ -75,13 +74,9 @@ pub(super) fn characters_tab(
                 cx,
             ),
             stat(
-                format!("Level {}", Level::MAX.level),
+                t!("overview-level", level = Level::MAX.level),
                 big_number(count(stats.max_level), foreground),
-                format!(
-                    "{} {} at level {MAX_TALENT}",
-                    stats.crowns,
-                    format::plural(stats.crowns as u32, "talent", "talents")
-                ),
+                t!("overview-crowns", count = stats.crowns, level = MAX_TALENT),
                 cx,
             ),
         ],
@@ -102,13 +97,13 @@ pub(super) fn characters_tab(
             .h_flex()
             .gap_2()
             .children(images.element(element).map(|icon| img(icon).size_6()))
-            .child(*element);
+            .child(format::element(element));
         tile(label, *tally, cx)
     });
     let weapons = stats
         .weapons
         .iter()
-        .map(|(weapon, tally)| tile(div().child(*weapon), *tally, cx));
+        .map(|(weapon, tally)| tile(div().child(format::weapon_type(weapon)), *tally, cx));
     // Each constellation's share of the characters owned.
     let constellations = stats.constellations.iter().enumerate().map(|(c, n)| {
         stat_tile(
@@ -124,17 +119,17 @@ pub(super) fn characters_tab(
         .gap_6()
         .child(totals)
         .child(section(
-            "By element",
+            t!("overview-by-element"),
             tile_grid(stats.elements.len(), TILE_REMS, room).children(elements),
             cx,
         ))
         .child(section(
-            "By weapon",
+            t!("overview-by-weapon"),
             tile_grid(stats.weapons.len(), TILE_REMS, room).children(weapons),
             cx,
         ))
         .child(section(
-            "Constellations",
+            t!("overview-constellations"),
             tile_grid(stats.constellations.len(), TILE_REMS, room).children(constellations),
             cx,
         ))

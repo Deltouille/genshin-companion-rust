@@ -5,6 +5,7 @@
 use gpui_kit::AppContext as _;
 use wish_app::{Library, Services, Shell};
 use wish_core::AppPaths;
+use wish_core::settings::Settings;
 
 /// Points the app at another data folder, e.g. a scratch copy for testing.
 const DATA_DIR_VAR: &str = "GENSHIN_COMPANION_DATA_DIR";
@@ -20,16 +21,18 @@ fn main() {
     };
     let paths = match paths {
         Ok(paths) => paths,
-        Err(err) => fail(format!("The data folder could not be prepared: {err}.")),
+        Err(err) => {
+            wish_core::i18n::set_language(wish_core::i18n::Language::system());
+            fail(wish_app::folder_failed_message(err))
+        }
     };
+    // Before any message or window, so they are in the player's language.
+    wish_core::i18n::set_language(Settings::read_language(&paths));
     // Two windows on one folder would each show a stale state, and write the
     // mirror and the backups in turn.
     let _lock = match paths.lock() {
         Ok(Some(lock)) => Some(lock),
-        Ok(None) => fail(format!(
-            "{} is already open. Only one window at a time can use your data folder.",
-            wish_app::APP_TITLE
-        )),
+        Ok(None) => fail(wish_app::already_open_message()),
         // A folder that can't be locked (some network drives) still opens.
         Err(err) => {
             wish_app::record_error(&format!("not locking the data folder: {err}"));

@@ -61,14 +61,14 @@ impl ImportFlow {
             files: true,
             directories: false,
             multiple: false,
-            prompt: Some(SharedString::from("Import")),
+            prompt: Some(SharedString::from(t!("import-prompt"))),
         });
         let flow = cx.spawn_in(window, async move |this, cx| {
             let path = match picked.await {
                 Ok(Ok(Some(mut paths))) => paths.pop(),
                 Ok(Err(err)) => {
                     this.update_in(cx, |_, _, cx| {
-                        notify(Notice::failure("Couldn’t open the file picker", &err), cx);
+                        notify(Notice::failure(t!("import-file-picker-failed"), &err), cx);
                     })
                     .ok();
                     None
@@ -88,7 +88,7 @@ impl ImportFlow {
             this.update_in(cx, |this, window, cx| match prepared {
                 Ok(prepared) => this.open_preview(name, prepared, window, cx),
                 Err(err) => open_message(
-                    format!("Couldn’t read “{name}”"),
+                    t!("import-read-failed", name = format::quoted(&name)),
                     format!("{err:#}"),
                     window,
                     cx,
@@ -109,7 +109,7 @@ impl ImportFlow {
     ) {
         let import = cx.entity().downgrade();
         let prepared = Rc::new(prepared);
-        let title = SharedString::from(format!("Import “{name}”?"));
+        let title = SharedString::from(t!("import-title", name = format::quoted(&name)));
         window.open_dialog(cx, move |dialog, _, cx| {
             let on_ok = {
                 let (import, prepared) = (import.clone(), prepared.clone());
@@ -125,7 +125,9 @@ impl ImportFlow {
                 .title(title.clone())
                 .child(preview(&prepared, cx))
                 .footer(dialog_footer(
-                    button("confirm-import").primary().label("Import"),
+                    button("confirm-import")
+                        .primary()
+                        .label(t!("import-button")),
                 ))
                 .on_ok(on_ok)
         });
@@ -141,7 +143,7 @@ impl ImportFlow {
             Some(
                 cx.subscribe_in(&view, window, |this, _, event, window, cx| {
                     let GameImportEvent::Imported(report) = event;
-                    this.show_report("from the game", report, window, cx);
+                    this.show_report(None, report, window, cx);
                 }),
             );
 
@@ -151,7 +153,7 @@ impl ImportFlow {
             if focus_once.replace(false) {
                 input.focus_handle(cx).focus(window, cx);
             }
-            dialog.title("Import from the game").child(view.clone())
+            dialog.title(t!("import-game-title")).child(view.clone())
         });
     }
 
@@ -163,10 +165,10 @@ impl ImportFlow {
         let flow = cx.spawn_in(window, async move |this, cx| {
             let result = task.await;
             this.update_in(cx, |this, window, cx| match result {
-                Ok(report) => this.show_report(&format!("in “{name}”"), &report, window, cx),
+                Ok(report) => this.show_report(Some(&name), &report, window, cx),
                 Err(err) => open_message(
-                    format!("Couldn’t import “{name}”"),
-                    format!("{err:#}\n\nNothing was changed."),
+                    t!("import-failed", name = format::quoted(&name)),
+                    format!("{err:#}\n\n{}", t!("import-nothing-changed")),
                     window,
                     cx,
                 ),
@@ -177,11 +179,11 @@ impl ImportFlow {
             .update(cx, |session, _| session.start_flow(flow));
     }
 
-    /// Reports a finished import. `source` completes "every wish … was
-    /// already stored", e.g. `in “save.json”` or `from the game`.
+    /// Reports a finished import: of the file named `file`, or from the
+    /// game.
     fn show_report(
         &mut self,
-        source: &str,
+        file: Option<&str>,
         report: &ImportReport,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -196,19 +198,14 @@ impl ImportFlow {
         let added = report.added();
         let linked: u32 = report.accounts.iter().map(|a| a.linked).sum();
         let headline = if added == 0 && linked == 0 {
-            format!("Nothing new: every wish {source} was already stored.")
+            match file {
+                Some(name) => t!("import-nothing-new-file", name = format::quoted(name)),
+                None => t!("import-nothing-new-game"),
+            }
         } else if added == 0 {
-            format!(
-                "No new wishes. {} stored {} matched the game’s records.",
-                format::count(linked),
-                format::plural(linked, "wish", "wishes")
-            )
+            t!("import-linked-only", count = linked)
         } else {
-            format!(
-                "Added {} new {}.",
-                format::count(added),
-                format::plural(added, "wish", "wishes")
-            )
+            t!("import-added", count = added)
         };
         // What a snapshot's characters, weapons, plan and inventory changed.
         let extras = report
@@ -217,11 +214,7 @@ impl ImportFlow {
             .map(|a| a.extras.changes())
             .sum::<u32>();
         let headline = if extras > 0 {
-            format!(
-                "{headline} {} {} to your characters, weapons, plan or inventory.",
-                format::count(extras),
-                format::plural(extras, "change", "changes")
-            )
+            t!("import-with-extras", headline = headline, count = extras)
         } else {
             headline
         };
@@ -252,25 +245,25 @@ fn preview(prepared: &PreparedImport, cx: &App) -> impl IntoElement {
         }
         // A snapshot's characters, weapons, plan and inventory.
         let extras = &account.extras;
+        let materials = extras.inventory.materials.len() + extras.inventory.named.len();
         let carried: Vec<String> = [
-            (extras.characters.len(), "character", "characters"),
-            (extras.weapons.len(), "weapon", "weapons"),
-            (extras.plan.len(), "plan entry", "plan entries"),
             (
-                extras.inventory.materials.len() + extras.inventory.named.len(),
-                "material",
-                "materials",
+                extras.characters.len(),
+                t!("import-characters", count = extras.characters.len()),
             ),
+            (
+                extras.weapons.len(),
+                t!("import-weapons", count = extras.weapons.len()),
+            ),
+            (
+                extras.plan.len(),
+                t!("import-plan-entries", count = extras.plan.len()),
+            ),
+            (materials, t!("import-materials", count = materials)),
         ]
         .into_iter()
-        .filter(|(n, _, _)| *n > 0)
-        .map(|(n, one, many)| {
-            format!(
-                "{} {}",
-                format::count(n as u64),
-                format::plural(n as u32, one, many)
-            )
-        })
+        .filter(|(n, _)| *n > 0)
+        .map(|(_, text)| text)
         .collect();
         div()
             .v_flex()
@@ -278,27 +271,26 @@ fn preview(prepared: &PreparedImport, cx: &App) -> impl IntoElement {
             .child(div().font_weight(FontWeight::SEMIBOLD).child(heading))
             .child(div().text_sm().child(pools))
             .when(!carried.is_empty(), |this| {
-                this.child(div().text_sm().child(format!("And {}", carried.join(", "))))
+                this.child(
+                    div()
+                        .text_sm()
+                        .child(t!("import-carried", list = carried.join(", "))),
+                )
             })
     });
 
     let check = prepared.paimon_check.as_ref().map(|check| {
         let (text, color) = if check.matches() {
             (
-                format!(
-                    "Pity and 50/50 results match paimon.moe for all {} values it stored.",
-                    format::count(check.checked)
-                ),
+                t!("import-check-match", count = check.checked),
                 theme.muted_foreground,
             )
         } else {
             (
-                format!(
-                    "{} of {} values differ from what paimon.moe stored. This happens when \
-                     paimon.moe’s banner data changed after your last import there. \
-                     Your wishes are imported unchanged either way.",
-                    format::count(check.differences.len() as u32),
-                    format::count(check.checked)
+                t!(
+                    "import-check-differ",
+                    differ = check.differences.len(),
+                    checked = check.checked
                 ),
                 theme.warning,
             )
@@ -317,11 +309,12 @@ fn preview(prepared: &PreparedImport, cx: &App) -> impl IntoElement {
                 .text_color(theme.warning)
                 .child(warning.clone())
         }))
-        .child(div().text_sm().text_color(theme.muted_foreground).child(
-            "Wishes that are already stored stay unchanged, and a backup is taken first. \
-                 Characters and weapons are added or raised, never lowered; plan entries and \
-                 materials you already have are kept as they are.",
-        ))
+        .child(
+            div()
+                .text_sm()
+                .text_color(theme.muted_foreground)
+                .child(t!("import-preview-help")),
+        )
 }
 
 /// A dialog that reports something and only needs acknowledging.
@@ -331,7 +324,7 @@ fn open_message(title: String, message: String, window: &mut Window, cx: &mut Ap
         dialog
             .title(title.clone())
             .child(div().text_sm().child(message.clone()))
-            .footer(dialog_close_footer("OK"))
+            .footer(dialog_close_footer(t!("import-ok")))
     });
 }
 
@@ -339,7 +332,7 @@ fn open_message(title: String, message: String, window: &mut Window, cx: &mut Ap
 /// from any page and from the menu.
 pub fn import_file_button(busy: bool) -> Button {
     button("import")
-        .label("Import file…")
+        .label(t!("import-file-button"))
         .icon(IconName::FolderOpen)
         .loading(busy)
         .on_click(|_, window, cx| window.dispatch_action(Box::new(ImportFile), cx))
@@ -348,7 +341,7 @@ pub fn import_file_button(busy: bool) -> Button {
 /// "Import from game…": sends the [`ImportFromGame`] action.
 pub fn import_game_button() -> Button {
     button("import-game")
-        .label("Import from game…")
+        .label(t!("import-game-button"))
         .icon(IconName::RefreshCw)
         .on_click(|_, window, cx| window.dispatch_action(Box::new(ImportFromGame), cx))
 }

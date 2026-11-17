@@ -34,7 +34,12 @@ impl SettingsPage {
             this.update(cx, |this, cx| {
                 let task = (this.library)
                     .update(cx, |library, cx| library.export(kind, path, account, cx));
-                report_outcome(task, "Couldn’t export", |summary| summary.to_string(), cx);
+                report_outcome(
+                    task,
+                    t!("settings-export-failed"),
+                    |summary| summary.to_string(),
+                    cx,
+                );
             })
             .ok();
         });

@@ -43,10 +43,11 @@ impl CustomKind {
         }
     }
 
-    fn noun(self) -> &'static str {
+    /// What the form says when it has no name.
+    fn name_it(self) -> String {
         match self {
-            CustomKind::Character => "character",
-            CustomKind::Weapon => "weapon",
+            CustomKind::Character => t!("planner-name-character"),
+            CustomKind::Weapon => t!("planner-name-weapon"),
         }
     }
 }
@@ -106,12 +107,11 @@ impl CustomForm {
         let editing = entry.is_some();
         let name = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("Name")
+                .placeholder(t!("planner-name"))
                 .default_value(name)
         });
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search…"));
-        let other =
-            cx.new(|cx| InputState::new(window, cx).placeholder("Not listed? Type its name"));
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder(t!("planner-search")));
+        let other = cx.new(|cx| InputState::new(window, cx).placeholder(t!("planner-type-name")));
         // The picker filters as the search is typed.
         let subscriptions = vec![cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
             if matches!(event, InputEvent::Change) {
@@ -159,7 +159,7 @@ impl CustomForm {
         };
         let name = self.other.read(cx).value().trim().to_owned();
         if name.is_empty() {
-            self.error = Some("Type the material's name first.".into());
+            self.error = Some(t!("planner-type-name-first").into());
             cx.notify();
             return;
         }
@@ -192,9 +192,9 @@ impl CustomForm {
         let name = self.name.read(cx).value().trim().to_owned();
         let missing = (self.kind.roles().iter()).find(|role| !self.materials.contains_key(role));
         let problem = if name.is_empty() {
-            Some(format!("Give the {} a name.", self.kind.noun()))
+            Some(self.kind.name_it())
         } else {
-            missing.map(|role| format!("Choose its {}.", role.label().to_lowercase()))
+            missing.map(|role| t!("planner-choose-its", role = role.to_string()))
         };
         self.error = problem.clone().map(Into::into);
         self.picking = None;
@@ -223,7 +223,7 @@ impl CustomForm {
                     Some(material) => (
                         self.images.material(material),
                         material.rarity,
-                        material.name.clone(),
+                        material.name.to_string(),
                     ),
                     None => (None, 1, top.to_string()),
                 }
@@ -249,8 +249,8 @@ impl CustomForm {
         let kinds = (!self.editing).then(|| {
             let form = cx.entity().downgrade();
             Segmented::new("custom-kind")
-                .option("Character")
-                .option("Weapon")
+                .option(t!("planner-character"))
+                .option(t!("planner-weapon"))
                 .selected(usize::from(self.kind == CustomKind::Weapon))
                 .on_select(move |ix, _, cx| {
                     let kind = if *ix == 1 {
@@ -304,7 +304,7 @@ impl CustomForm {
                         .text_center()
                         .text_color(theme.muted_foreground)
                         .truncate()
-                        .child(chosen.map_or_else(|| "Choose…".to_owned(), |(_, _, name)| name)),
+                        .child(chosen.map_or_else(|| t!("planner-choose"), |(_, _, name)| name)),
                 )
         });
         div()
@@ -320,7 +320,7 @@ impl CustomForm {
                         div()
                             .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child("Stars"),
+                            .child(t!("planner-stars")),
                     )
                     .child(stars),
             )
@@ -379,7 +379,7 @@ impl CustomForm {
                     .h_flex()
                     .gap_2()
                     .child(
-                        icon_button("picker-back", IconName::ArrowLeft, "Back")
+                        icon_button("picker-back", IconName::ArrowLeft, t!("planner-back"))
                             .ghost()
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.picking = None;
@@ -390,7 +390,7 @@ impl CustomForm {
                         div()
                             .text_lg()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child(format!("Choose the {}", role.label().to_lowercase())),
+                            .child(t!("planner-choose-the", role = role.to_string())),
                     ),
             )
             .child(input(&self.search, cx))
@@ -407,7 +407,7 @@ impl CustomForm {
                                     .p_2()
                                     .text_sm()
                                     .text_color(theme.muted_foreground)
-                                    .child("Nothing in the game data matches."),
+                                    .child(t!("planner-nothing-in-data")),
                             )
                         },
                     )),
@@ -419,7 +419,7 @@ impl CustomForm {
                     .child(div().flex_1().child(input(&self.other, cx)))
                     .child(
                         button("use-other")
-                            .label("Use this name")
+                            .label(t!("planner-use-name"))
                             .on_click(cx.listener(|this, _, _, cx| this.choose_other(cx))),
                     ),
             )
@@ -462,9 +462,9 @@ impl PlannerView {
         });
         let view = cx.entity().downgrade();
         let title = match entry.as_ref().map(|e| &e.target) {
-            Some(PlanTarget::CustomWeapon { .. }) => "Edit the custom weapon",
-            Some(_) => "Edit the custom character",
-            None => "Add a custom character or weapon",
+            Some(PlanTarget::CustomWeapon { .. }) => t!("planner-edit-weapon-title"),
+            Some(_) => t!("planner-edit-character-title"),
+            None => t!("planner-add-custom-title"),
         };
         // An edit keeps the goal its sliders show.
         let edited = entry.map(|entry| {
@@ -477,13 +477,13 @@ impl PlannerView {
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, view) = (dialog_form.clone(), view.clone());
             dialog
-                .title(title)
+                .title(title.clone())
                 .w(window.rem_size() * 34.)
                 .child(form.clone())
                 .footer(dialog_footer(button("save-custom").primary().label(
                     match edited {
-                        Some(_) => "Save",
-                        None => "Add",
+                        Some(_) => t!("planner-save"),
+                        None => t!("planner-add"),
                     },
                 )))
                 .on_ok(move |_, _, cx| {

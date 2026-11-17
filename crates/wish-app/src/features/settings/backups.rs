@@ -7,7 +7,7 @@ use gpui_kit::component::{ActiveTheme as _, WindowExt as _};
 use gpui_kit::{
     Context, ParentElement as _, PathPromptOptions, SharedString, Styled as _, Window, div,
 };
-use wish_ui::{button, dialog_footer};
+use wish_ui::{button, dialog_footer, format};
 
 use std::path::PathBuf;
 
@@ -20,7 +20,12 @@ use super::SettingsPage;
 impl SettingsPage {
     pub(super) fn back_up(&mut self, cx: &mut Context<Self>) {
         let task = self.library.update(cx, |library, cx| library.back_up(cx));
-        report_outcome(task, "Couldn’t back up", |_| "Backup saved.".to_owned(), cx);
+        report_outcome(
+            task,
+            t!("settings-backup-failed"),
+            |_| t!("settings-backup-saved"),
+            cx,
+        );
     }
 
     /// Lists the backups to restore one, or a backup file kept elsewhere.
@@ -31,7 +36,7 @@ impl SettingsPage {
             let muted = cx.theme().muted_foreground;
             let rows = files.iter().map(|file| {
                 let (shell, path) = (shell.clone(), file.path.clone());
-                let when = file.taken_at.format("%-d %b %Y, %H:%M:%S").to_string();
+                let when = format::date_time_seconds(&file.taken_at);
                 let id = SharedString::from(format!("restore-{}", file.path.display()));
                 div()
                     .h_flex()
@@ -49,24 +54,26 @@ impl SettingsPage {
                                     .child(backup_reason(file.reason)),
                             ),
                     )
-                    .child(button(id).label("Restore…").on_click(move |_, window, cx| {
-                        window.close_dialog(cx);
-                        shell
-                            .update(cx, |shell, cx| {
-                                shell.confirm_restore(
-                                    path.clone(),
-                                    format!("the backup from {when}"),
-                                    window,
-                                    cx,
-                                )
-                            })
-                            .ok();
-                    }))
+                    .child(button(id).label(t!("settings-restore")).on_click(
+                        move |_, window, cx| {
+                            window.close_dialog(cx);
+                            shell
+                                .update(cx, |shell, cx| {
+                                    shell.confirm_restore(
+                                        path.clone(),
+                                        t!("settings-restore-what-backup", when = when.as_str()),
+                                        window,
+                                        cx,
+                                    )
+                                })
+                                .ok();
+                        },
+                    ))
             });
             let choose = {
                 let shell = shell.clone();
                 button("restore-file")
-                    .label("Choose file…")
+                    .label(t!("settings-restore-choose-file"))
                     .on_click(move |_, window, cx| {
                         window.close_dialog(cx);
                         shell
@@ -74,15 +81,16 @@ impl SettingsPage {
                             .ok();
                     })
             };
-            dialog.title("Restore a backup").child(
+            dialog.title(t!("settings-restore-title")).child(
                 div()
                     .v_flex()
                     .gap_3()
-                    .child(div().text_sm().text_color(muted).child(
-                        "Restoring replaces everything with what the backup holds: your \
-                             accounts and wishes, your characters and weapons, and the planner's \
-                             plan and inventory. The current state is backed up first.",
-                    ))
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(muted)
+                            .child(t!("settings-restore-dialog-help")),
+                    )
                     .child(
                         div()
                             .id("backup-list")
@@ -94,7 +102,7 @@ impl SettingsPage {
                     .child(
                         div().h_flex().justify_between().child(choose).child(
                             button("close-backups")
-                                .label("Close")
+                                .label(t!("app-close"))
                                 .on_click(|_, window, cx| window.close_dialog(cx)),
                         ),
                     ),
@@ -107,13 +115,13 @@ impl SettingsPage {
             files: true,
             directories: false,
             multiple: false,
-            prompt: Some(SharedString::from("Restore")),
+            prompt: Some(SharedString::from(t!("settings-restore-prompt"))),
         });
         let flow = cx.spawn_in(window, async move |this, cx| {
             if let Ok(Ok(Some(mut files))) = picked.await
                 && let Some(file) = files.pop()
             {
-                let name = format!("“{}”", crate::app::library::file_name(&file));
+                let name = format::quoted(&crate::app::library::file_name(&file));
                 this.update_in(cx, |this, window, cx| {
                     this.confirm_restore(file, name, window, cx)
                 })
@@ -132,17 +140,17 @@ impl SettingsPage {
         cx: &mut Context<Self>,
     ) {
         let shell = cx.entity().downgrade();
-        let title = SharedString::from(format!("Restore {what}?"));
+        let title = SharedString::from(t!("settings-restore-confirm-title", what = what));
         window.open_alert_dialog(cx, move |alert, _, _| {
             let (shell, file) = (shell.clone(), file.clone());
             alert
                 .title(title.clone())
-                .description(
-                    "Everything is replaced by what the backup holds: your accounts and \
-                     wishes, your characters and weapons, and the planner's plan and inventory. \
-                     The current state is backed up first, so you can restore it if needed.",
-                )
-                .footer(dialog_footer(button("confirm").danger().label("Restore")))
+                .description(t!("settings-restore-confirm-help"))
+                .footer(dialog_footer(
+                    button("confirm")
+                        .danger()
+                        .label(t!("settings-restore-button")),
+                ))
                 .on_ok(move |_, _, cx| {
                     shell
                         .update(cx, |shell, cx| shell.restore_backup(file.clone(), cx))
@@ -158,25 +166,25 @@ impl SettingsPage {
             .update(cx, |library, cx| library.restore_backup(file, cx));
         report_outcome(
             task,
-            "Couldn’t restore",
-            |_| "Backup restored. The previous state was backed up.".to_owned(),
+            t!("settings-restore-failed"),
+            |_| t!("settings-restore-done"),
             cx,
         );
     }
 }
 
-fn backup_reason(reason: Option<BackupReason>) -> &'static str {
+fn backup_reason(reason: Option<BackupReason>) -> String {
     match reason {
-        Some(BackupReason::Daily) => "Daily backup",
-        Some(BackupReason::BeforeImport) => "Before an import",
-        Some(BackupReason::BeforeMigration) => "Before an app update",
-        Some(BackupReason::Manual) => "Backed up by hand",
-        Some(BackupReason::BeforeUndo) => "Before undoing an import",
-        Some(BackupReason::BeforeRestore) => "Before restoring a backup",
-        Some(BackupReason::BeforeDelete) => "Before deleting wishes",
-        Some(BackupReason::BeforeCounting) => "Before counting wishes",
-        Some(BackupReason::BeforePlanning) => "Before changing your collection or plan",
-        Some(BackupReason::BeforeSync) => "Before a HoYoLAB sync",
-        None => "Backup",
+        Some(BackupReason::Daily) => t!("settings-backup-reason-daily"),
+        Some(BackupReason::BeforeImport) => t!("settings-backup-reason-import"),
+        Some(BackupReason::BeforeMigration) => t!("settings-backup-reason-migration"),
+        Some(BackupReason::Manual) => t!("settings-backup-reason-manual"),
+        Some(BackupReason::BeforeUndo) => t!("settings-backup-reason-undo"),
+        Some(BackupReason::BeforeRestore) => t!("settings-backup-reason-restore"),
+        Some(BackupReason::BeforeDelete) => t!("settings-backup-reason-delete"),
+        Some(BackupReason::BeforeCounting) => t!("settings-backup-reason-counting"),
+        Some(BackupReason::BeforePlanning) => t!("settings-backup-reason-planning"),
+        Some(BackupReason::BeforeSync) => t!("settings-backup-reason-sync"),
+        None => t!("settings-backup-reason-unknown"),
     }
 }

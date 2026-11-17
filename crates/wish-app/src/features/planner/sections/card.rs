@@ -18,7 +18,7 @@ use gpui_kit::{
 };
 use wish_ui::{card, icon_button, theme};
 
-use super::super::model::{EntryModel, PlannerModel, Portrait, TALENTS};
+use super::super::model::{EntryModel, PlannerModel, Portrait, talent_names};
 use super::super::resin;
 use super::drag::{CardPreview, DraggedEntry, droppable};
 use super::materials::grid;
@@ -72,7 +72,7 @@ impl RenderOnce for EntryCard {
             icon_button(
                 SharedString::from(format!("edit-plan-{id}")),
                 IconName::Settings,
-                format!("Edit {}", entry.name),
+                t!("planner-edit", name = entry.name.as_str()),
             )
             .ghost()
             .on_click(move |_, window, cx| edit(id, window, cx))
@@ -86,24 +86,26 @@ impl RenderOnce for EntryCard {
             (Some(_), None) => return card(cx).p_4().child(header).into_any_element(),
             (Some(goal), Some(controls)) => {
                 let level_row = slider_row(
-                    "Level",
+                    &t!("planner-level"),
                     goal.level_text(),
                     Slider::new(&controls.level)
                         .cursor_pointer()
-                        .accessibility_label(format!("{}'s level", entry.name)),
+                        .accessibility_label(t!("planner-level-of", name = entry.name.as_str())),
                     cx,
                 );
-                let talent_rows = TALENTS
-                    .iter()
+                let talent_rows = talent_names()
+                    .into_iter()
                     .zip(&controls.talents)
                     .zip(&goal.talents)
                     .map(|((label, state), &(from, to))| {
                         slider_row(
-                            label,
+                            &label,
                             format!("{from} → {to}"),
-                            Slider::new(state)
-                                .cursor_pointer()
-                                .accessibility_label(format!("{}'s {label}", entry.name)),
+                            Slider::new(state).cursor_pointer().accessibility_label(t!(
+                                "planner-talent-of",
+                                name = entry.name.as_str(),
+                                talent = label.as_str()
+                            )),
                             cx,
                         )
                     });
@@ -111,7 +113,7 @@ impl RenderOnce for EntryCard {
                     .p_4()
                     .gap_4()
                     .child(header)
-                    .when_some(entry.warning, |this, warning| {
+                    .when_some(entry.warning.clone(), |this, warning| {
                         this.child(div().text_sm().text_color(theme.warning).child(warning))
                     })
                     .child(
@@ -156,10 +158,7 @@ fn entry_header(
             cx.new(|_| dragged.clone())
         })
         .tooltip(|window, cx| {
-            gpui_kit::component::tooltip::Tooltip::new(
-                "Drag to change the order: the first characters take from your inventory first",
-            )
-            .build(window, cx)
+            gpui_kit::component::tooltip::Tooltip::new(t!("planner-drag")).build(window, cx)
         })
         .child(
             Icon::new(IconName::GripVertical)
@@ -194,7 +193,7 @@ fn entry_header(
         icon_button(
             SharedString::from(format!("remove-plan-{id}")),
             IconName::Close,
-            format!("Remove {name} from the plan"),
+            t!("planner-remove-tooltip", name = name.as_ref()),
         )
         .ghost()
         .on_click(move |_, window, cx| remove(id, remove_name.clone(), window, cx)),

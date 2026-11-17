@@ -71,7 +71,7 @@ impl Library {
                 (value, loaded, generation)
             }))
             .or_else(|panic| -> Result<_> {
-                let error = anyhow!("an internal error stopped it: {}", panic_text(&*panic));
+                let error = anyhow!(t!("app-write-panicked", detail = panic_text(&*panic)));
                 // Reload all the same: the page may show a change
                 // the rolled-back write never made.
                 let mut store = lock(&store);
@@ -88,7 +88,7 @@ impl Library {
         cx.spawn(async move |this, cx| {
             let outcome = outcome
                 .await
-                .unwrap_or_else(|_| Err(anyhow!("the change was cut off before it was saved")));
+                .unwrap_or_else(|_| Err(anyhow!(t!("app-write-cut-off"))));
             let result = this.update(cx, |this, cx| {
                 this.writes -= 1;
                 let result = outcome.and_then(|(value, loaded, generation)| {
@@ -117,7 +117,7 @@ impl Library {
         cx.spawn(async move |_, _| {
             result
                 .await
-                .unwrap_or_else(|_| Err(anyhow!("the window closed before the change was saved")))
+                .unwrap_or_else(|_| Err(anyhow!(t!("app-write-window-closed"))))
         })
     }
 }
@@ -126,7 +126,7 @@ impl Library {
 fn panic_text(panic: &(dyn std::any::Any + Send)) -> String {
     (panic.downcast_ref::<&str>().map(|s| s.to_string()))
         .or_else(|| panic.downcast_ref::<String>().cloned())
-        .unwrap_or_else(|| "a panic".to_owned())
+        .unwrap_or_else(|| t!("app-write-panic"))
 }
 
 /// Drops every analysis kept, so the next reload works them all out again.

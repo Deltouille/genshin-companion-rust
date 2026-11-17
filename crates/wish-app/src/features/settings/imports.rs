@@ -19,21 +19,23 @@ impl SettingsPage {
     ) {
         let shell = cx.entity().downgrade();
         let title = SharedString::from(match record.source {
-            ImportSource::Api => format!(
-                "Undo the game import of {}?",
-                local_time(&record.imported_at)
+            ImportSource::Api => t!(
+                "settings-undo-game-title",
+                time = local_time(&record.imported_at)
             ),
-            ImportSource::Manual => format!(
-                "Undo {}, counted by hand?",
-                record.detail.as_deref().unwrap_or("the wishes")
+            ImportSource::Manual => t!(
+                "settings-undo-manual-title",
+                what = record
+                    .detail
+                    .clone()
+                    .unwrap_or_else(|| t!("settings-undo-manual-wishes"))
             ),
-            _ => format!("Undo importing {}?", import_origin(&record)),
+            _ => t!("settings-undo-file-title", origin = import_origin(&record)),
         });
-        let description = SharedString::from(format!(
-            "This removes the {} {} it added to {}. A backup is taken first.",
-            format::count(record.added),
-            format::plural(record.added, "wish", "wishes"),
-            record.account_label,
+        let description = SharedString::from(t!(
+            "settings-undo-help",
+            count = record.added,
+            account = record.account_label.as_str(),
         ));
         let import_id = record.id;
         window.open_alert_dialog(cx, move |alert, _, _| {
@@ -42,7 +44,7 @@ impl SettingsPage {
                 .title(title.clone())
                 .description(description.clone())
                 .footer(dialog_footer(
-                    button("confirm").danger().label("Undo import"),
+                    button("confirm").danger().label(t!("settings-undo-button")),
                 ))
                 .on_ok(move |_, _, cx| {
                     shell
@@ -59,14 +61,8 @@ impl SettingsPage {
             .update(cx, |library, cx| library.undo_import(import_id, cx));
         report_outcome(
             task,
-            "Couldn’t undo the import",
-            |report| {
-                format!(
-                    "Removed {} {}.",
-                    format::count(report.removed_wishes),
-                    format::plural(report.removed_wishes, "wish", "wishes")
-                )
-            },
+            t!("settings-undo-failed"),
+            |report| t!("settings-undo-done", count = report.removed_wishes),
             cx,
         );
     }
@@ -75,17 +71,19 @@ impl SettingsPage {
 /// What an import came from: the file's name, or the game.
 pub(super) fn import_origin(record: &ImportRecord) -> String {
     match (record.source, &record.detail) {
-        (ImportSource::Api, _) => "The game".to_owned(),
-        (ImportSource::Manual, Some(what)) => format!("Counted by hand: {what}"),
-        (ImportSource::Manual, None) => "Counted by hand".to_owned(),
-        (_, Some(file)) => format!("“{file}”"),
-        (_, None) => "A file".to_owned(),
+        (ImportSource::Api, _) => t!("settings-origin-game"),
+        (ImportSource::Manual, Some(what)) => {
+            t!("settings-origin-manual-what", what = what.as_str())
+        }
+        (ImportSource::Manual, None) => t!("settings-origin-manual"),
+        (_, Some(file)) => format::quoted(file),
+        (_, None) => t!("settings-origin-file"),
     }
 }
 
 /// `2026-11-09T12:20:00+01:00` → `9 Nov 2026, 12:20`.
 pub(super) fn local_time(rfc3339: &str) -> String {
     chrono::DateTime::parse_from_rfc3339(rfc3339)
-        .map(|time| time.format("%-d %b %Y, %H:%M").to_string())
+        .map(|time| format::date_time(&time))
         .unwrap_or_else(|_| rfc3339.to_owned())
 }

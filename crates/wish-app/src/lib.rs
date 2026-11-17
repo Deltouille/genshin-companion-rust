@@ -61,6 +61,34 @@
 //!   several pages and the menu start it).
 //! - A piece used by two pages or more goes to `wish-ui`; one used by a
 //!   single page stays in its feature folder.
+//!
+//! # Texts
+//!
+//! Every text a player reads comes from `locales/<language>/<part>.ftl`
+//! through `t!("key", name = value)` (see `wish_core::i18n`), never a
+//! literal in the code: the tests fail on a key missing in a language, or
+//! one the code names that no file has. The language is one for the
+//! process: `main` sets it before the first window, the Settings page
+//! changes it ([`apply_language`]). Text worked out ahead of a render
+//! (the planner's model, the history's columns, a picker's options) is
+//! worked out again when the library notifies, which a change of language
+//! does.
+
+/// A text of the app in the current language: `t!("key", name = value)`.
+macro_rules! t {
+    ($($args:tt)*) => {
+        wish_core::tr!($crate::TEXTS, $($args)*)
+    };
+}
+
+/// The app's texts, one part per feature.
+pub(crate) static TEXTS: std::sync::LazyLock<wish_core::i18n::Texts> =
+    std::sync::LazyLock::new(|| {
+        wish_core::texts!(
+            "app", "archive", "credits", "history", "import", "imports", "overview", "planner",
+            "settings"
+        )
+    });
 
 pub mod app;
 mod features;
@@ -76,7 +104,9 @@ pub use shell::{
     ArchivePage, Feature, ImportFile, ImportFromGame, OverviewTab, Page, Quit, Shell,
     SyncFromHoyolab, WishPage,
 };
-pub use startup_error::{record_error, record_panics, show_startup_error};
+pub use startup_error::{
+    already_open_message, folder_failed_message, record_error, record_panics, show_startup_error,
+};
 
 pub const APP_ID: &str = "genshin-companion";
 pub const APP_TITLE: &str = "Genshin Companion";
@@ -92,6 +122,7 @@ const KEYS: [&str; 2] = ["ctrl-o", "ctrl-q"];
 pub fn init(cx: &mut App) {
     gpui_kit::init(cx);
     wish_ui::init(cx);
+    gpui_kit::component::set_locale(wish_core::i18n::language().code());
 
     // Keys first: menus read the keymap when they are set.
     let [import, quit] = KEYS;
@@ -100,17 +131,33 @@ pub fn init(cx: &mut App) {
         KeyBinding::new(quit, Quit, None),
     ]);
     cx.on_action(|_: &Quit, cx| cx.quit());
+    set_menus(cx);
+}
+
+/// The menu bar, in the current language.
+fn set_menus(cx: &mut App) {
     cx.set_menus(vec![Menu {
         name: APP_TITLE.into(),
         items: vec![
-            MenuItem::action("Import from Game…", ImportFromGame),
-            MenuItem::action("Import File…", ImportFile),
-            MenuItem::action("Sync from HoYoLAB…", SyncFromHoyolab),
+            MenuItem::action(t!("app-menu-import-game"), ImportFromGame),
+            MenuItem::action(t!("app-menu-import-file"), ImportFile),
+            MenuItem::action(t!("app-menu-sync-hoyolab"), SyncFromHoyolab),
             MenuItem::separator(),
-            MenuItem::action("Quit", Quit),
+            MenuItem::action(t!("app-menu-quit"), Quit),
         ],
         disabled: false,
     }]);
+}
+
+/// Puts the whole interface in `language`: the app's texts, GPUI Kit's own,
+/// the menus, and every window drawn again. Pages that work text out ahead
+/// of a render do it again when the library notifies, which the change of
+/// setting that calls this does.
+pub(crate) fn apply_language(language: wish_core::i18n::Language, cx: &mut App) {
+    wish_core::i18n::set_language(language);
+    gpui_kit::component::set_locale(language.code());
+    set_menus(cx);
+    cx.refresh_windows();
 }
 
 pub fn window_options(cx: &App) -> WindowOptions {
@@ -127,5 +174,16 @@ pub fn window_options(cx: &App) -> WindowOptions {
         app_id: Some(APP_ID.into()),
         window_min_size: Some(size(px(880.), px(560.))),
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_app_s_texts_are_complete() {
+        wish_core::i18n::check::check(
+            &crate::TEXTS,
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")),
+        );
     }
 }

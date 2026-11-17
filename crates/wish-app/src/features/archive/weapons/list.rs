@@ -81,34 +81,33 @@ impl WeaponsView {
                     .px_6()
                     .pt_2()
                     .pb_6()
-                    .child(section_title("Owned", mine_count, cx))
+                    .child(section_title(t!("archive-owned"), mine_count, cx))
                     .when(mine_count == 0, |this| {
                         this.child(div().text_sm().text_color(muted).child(if filtered {
-                            "None of your weapons matches these filters."
+                            t!("archive-no-owned-weapon-match")
                         } else {
-                            "The weapons you have show here, with their refinement and how \
-                             many copies. Add them with + on their card."
+                            t!("archive-owned-weapons-help")
                         }))
                     })
                     .child(div().h_flex().flex_wrap().gap_5().children(mine_cards))
                     .when(other_count > 0 || mine_count == 0, |this| {
-                        this.child(
-                            div()
-                                .pt_2()
-                                .child(section_title("Not owned", other_count, cx)),
-                        )
+                        this.child(div().pt_2().child(section_title(
+                            t!("archive-not-owned"),
+                            other_count,
+                            cx,
+                        )))
                     })
                     .child(div().h_flex().flex_wrap().gap_5().children(other_cards))
                     .when(mine_count + other_count == 0, |this| {
-                        this.child(
-                            div()
-                                .text_color(muted)
-                                .child("No weapon matches these filters."),
-                        )
+                        this.child(div().text_color(muted).child(t!("archive-no-weapon-match")))
                     }),
             );
-        let page = PageFrame::new("Weapons", body)
-            .subtitle(format!("{} owned · {} weapons", list.owned, list.total))
+        let page = PageFrame::new(t!("archive-weapons"), body)
+            .subtitle(t!(
+                "archive-weapons-subtitle",
+                owned = list.owned,
+                total = list.total
+            ))
             .toolbar(toolbar)
             .body_scrolls();
         let drawer = (self.drawer != filters::Drawer::Closed).then(|| {
@@ -147,14 +146,19 @@ impl WeaponsView {
         let (ink, parchment) = theme::tile_label(cx);
         let (key, name) = (weapon.key.clone(), weapon.name.clone());
         let owned = weapon.owned;
-        let add = corner_button(format!("add-copy-{key}"), IconName::Plus, "Add a copy", cx)
-            .on_click(cx.listener({
-                let (key, name) = (key.clone(), name.clone());
-                move |this, _, _, cx| {
-                    cx.stop_propagation();
-                    this.add_copy(key.clone(), name.clone(), cx);
-                }
-            }));
+        let add = corner_button(
+            format!("add-copy-{key}"),
+            IconName::Plus,
+            t!("archive-add-copy"),
+            cx,
+        )
+        .on_click(cx.listener({
+            let (key, name) = (key.clone(), name.clone());
+            move |this, _, _, cx| {
+                cx.stop_propagation();
+                this.add_copy(key.clone(), name.clone(), cx);
+            }
+        }));
         let corner = if owned {
             let favourite = weapon.favourite;
             let gold = theme::rarity(Rarity::Five, cx);
@@ -166,9 +170,9 @@ impl WeaponsView {
                     IconName::Star
                 },
                 if favourite {
-                    "Remove from favourites"
+                    t!("archive-remove-favourite")
                 } else {
-                    "Add to favourites"
+                    t!("archive-add-favourite")
                 },
                 cx,
             )
@@ -217,7 +221,11 @@ impl WeaponsView {
                     }))
                     .child(div().flex_1())
                     .when(weapon.new, |this| {
-                        this.child(badge("New", (theme.primary_foreground, theme.primary), cx))
+                        this.child(badge(
+                            t!("archive-new"),
+                            (theme.primary_foreground, theme.primary),
+                            cx,
+                        ))
                     }),
             );
         Button::new(SharedString::from(format!("weapon-{key}")))

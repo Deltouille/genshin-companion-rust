@@ -202,12 +202,10 @@ fn plan_target(
 
     let mut warnings = warnings.to_vec();
     for (pool, count) in &held_back {
-        warnings.push(format!(
-            "{count} older {} from {} {} not added: this banner’s history has wishes typed by hand \
-             in paimon.moe, which they could repeat.",
-            if *count == 1 { "wish" } else { "wishes" },
-            pool.display_name(),
-            if *count == 1 { "was" } else { "were" },
+        warnings.push(t!(
+            "import-held-back",
+            count = *count,
+            pool = pool.display_name()
         ));
     }
 
@@ -280,9 +278,7 @@ fn to_wishes(rows: &[ApiRow], data: &GameData, warnings: &mut Vec<String>) -> Re
         });
     }
     for (code, count) in unknown_types {
-        warnings.push(format!(
-            "{count} wish(es) from an unknown banner type ({code}) were left out; update the app."
-        ));
+        warnings.push(t!("import-unknown-banner-type", count = count, code = code));
     }
 
     // Oldest first; ids grow with time, and order wishes made together.

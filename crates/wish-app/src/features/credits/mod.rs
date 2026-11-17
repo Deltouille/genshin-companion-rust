@@ -58,10 +58,7 @@ impl RenderOnce for Credits {
 
         let paimon = section(
             "paimon.moe",
-            "Genshin Companion's wish counter is a desktop remake of paimon.moe’s, by Made Baruna. \
-             Its banner and item data and its pity and rate-up rules come from the paimon.moe \
-             repository, used under the MIT License below. The item icons and banner art are \
-             downloaded from paimon.moe when first shown.",
+            t!("credits-paimon"),
             Some(("paimon-moe", "https://github.com/MadeBaruna/paimon-moe")),
             cx,
         )
@@ -69,9 +66,7 @@ impl RenderOnce for Credits {
 
         let genshin_db = section(
             "genshin-db",
-            "The character archive (profiles, stats, talents, constellations) and the planner's \
-             data (ascension and talent costs, farming days) come from genshin-db, by theBowja, \
-             used under the MIT License below.",
+            t!("credits-genshin-db"),
             Some(("genshin-db", "https://github.com/theBowja/genshin-db")),
             cx,
         )
@@ -79,63 +74,35 @@ impl RenderOnce for Credits {
 
         let genshin_py = section(
             "genshin.py",
-            "The HoYoLAB sync's requests, their signing and the meaning of HoYoLAB's error codes \
-             follow genshin.py, by thesadru and seriaati, used under the MIT License below.",
+            t!("credits-genshin-py"),
             Some(("genshin.py", "https://github.com/seriaati/genshin.py")),
             cx,
         )
         .child(license(GENSHIN_PY_LICENSE));
 
-        let hoyoverse = section(
-            "HoYoverse",
-            "Genshin Impact, its characters, weapons and banner art, and all other game content \
-             and materials are trademarks and copyrights of HoYoverse. Genshin Companion is a fan \
-             project, not affiliated with or endorsed by HoYoverse. It ships none of the game's \
-             images: they are downloaded when first shown, and kept on this computer.",
-            None,
-            cx,
-        );
+        let hoyoverse = section("HoYoverse", t!("credits-hoyoverse"), None, cx);
 
         let others = card(cx).p_4().gap_3().children(
             [
-                (
-                    "Project Amber",
-                    "Character, weapon, material, element, talent and constellation icons and the \
-                     wish art of the archive and the planner, downloaded from its copy of the \
-                     game's images when first shown.",
-                    "https://gi.yatta.moe",
-                ),
+                ("Project Amber", t!("credits-amber"), "https://gi.yatta.moe"),
                 (
                     "AnimeGameData",
-                    "The EXP needed per character and weapon level, from the game's own data.",
+                    t!("credits-anime-game-data"),
                     "https://gitlab.com/Dimbreath/AnimeGameData",
                 ),
                 (
                     "Genshin Impact Wiki",
-                    "The average drops of domains, bosses and ley lines behind the planner's resin \
-                     estimate, gathered by the Genshin Data Gathering team.",
+                    t!("credits-wiki"),
                     "https://genshin-impact.fandom.com",
                 ),
-                (
-                    "UIGF",
-                    "Item ids from UIGF’s public dictionary, for exports other trackers read.",
-                    "https://uigf.org",
-                ),
+                ("UIGF", t!("credits-uigf"), "https://uigf.org"),
                 (
                     "Google Sans Flex",
-                    "Typeface by the Google Sans Flex Authors, under the SIL Open Font License 1.1.",
+                    t!("credits-font"),
                     "https://github.com/googlefonts/googlesans-flex",
                 ),
-                (
-                    "Lucide",
-                    "Icons by Lucide Icons and Contributors, under the ISC License.",
-                    "https://lucide.dev",
-                ),
-                (
-                    "GPUI Kit",
-                    "The interface toolkit, under the Apache License 2.0.",
-                    "https://gpui-kit.com",
-                ),
+                ("Lucide", t!("credits-lucide"), "https://lucide.dev"),
+                ("GPUI Kit", t!("credits-gpui-kit"), "https://gpui-kit.com"),
             ]
             .map(|(name, what, url)| {
                 div()
@@ -167,12 +134,7 @@ impl RenderOnce for Credits {
         let components = card(cx)
             .p_4()
             .gap_3()
-            .child(div().child(
-                "Genshin Companion is built with open-source Rust crates, each under its own \
-                 licence, and embeds the Lucide icons and the Google Sans Flex font. Their notices and \
-                 licence texts are here, and in THIRD-PARTY-LICENSES.txt next to the app in \
-                 its download.",
-            ))
+            .child(div().child(t!("credits-components")))
             .child(
                 div()
                     .text_sm()
@@ -183,7 +145,7 @@ impl RenderOnce for Credits {
                 // A row, so the button keeps its own width.
                 div().h_flex().child(
                     button("third-party-licenses")
-                        .label("Show the licences…")
+                        .label(t!("credits-show-licences"))
                         .on_click(|_, window, cx| open_licenses(window, cx)),
                 ),
             );
@@ -199,17 +161,17 @@ impl RenderOnce for Credits {
                 div()
                     .v_flex()
                     .gap_2()
-                    .child(group_title("Also used", cx))
+                    .child(group_title(t!("credits-also-used"), cx))
                     .child(others),
             )
             .child(
                 div()
                     .v_flex()
                     .gap_2()
-                    .child(group_title("Open-source components", cx))
+                    .child(group_title(t!("credits-open-source"), cx))
                     .child(components),
             );
-        PageFrame::new("Credits", body).max_width(rems(48.))
+        PageFrame::new(t!("credits-title"), body).max_width(rems(48.))
     }
 }
 
@@ -241,7 +203,7 @@ pub(crate) fn open_licenses(window: &mut Window, cx: &mut App) {
         .track_scroll(&scroll)
         .size_full();
         dialog
-            .title("Open-source licences")
+            .title(t!("credits-licences-title"))
             .w(rem * 52.)
             .child(
                 div()
@@ -253,7 +215,7 @@ pub(crate) fn open_licenses(window: &mut Window, cx: &mut App) {
                     .child(lines)
                     .vertical_scrollbar(&scroll),
             )
-            .footer(dialog_close_footer("Close"))
+            .footer(dialog_close_footer(t!("app-close")))
     });
 }
 
@@ -282,7 +244,7 @@ fn wrap(line: &str, width: usize) -> Vec<String> {
 /// A titled card: what is credited, and a link to it when there is one.
 fn section(
     title: &'static str,
-    text: &'static str,
+    text: String,
     link_to: Option<(&'static str, &'static str)>,
     cx: &App,
 ) -> gpui_kit::Div {
@@ -305,7 +267,7 @@ fn section(
         .child(div().child(text))
 }
 
-fn group_title(title: &'static str, cx: &App) -> impl IntoElement {
+fn group_title(title: String, cx: &App) -> impl IntoElement {
     div()
         .px_1()
         .text_sm()

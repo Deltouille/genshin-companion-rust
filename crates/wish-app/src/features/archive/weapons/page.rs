@@ -13,6 +13,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _, Styled as _,
     Window, div,
 };
+use wish_ui::format;
 use wish_ui::{PageFrame, Segmented, button, card, card_title, theme};
 
 use super::super::shared::{facts_grid, hero_banner, level_badge, materials, table};
@@ -35,7 +36,7 @@ impl WeaponsView {
         let back = button("back-to-weapons")
             .ghost()
             .icon(IconName::ArrowLeft)
-            .label("All weapons")
+            .label(t!("archive-all-weapons"))
             .on_click(cx.listener(|this, _, _, cx| this.show_list(cx)));
         let level = self.level.read(cx).value().end().round() as usize;
         let (Some(weapon), Some(page)) = (
@@ -43,8 +44,8 @@ impl WeaponsView {
             model::page(&planner, &archive, key, level, self.refinement),
         ) else {
             return PageFrame::new(
-                "Weapon",
-                div().px_6().child("This weapon is not in the game data."),
+                t!("archive-weapon"),
+                div().px_6().child(t!("archive-weapon-missing")),
             )
             .action(back)
             .into_any_element();
@@ -56,9 +57,6 @@ impl WeaponsView {
 
         // The banner: the stars, the description and the facts beside the
         // wish art, which stands upright (half as wide as tall).
-        let facts: Vec<(&str, Option<&str>)> = (page.facts.iter())
-            .map(|(label, value)| (*label, value.as_deref()))
-            .collect();
         let info = div()
             .child(
                 div()
@@ -69,7 +67,7 @@ impl WeaponsView {
             .children(
                 (page.description.clone()).map(|text| div().text_lg().line_clamp(3).child(text)),
             )
-            .child(facts_grid(&facts, cx));
+            .child(facts_grid(&page.facts, cx));
         let hero = hero_banner(
             info,
             images
@@ -84,22 +82,26 @@ impl WeaponsView {
         let stats_card = card(cx)
             .p_4()
             .gap_3()
-            .child(card_title("Stats", cx).child(level_badge(&page.level_label, cx)))
+            .child(card_title(t!("archive-stats"), cx).child(level_badge(&page.level_label, cx)))
             .child(
                 Slider::new(&self.level)
                     .cursor_pointer()
-                    .accessibility_label("Level"),
+                    .accessibility_label(t!("archive-level")),
             )
             .child(table(page.stats.clone(), cx));
         let cost_card = card(cx)
             .p_4()
             .gap_3()
             .child(
-                card_title(format!("To reach {}", page.level_label), cx).child(
+                card_title(
+                    t!("archive-to-reach", level = page.level_label.as_str()),
+                    cx,
+                )
+                .child(
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("from level 1"),
+                        .child(t!("archive-from-level-one")),
                 ),
             )
             .child(materials(&page.cost, &planner, &images, cx));
@@ -154,13 +156,13 @@ impl WeaponsView {
         let plan = button("plan-weapon")
             .primary()
             .icon(IconName::Plus)
-            .label("Add to the planner")
+            .label(t!("archive-add-to-planner"))
             .on_click(cx.listener({
                 let (key, name, rarity) = (weapon.key.clone(), weapon.name.clone(), weapon.rarity);
-                move |this, _, _, cx| this.add_to_plan(key.clone(), name.clone(), rarity, cx)
+                move |this, _, _, cx| this.add_to_plan(key.clone(), name.to_string(), rarity, cx)
             }));
         PageFrame::new(page.name.clone(), body)
-            .subtitle(page.kind.clone())
+            .subtitle(format::weapon_type(&page.kind))
             .action(plan)
             .action(back)
             .body_scrolls()

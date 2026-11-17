@@ -39,7 +39,7 @@ pub fn snackbar(
         .rounded_full()
         .flex_none()
         .cursor_pointer()
-        .accessibility_label("Close")
+        .accessibility_label(t!("ui-close"))
         .on_click(on_close);
     div()
         .id(id.clone())

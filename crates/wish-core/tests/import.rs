@@ -357,7 +357,7 @@ fn a_changed_record_keeps_the_stored_version_and_warns() {
 
     assert_eq!(report.added(), 0);
     assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
-    assert!(report.warnings[0].contains("Main, Character Event: 1 wish(es) differ"));
+    assert!(report.warnings[0].contains("Main, Character Event: 1 wish differs"));
 
     let main = &store.accounts().unwrap()[0];
     let first = store.wishes(main.id).unwrap().remove(0);

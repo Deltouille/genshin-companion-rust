@@ -375,7 +375,7 @@ impl Library {
 /// Why a change or a fetch can't start: the data folder isn't open (it is
 /// opening, or failed to).
 fn not_open() -> anyhow::Error {
-    anyhow!("your data isn’t open yet")
+    anyhow!(t!("app-not-open"))
 }
 
 /// How long quitting waits for a write under way.
@@ -427,7 +427,7 @@ fn open(
         icons: images::catalog(&data, &planner, &archive, Collection::Icons),
         everything: images::catalog(&data, &planner, &archive, Collection::Everything),
     };
-    let mut store = Store::open(paths).context("opening the wish database")?;
+    let mut store = Store::open(paths).context(t!("app-opening-database"))?;
     let loaded = load(&mut store, &data, analyses)?;
     Ok(Opened {
         store,

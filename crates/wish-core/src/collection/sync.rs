@@ -25,6 +25,7 @@ use super::{
     Collection, MAX_CONSTELLATION, MAX_REFINEMENT, MAX_TALENT, OwnedCharacter, OwnedWeapon,
 };
 use crate::archive::{ArchiveData, CharacterPage};
+use crate::i18n::item_name;
 use crate::planner::{Level, PlannerData};
 
 /// The Traveler's ids: Aether and Lumine.
@@ -76,31 +77,23 @@ pub enum SyncNote {
 /// What the player reads of a note, in the sync's preview and `wishctl`.
 impl std::fmt::Display for SyncNote {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SyncNote::PhaseUnknown { name, level } => write!(
-                f,
-                "{name} is level {level}: HoYoLAB doesn't say whether they ascended, so they count \
-                 as not ascended yet. Set it on their page if they did."
-            ),
-            SyncNote::AboveMaxLevel { name, level } => write!(
-                f,
-                "{name} is level {level}: counted as 90/90, the highest this version knows."
-            ),
-            SyncNote::UnknownCharacter { name, .. } => write!(
-                f,
-                "{name} isn't in this version's game data: left out, with their weapon. Update the \
-                 app to sync them."
-            ),
-            SyncNote::UnknownWeapon { name, .. } => write!(
-                f,
-                "The weapon {name} isn't in this version's game data: left out. Update the app to \
-                 sync it."
-            ),
-            SyncNote::TalentsUnread { name } => write!(
-                f,
-                "{name}'s talents couldn't be read: left as they were. Set them on their page."
-            ),
-        }
+        let text = match self {
+            // HoYoLAB's names are English.
+            SyncNote::PhaseUnknown { name, level } => {
+                t!("sync-phase-unknown", name = item_name(name), level = *level)
+            }
+            SyncNote::AboveMaxLevel { name, level } => {
+                t!("sync-above-max", name = item_name(name), level = *level)
+            }
+            SyncNote::UnknownCharacter { name, .. } => {
+                t!("sync-unknown-character", name = item_name(name))
+            }
+            SyncNote::UnknownWeapon { name, .. } => {
+                t!("sync-unknown-weapon", name = item_name(name))
+            }
+            SyncNote::TalentsUnread { name } => t!("sync-talents-unread", name = item_name(name)),
+        };
+        f.write_str(&text)
     }
 }
 
@@ -272,7 +265,8 @@ fn read_talents(detail: &CharacterDetail, page: Option<&CharacterPage>) -> Optio
         let kind = page
             .talents
             .iter()
-            .find(|t| t.name == skill.name)?
+            // HoYoLAB names talents in English (`lang=en-us`).
+            .find(|t| t.name.english() == skill.name)?
             .kind
             .as_str();
         let slot = match kind {

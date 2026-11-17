@@ -17,6 +17,7 @@ pub(crate) use add::Kind as AddKind;
 mod custom;
 mod inventory;
 mod model;
+pub(crate) use model::talent_names;
 mod resin;
 mod sections;
 
@@ -189,13 +190,15 @@ impl PlannerView {
         cx: &mut Context<Self>,
     ) {
         let library = self.library.downgrade();
-        let title = SharedString::from(format!("Remove {name} from the plan?"));
+        let title = SharedString::from(t!("planner-remove-title", name = name.as_str()));
         window.open_alert_dialog(cx, move |alert, _, _| {
             let library = library.clone();
             alert
                 .title(title.clone())
-                .description("Its goal is forgotten. A backup is taken first.")
-                .footer(dialog_footer(button("confirm").danger().label("Remove")))
+                .description(t!("planner-remove-help"))
+                .footer(dialog_footer(
+                    button("confirm").danger().label(t!("planner-remove")),
+                ))
                 .on_ok(move |_, _, cx| {
                     let task =
                         library.update(cx, |library, cx| library.remove_plan_entry(entry, cx));
@@ -510,12 +513,13 @@ impl Render for PlannerView {
                             div()
                                 .text_lg()
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child("Nothing planned yet"),
+                                .child(t!("planner-empty")),
                         )
-                        .child(div().text_color(cx.theme().muted_foreground).child(
-                            "Add a character or a weapon to see what raising it costs, or a \
-                             custom one the game data does not have yet.",
-                        )),
+                        .child(
+                            div()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(t!("planner-empty-help")),
+                        ),
                 )
                 .into_any_element()
         } else {
@@ -554,7 +558,7 @@ impl Render for PlannerView {
                 button("add-character")
                     .primary()
                     .icon(IconName::UserPlus)
-                    .label("Add a character…")
+                    .label(t!("planner-add-character"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_add(add::Kind::Character, window, cx)
                     })),
@@ -562,7 +566,7 @@ impl Render for PlannerView {
             .child(
                 button("add-weapon")
                     .icon(IconName::Swords)
-                    .label("Add a weapon…")
+                    .label(t!("planner-add-weapon"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_add(add::Kind::Weapon, window, cx)
                     })),
@@ -570,17 +574,14 @@ impl Render for PlannerView {
             .child(
                 button("add-custom")
                     .icon(IconName::Plus)
-                    .label("Custom…")
-                    .tooltip(
-                        "For a character or a weapon the game data does not have yet: a name and \
-                         its materials",
-                    )
+                    .label(t!("planner-custom"))
+                    .tooltip(t!("planner-custom-tooltip"))
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_custom(None, window, cx);
                     })),
             );
-        PageFrame::new("Ascension planner", body)
-            .subtitle("What raising your characters and weapons costs")
+        PageFrame::new(t!("planner-title"), body)
+            .subtitle(t!("planner-subtitle"))
             .toolbar(toolbar)
             .body_scrolls()
     }
@@ -618,7 +619,7 @@ impl PlannerView {
                         let material = planner.material(id)?;
                         Some(inventory::Material {
                             item: CustomItem::Material(id),
-                            name: material.name.clone(),
+                            name: material.name.to_string(),
                             icon: images.material(material),
                             stars: material.rarity,
                             exp,
@@ -642,5 +643,5 @@ impl PlannerView {
 
 /// Shows a notice if a plan write fails.
 fn report_plan<T: 'static>(task: gpui_kit::Task<anyhow::Result<T>>, cx: &mut App) {
-    crate::app::notices::report(task, "The plan was not saved", cx);
+    crate::app::notices::report(task, t!("planner-not-saved"), cx);
 }

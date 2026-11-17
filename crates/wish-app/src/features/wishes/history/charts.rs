@@ -109,7 +109,7 @@ pub(super) fn rarity_donut(pool: &PoolAnalysis, cx: &App) -> impl IntoElement {
         .h_full()
         .p_4()
         .gap_2()
-        .child(card_title("By rarity", cx))
+        .child(card_title(t!("history-by-rarity"), cx))
         .child(
             div()
                 .flex_1()
@@ -142,7 +142,7 @@ pub(super) fn rarity_donut(pool: &PoolAnalysis, cx: &App) -> impl IntoElement {
                                     div()
                                         .text_xs()
                                         .text_color(colors.muted_foreground)
-                                        .child(format::plural(total, "wish", "wishes")),
+                                        .child(t!("history-wishes-word", count = total)),
                                 ),
                         ),
                 )
@@ -210,7 +210,7 @@ pub(super) fn banner_chart(
         .y(|bar: &BannerWishes| f64::from(bar.stats.total))
         .stroke(color)
         .fill(color.opacity(0.3))
-        .name("Wishes")
+        .name(t!("history-wishes"))
         .y_axis(true)
         .y_domain(0.0, f64::from(top))
         .y_padding(0.0, 0.0)
@@ -218,11 +218,11 @@ pub(super) fn banner_chart(
         .y_tick_format(|v| format!("{v:.0}"))
         .tooltip_title(|bar: &BannerWishes| bar.title.clone())
         .tooltip_value(|bar: &BannerWishes, _, _| {
-            format!(
-                "{} · {} × 5★ · {} × 4★",
-                format::count(bar.stats.total),
-                bar.stats.five.count,
-                bar.stats.four.count
+            t!(
+                "history-banner-tooltip",
+                total = bar.stats.total,
+                five = bar.stats.five.count,
+                four = bar.stats.four.count
             )
             .into()
         });
@@ -232,7 +232,7 @@ pub(super) fn banner_chart(
             .h_full()
             .p_4()
             .gap_2()
-            .child(card_title("Wishes per banner", cx))
+            .child(card_title(t!("history-per-banner"), cx))
             .child(div().flex_1().min_h_0().child(chart)),
     )
 }
@@ -246,7 +246,10 @@ pub(super) fn five_star_pity(pool: &PoolAnalysis, data: &GameData, cx: &App) -> 
         .filter(|pull| pull.wish.rarity == Rarity::Five)
         .map(|pull| {
             let time = pull.wish.time.naive();
-            let mut title = vec![pull.wish.name.clone(), time.format("%-d %b %Y").to_string()];
+            let mut title = vec![
+                wish_core::i18n::item_name(&pull.wish.name).to_owned(),
+                format::date(&time),
+            ];
             title.extend(pull.banner.and_then(|ix| banners.get(ix)).map(banner_title));
             title.extend(
                 pull.rate_up

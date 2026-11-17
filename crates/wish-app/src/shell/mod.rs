@@ -89,11 +89,11 @@ pub enum OverviewTab {
 impl OverviewTab {
     pub const ALL: [OverviewTab; 3] = [Self::Wishes, Self::Characters, Self::Weapons];
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            Self::Wishes => "Wishes",
-            Self::Characters => "Characters",
-            Self::Weapons => "Weapons",
+            Self::Wishes => t!("app-nav-wishes"),
+            Self::Characters => t!("app-nav-characters"),
+            Self::Weapons => t!("app-nav-weapons"),
         }
     }
 }
@@ -503,7 +503,7 @@ impl Shell {
                 first.focus_handle(cx).focus(window, cx);
             }
             dialog
-                .title("Sync from HoYoLAB")
+                .title(t!("app-sync-hoyolab-title"))
                 .w(window.rem_size() * 44.)
                 .child(shown.clone())
         });
@@ -519,7 +519,7 @@ impl Shell {
                         .gap_2()
                         .text_color(cx.theme().muted_foreground)
                         .child(Spinner::new())
-                        .child("Opening your wish history…"),
+                        .child(t!("app-opening")),
                 )
                 .into_any_element();
             }
@@ -578,22 +578,22 @@ impl Shell {
                     div()
                         .text_lg()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child("Couldn’t open your wish history"),
+                        .child(t!("app-open-failed")),
                 )
                 .child(div().text_sm().child(message))
                 .child(
                     div()
                         .text_sm()
                         .text_color(cx.theme().muted_foreground)
-                        .child(format!(
-                            "Your data is untouched. It is stored in {}, with automatic backups in its backups folder.",
-                            folder.display()
+                        .child(t!(
+                            "app-open-failed-help",
+                            folder = folder.display().to_string()
                         )),
                 )
                 .child(
                     div().child(
                         button("show-data-folder")
-                            .label("Show data folder")
+                            .label(t!("app-show-data-folder"))
                             .on_click(move |_, _, cx| cx.reveal_path(&folder)),
                     ),
                 ),

@@ -72,24 +72,25 @@ impl ResinSource {
         ResinSource::Mora,
     ];
 
-    pub fn label(self) -> &'static str {
+    /// Its name in the current language: "Talent books".
+    pub fn label(self) -> String {
         match self {
-            ResinSource::TalentBooks => "Talent books",
-            ResinSource::WeaponMaterials => "Weapon materials",
-            ResinSource::BossMaterials => "Boss materials",
-            ResinSource::CharacterExp => "Character EXP",
-            ResinSource::Mora => "Mora",
+            ResinSource::TalentBooks => t!("resin-talent-books"),
+            ResinSource::WeaponMaterials => t!("resin-weapon-materials"),
+            ResinSource::BossMaterials => t!("resin-boss-materials"),
+            ResinSource::CharacterExp => t!("resin-character-exp"),
+            ResinSource::Mora => t!("resin-mora"),
         }
     }
 
     /// Where it is farmed, as the game names it.
-    pub fn place(self) -> &'static str {
+    pub fn place(self) -> String {
         match self {
-            ResinSource::TalentBooks => "Domains of Mastery",
-            ResinSource::WeaponMaterials => "Domains of Forgery",
-            ResinSource::BossMaterials => "Normal bosses",
-            ResinSource::CharacterExp => "Blossoms of Revelation",
-            ResinSource::Mora => "Blossoms of Wealth",
+            ResinSource::TalentBooks => t!("resin-place-talent-books"),
+            ResinSource::WeaponMaterials => t!("resin-place-weapon-materials"),
+            ResinSource::BossMaterials => t!("resin-place-boss-materials"),
+            ResinSource::CharacterExp => t!("resin-place-character-exp"),
+            ResinSource::Mora => t!("resin-place-mora"),
         }
     }
 

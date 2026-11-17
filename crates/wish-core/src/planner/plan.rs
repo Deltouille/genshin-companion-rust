@@ -184,7 +184,8 @@ impl PlannerData {
         let name = name.trim();
         self.materials()
             .iter()
-            .find(|m| m.name.eq_ignore_ascii_case(name))
+            // Typed in any language the data has.
+            .find(|m| m.name.matches(name))
             .map(|m| m.id)
     }
 }

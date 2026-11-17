@@ -40,22 +40,12 @@ fn resin_icon(images: &Images, size: Rems) -> AnyElement {
 
 /// "6.9 days".
 fn days(estimate: &ResinEstimate, options: &ResinOptions) -> String {
-    let days = estimate.days(options.resin_per_day);
-    let unit = if days > 0. && days <= 1. {
-        "day"
-    } else {
-        "days"
-    };
-    format!("{days:.1} {unit}")
+    t!("planner-days", days = estimate.days(options.resin_per_day))
 }
 
 /// "61 runs".
 fn runs(runs: u64) -> String {
-    format!(
-        "{} {}",
-        format::count(runs),
-        format::plural(u32::try_from(runs).unwrap_or(u32::MAX), "run", "runs")
-    )
+    t!("planner-runs", count = runs)
 }
 
 /// One card's estimate: the resin and the days on one line, the runs by
@@ -72,11 +62,11 @@ pub(super) fn entry_resin(
     }
     let tip: Vec<String> = (estimate.sources.iter())
         .map(|source| {
-            format!(
-                "{}: {}, {} resin",
-                source.source.label(),
-                runs(source.runs),
-                format::count(source.resin())
+            t!(
+                "planner-resin-source",
+                source = source.source.label(),
+                runs = runs(source.runs),
+                resin = source.resin()
             )
         })
         .collect();
@@ -91,12 +81,12 @@ pub(super) fn entry_resin(
             .child(
                 div()
                     .font_weight(FontWeight::SEMIBOLD)
-                    .child(format!("~{} resin", format::count(estimate.resin()))),
+                    .child(t!("planner-resin", resin = estimate.resin())),
             )
             .child(
                 div()
                     .text_color(cx.theme().muted_foreground)
-                    .child(format!("· ~{}", days(estimate, options))),
+                    .child(t!("planner-resin-days", days = days(estimate, options))),
             )
             .tooltip(move |window, cx| Tooltip::new(tip.clone()).build(window, cx))
             .into_any_element(),
@@ -116,14 +106,14 @@ pub(super) fn plan_resin(
     let muted = theme.muted_foreground;
     let options_button = button("resin-options")
         .icon(gpui_kit::assets::IconName::Settings)
-        .label("Resin options…")
+        .label(t!("planner-resin-options"))
         .on_click(move |_, window, cx| open_options(window, cx));
     let counted = ResinSource::ALL.iter().any(|&s| options.counts(s));
     let headline = if estimate.is_empty() {
         div().text_color(muted).child(if counted {
-            "Nothing still lacking is farmed with resin."
+            t!("planner-resin-nothing")
         } else {
-            "No source is counted: choose them in the options."
+            t!("planner-resin-no-source")
         })
     } else {
         div()
@@ -132,13 +122,13 @@ pub(super) fn plan_resin(
                 div()
                     .text_xl()
                     .font_weight(FontWeight::BOLD)
-                    .child(format!("~{} resin", format::count(estimate.resin()))),
+                    .child(t!("planner-resin", resin = estimate.resin())),
             )
-            .child(div().text_sm().text_color(muted).child(format!(
-                "About {} at {} resin a day, world level {}",
-                days(estimate, options),
-                format::count(u64::from(options.resin_per_day)),
-                options.world_level
+            .child(div().text_sm().text_color(muted).child(t!(
+                "planner-resin-about",
+                days = days(estimate, options),
+                per_day = options.resin_per_day,
+                level = options.world_level
             )))
     };
     // Where each is farmed, in its tooltip.
@@ -166,7 +156,7 @@ pub(super) fn plan_resin(
                 div()
                     .text_sm()
                     .text_color(muted)
-                    .child(format!("{} resin", format::count(source.resin()))),
+                    .child(t!("planner-resin-count", resin = source.resin())),
             )
             .tooltip(move |window, cx| Tooltip::new(place.clone()).build(window, cx))
     });
@@ -228,13 +218,7 @@ impl ResinForm {
             .and_then(|n| u32::try_from(n).ok())
             .filter(|n| (1..=MAX_RESIN_PER_DAY).contains(n));
         let Some(resin_per_day) = per_day else {
-            self.error = Some(
-                format!(
-                    "Resin a day is a whole number from 1 to {}.",
-                    format::count(u64::from(MAX_RESIN_PER_DAY))
-                )
-                .into(),
-            );
+            self.error = Some(t!("planner-resin-per-day-error", most = MAX_RESIN_PER_DAY).into());
             cx.notify();
             return None;
         };
@@ -247,7 +231,7 @@ impl ResinForm {
 }
 
 /// A field: its label, the control, a line of help under it.
-fn field(label: &str, control: impl IntoElement, help: &str, cx: &App) -> Div {
+fn field(label: String, control: impl IntoElement, help: String, cx: &App) -> Div {
     let muted = cx.theme().muted_foreground;
     div()
         .v_flex()
@@ -297,22 +281,21 @@ impl Render for ResinForm {
             .v_flex()
             .gap_5()
             .child(field(
-                "World level",
+                t!("planner-world-level"),
                 div().h_flex().child(levels),
-                "Bosses give more materials as it rises; ley lines give their most from 6.",
+                t!("planner-world-level-help"),
                 cx,
             ))
             .child(field(
-                "Resin a day",
+                t!("planner-resin-per-day"),
                 div().w(rems(10.)).child(input(&self.per_day, cx)),
-                "180 regenerate in a day; add what you refill or take from Fragile Resin.",
+                t!("planner-resin-per-day-help"),
                 cx,
             ))
             .child(field(
-                "Count",
+                t!("planner-resin-sources"),
                 div().h_flex().flex_wrap().gap_2().children(chips),
-                "Domains count at their highest level. Weekly bosses, gems, ores, enemy \
-                 drops and local specialties take no resin counted here.",
+                t!("planner-resin-sources-help"),
                 cx,
             ))
             .when_some(self.error.clone(), |this, error| {
@@ -330,10 +313,12 @@ impl PlannerView {
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, library) = (form.clone(), library.clone());
             dialog
-                .title("Resin estimate")
+                .title(t!("planner-resin-title"))
                 .w(window.rem_size() * 36.)
                 .child(form.clone())
-                .footer(dialog_footer(button("save-resin").primary().label("Save")))
+                .footer(dialog_footer(
+                    button("save-resin").primary().label(t!("planner-save")),
+                ))
                 .on_ok(move |_, _, cx| {
                     let Some(options) = form.update(cx, |form, cx| form.submit(cx)) else {
                         // Keep the dialog open on the error.
@@ -347,7 +332,7 @@ impl PlannerView {
                     let task = preferences.update(cx, |preferences, cx| {
                         preferences.set_resin_options(options, cx)
                     });
-                    report(task, "The resin options were not saved", cx);
+                    report(task, t!("planner-resin-not-saved"), cx);
                     true
                 })
         });

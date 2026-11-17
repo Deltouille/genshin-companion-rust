@@ -38,18 +38,19 @@ pub(super) fn monthly_chart(months: &[MonthStats], cx: &App) -> impl IntoElement
     // An area needs two points: a single month is said in words.
     if let [only] = series.as_slice() {
         let date = chrono::NaiveDate::from_ymd_opt(only.year, only.month, 1)
-            .map(|d| d.format("%B %Y").to_string())
+            .map(|d| format::month_year(&d))
             .unwrap_or_else(|| only.label());
         return card(cx)
             .h_full()
             .gap_3()
             .p_4()
-            .child(card_title("Wishes per month", cx))
-            .child(div().text_color(cx.theme().muted_foreground).child(format!(
-                "All {} wishes so far were made in {date}: {} × 4★, {} × 5★.",
-                format::count(only.total),
-                only.four,
-                only.five
+            .child(card_title(t!("overview-per-month"), cx))
+            .child(div().text_color(cx.theme().muted_foreground).child(t!(
+                "overview-one-month",
+                count = only.total,
+                month = date,
+                four = only.four,
+                five = only.five
             )))
             .into_any_element();
     }
@@ -78,7 +79,7 @@ pub(super) fn monthly_chart(months: &[MonthStats], cx: &App) -> impl IntoElement
         .y(|m: &MonthStats| f64::from(m.total))
         .stroke(wishes)
         .fill(wishes.opacity(0.3))
-        .name("Wishes")
+        .name(t!("overview-wishes"))
         .y(|m: &MonthStats| f64::from(m.four))
         .stroke(four)
         .fill(four.opacity(0.35))
@@ -89,14 +90,19 @@ pub(super) fn monthly_chart(months: &[MonthStats], cx: &App) -> impl IntoElement
         .name("5★")
         .tooltip_title(|m: &MonthStats| {
             chrono::NaiveDate::from_ymd_opt(m.year, m.month, 1)
-                .map(|d| d.format("%B %Y").to_string())
+                .map(|d| format::month_year(&d))
                 .unwrap_or_else(|| m.label())
                 .into()
         })
         .tooltip_value(|m: &MonthStats, series, value| {
             let count = format::count(value as u64);
             if series == 0 {
-                format!("{count} ({} primogems)", format::primogems(m.total)).into()
+                t!(
+                    "overview-month-wishes",
+                    count = count,
+                    primogems = format::primogems(m.total)
+                )
+                .into()
             } else {
                 count.into()
             }
@@ -106,9 +112,9 @@ pub(super) fn monthly_chart(months: &[MonthStats], cx: &App) -> impl IntoElement
         .h_full()
         .gap_3()
         .p_4()
-        .child(card_title("Wishes per month", cx).child(legend(
+        .child(card_title(t!("overview-per-month"), cx).child(legend(
             [
-                (wishes, "Wishes".into()),
+                (wishes, t!("overview-wishes").into()),
                 (four, "4★".into()),
                 (five, "5★".into()),
             ],

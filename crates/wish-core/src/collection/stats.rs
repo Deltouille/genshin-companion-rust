@@ -172,7 +172,7 @@ impl OwnedWeaponStats {
             stats.held += copies.iter().filter(|c| c.holder.is_some()).count();
             stats.weapons.push(OwnedWeaponSummary {
                 key: weapon.key.clone(),
-                name: weapon.name.clone(),
+                name: weapon.name.to_string(),
                 rarity: weapon.rarity,
                 copies: copies.len(),
                 refinement: copies.iter().map(|c| c.refinement).max().unwrap_or(1),

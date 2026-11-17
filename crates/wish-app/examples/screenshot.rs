@@ -38,6 +38,13 @@ fn main() -> Result<()> {
         Arc::new(wish_app::AppAssets),
         gpui_kit::platform::current_headless_renderer,
     );
+    // SCREENSHOT_LANGUAGE=fr shoots the pages in French; English otherwise,
+    // whatever the data folder's settings say, so captures compare.
+    let language = std::env::var("SCREENSHOT_LANGUAGE")
+        .ok()
+        .and_then(|code| wish_core::i18n::Language::from_locale(&code))
+        .unwrap_or(wish_core::i18n::Language::English);
+    wish_core::i18n::set_language(language);
     cx.update(wish_app::init);
 
     let paths = AppPaths::at(data_dir);

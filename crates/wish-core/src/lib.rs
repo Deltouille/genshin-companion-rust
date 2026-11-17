@@ -4,12 +4,21 @@
 //!
 //! This crate must never depend on GPUI so it stays unit-testable and reusable.
 
+/// A text of the core in the current language: `t!("key", name = value)`
+/// (see [`i18n`]).
+macro_rules! t {
+    ($($args:tt)*) => {
+        $crate::tr!($crate::i18n::TEXTS, $($args)*)
+    };
+}
+
 pub mod archive;
 pub mod collection;
 pub mod data;
 pub mod engine;
 pub mod error;
 pub mod excel;
+pub mod i18n;
 pub mod images;
 pub mod import;
 pub mod model;

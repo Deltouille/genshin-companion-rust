@@ -9,7 +9,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
+use crate::i18n::{self, Language};
 use crate::paths::{AppPaths, write_atomic};
 use crate::planner::ResinOptions;
 
@@ -30,16 +31,46 @@ pub struct Settings {
     /// How the planner estimates the resin farming takes.
     #[serde(default, skip_serializing_if = "ResinOptions::is_default")]
     pub resin: ResinOptions,
+    /// The interface's language, `None` to follow the system's. One this
+    /// version doesn't know (a newer one wrote it) reads as `None`.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "i18n::deserialize_language"
+    )]
+    pub language: Option<Language>,
 }
 
 impl Settings {
+    /// The language the interface is in: the one chosen, else the system's.
+    pub fn language(&self) -> Language {
+        self.language.unwrap_or_else(Language::system)
+    }
+
+    /// The language `settings.json` asks for, read alone and before
+    /// anything else, so the first window is already in it. The system's
+    /// when the file is missing or can't be read: the full read says why
+    /// later.
+    pub fn read_language(paths: &AppPaths) -> Language {
+        #[derive(Deserialize)]
+        struct OnlyLanguage {
+            #[serde(default, deserialize_with = "i18n::deserialize_language")]
+            language: Option<Language>,
+        }
+        fs::read(paths.settings())
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<OnlyLanguage>(&bytes).ok())
+            .and_then(|settings| settings.language)
+            .unwrap_or_else(Language::system)
+    }
+
     /// Reads the settings, or the defaults when there is no settings file yet.
     pub fn load(paths: &AppPaths) -> Result<Self> {
         let path = paths.settings();
         match fs::read(&path) {
             Ok(bytes) => Ok(serde_json::from_slice(&bytes)?),
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(Self::default()),
-            Err(e) => Err(Error::io("reading", &path)(e)),
+            Err(e) => Err(Error::io(IoAction::Reading, &path)(e)),
         }
     }
 
@@ -58,15 +89,19 @@ impl Settings {
             let time = chrono::Utc::now().format("%Y%m%dT%H%M%SZ");
             let aside = path.with_extension(format!("json.{time}.damaged"));
             match fs::rename(&path, &aside) {
-                Ok(()) => format!(
-                    "settings.json could not be read ({err}); it was kept as {} and the \
-                     defaults are used",
-                    aside.display()
+                Ok(()) => t!(
+                    "settings-set-aside",
+                    error = err.to_string(),
+                    aside = aside.display().to_string()
                 ),
-                Err(e) => format!("settings.json could not be read ({err}), nor set aside ({e})"),
+                Err(e) => t!(
+                    "settings-not-set-aside",
+                    error = err.to_string(),
+                    problem = e.to_string()
+                ),
             }
         } else {
-            format!("settings.json could not be read ({err}); the defaults are used")
+            t!("settings-unreadable", error = err.to_string())
         };
         (Self::default(), Some(warning))
     }
@@ -96,9 +131,30 @@ mod tests {
                 world_level: 9,
                 ..ResinOptions::default()
             },
+            language: Some(Language::French),
         };
         settings.save(&paths).unwrap();
         assert_eq!(Settings::load(&paths).unwrap(), settings);
+    }
+
+    #[test]
+    fn a_language_this_version_doesn_t_know_follows_the_system() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = AppPaths::at(dir.path());
+        fs::write(
+            paths.settings(),
+            r#"{ "manual_counting": true, "language": "tlh" }"#,
+        )
+        .unwrap();
+        let settings = Settings::load(&paths).unwrap();
+        assert!(settings.manual_counting);
+        assert_eq!(settings.language, None);
+        assert_eq!(Settings::read_language(&paths), Language::system());
+
+        fs::write(paths.settings(), r#"{ "language": "fr" }"#).unwrap();
+        assert_eq!(Settings::read_language(&paths), Language::French);
+        fs::write(paths.settings(), "{ damaged").unwrap();
+        assert_eq!(Settings::read_language(&paths), Language::system());
     }
 
     #[test]

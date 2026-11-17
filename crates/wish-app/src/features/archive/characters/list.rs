@@ -26,6 +26,7 @@ use super::CharactersView;
 use super::model::{self, CharacterCard, Filters};
 use crate::app::images::Images;
 use wish_core::planner::PlannerData;
+use wish_ui::format;
 use wish_ui::{PageFrame, badge, theme};
 
 /// The elements in the game's order, as the filters show them.
@@ -97,36 +98,39 @@ impl CharactersView {
                         div()
                             .text_sm()
                             .text_color(theme.warning)
-                            .child(format!("Using the built-in game data: {warning}"))
+                            .child(t!("archive-built-in-data", warning = warning.to_string()))
                     }))
-                    .child(section_title("Owned", mine_count, cx))
+                    .child(section_title(t!("archive-owned"), mine_count, cx))
                     .when(mine_count == 0, |this| {
                         this.child(div().text_sm().text_color(muted).child(if filtered {
-                            "None of your characters matches these filters."
+                            t!("archive-no-owned-character-match")
                         } else {
-                            "The characters you have show here, with their level and \
-                             constellation. Add them with + on their card."
+                            t!("archive-owned-characters-help")
                         }))
                     })
                     .child(div().h_flex().flex_wrap().gap_5().children(mine_cards))
                     .when(other_count > 0 || mine_count == 0, |this| {
-                        this.child(
-                            div()
-                                .pt_2()
-                                .child(section_title("Not owned", other_count, cx)),
-                        )
+                        this.child(div().pt_2().child(section_title(
+                            t!("archive-not-owned"),
+                            other_count,
+                            cx,
+                        )))
                     })
                     .child(div().h_flex().flex_wrap().gap_5().children(other_cards))
                     .when(mine_count + other_count == 0, |this| {
                         this.child(
                             div()
                                 .text_color(muted)
-                                .child("No character matches these filters."),
+                                .child(t!("archive-no-character-match")),
                         )
                     }),
             );
-        let page = PageFrame::new("Characters", body)
-            .subtitle(format!("{} owned · {} characters", list.owned, list.total))
+        let page = PageFrame::new(t!("archive-characters"), body)
+            .subtitle(t!(
+                "archive-characters-subtitle",
+                owned = list.owned,
+                total = list.total
+            ))
             .action(crate::features::imports::hoyolab_sync_button())
             .toolbar(toolbar)
             .body_scrolls();
@@ -171,7 +175,7 @@ impl CharactersView {
         let elements = ELEMENTS
             .iter()
             .map(|element| FilterOption {
-                label: (*element).into(),
+                label: format::element(element).into(),
                 icon: images.element(element),
                 on: this.elements.contains(element),
                 toggle: toggle(Rc::new(move |this| {
@@ -182,7 +186,7 @@ impl CharactersView {
         let weapons = WEAPONS
             .iter()
             .map(|weapon| FilterOption {
-                label: (*weapon).into(),
+                label: format::weapon_type(weapon).into(),
                 icon: None,
                 on: this.weapons.contains(weapon),
                 toggle: toggle(Rc::new(move |this| {
@@ -200,26 +204,26 @@ impl CharactersView {
             })
             .collect();
         let collection = vec![FilterOption {
-            label: "Favourites".into(),
+            label: t!("archive-favourites").into(),
             icon: None,
             on: this.favourites,
             toggle: toggle(Rc::new(|this| this.favourites = !this.favourites)),
         }];
         vec![
             FilterGroup {
-                title: "Element",
+                title: t!("archive-group-element"),
                 options: elements,
             },
             FilterGroup {
-                title: "Weapon",
+                title: t!("archive-group-weapon"),
                 options: weapons,
             },
             FilterGroup {
-                title: "Rarity",
+                title: t!("archive-group-rarity"),
                 options: stars,
             },
             FilterGroup {
-                title: "Collection",
+                title: t!("archive-group-collection"),
                 options: collection,
             },
         ]
@@ -292,9 +296,9 @@ impl CharactersView {
                         IconName::Star
                     },
                     if favourite {
-                        "Remove from favourites"
+                        t!("archive-remove-favourite")
                     } else {
-                        "Add to favourites"
+                        t!("archive-add-favourite")
                     },
                     cx,
                 )
@@ -306,21 +310,26 @@ impl CharactersView {
                         this.toggle_favourite(&key, cx);
                     }
                 }));
-                let remove = corner_button(format!("disown-{key}"), IconName::Close, "Remove", cx)
-                    .on_click(cx.listener({
-                        let (key, name) = (key.clone(), name.clone());
-                        move |this, _, window, cx| {
-                            cx.stop_propagation();
-                            this.confirm_disown(key.clone(), name.clone(), window, cx);
-                        }
-                    }));
+                let remove = corner_button(
+                    format!("disown-{key}"),
+                    IconName::Close,
+                    t!("archive-remove"),
+                    cx,
+                )
+                .on_click(cx.listener({
+                    let (key, name) = (key.clone(), name.clone());
+                    move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.confirm_disown(key.clone(), name.clone(), window, cx);
+                    }
+                }));
                 div().h_flex().gap_1().child(star).child(remove)
             }
             None => div().child(
                 corner_button(
                     format!("own-{key}"),
                     IconName::Plus,
-                    "Add to my characters",
+                    t!("archive-add-character"),
                     cx,
                 )
                 .on_click(cx.listener({
@@ -371,7 +380,11 @@ impl CharactersView {
                     }))
                     .child(div().flex_1())
                     .when(character.new, |this| {
-                        this.child(badge("New", (theme.primary_foreground, theme.primary), cx))
+                        this.child(badge(
+                            t!("archive-new"),
+                            (theme.primary_foreground, theme.primary),
+                            cx,
+                        ))
                     }),
             );
         Button::new(SharedString::from(format!("character-{key}")))

@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{App, IntoElement, ParentElement as _, RenderOnce, Styled as _, Window, div};
-use wish_ui::{card, card_title, format};
+use wish_ui::{card, card_title};
 
 use super::super::model::PlannerModel;
 use super::super::resin;
@@ -26,25 +26,18 @@ impl RenderOnce for StillNeeded {
             .p_4()
             .gap_3()
             .child(
-                card_title("Still needed", cx).child(
+                card_title(t!("planner-still-needed"), cx).child(
                     div()
                         .text_sm()
                         .text_color(cx.theme().muted_foreground)
-                        .child(format!(
-                            "{entries} {}",
-                            format::plural(entries as u32, "entry", "entries")
-                        )),
+                        .child(t!("planner-entries", count = entries)),
                 ),
             )
             .child(
                 div()
                     .text_sm()
                     .text_color(cx.theme().muted_foreground)
-                    .child(
-                        "What the plan lacks once your inventory is shared out, in the plan's \
-                         order; lower tiers are crafted up. Click a material to enter how many \
-                         you have.",
-                    ),
+                    .child(t!("planner-still-needed-help")),
             )
             .child(grid(
                 "total",

@@ -53,11 +53,11 @@ impl Library {
                 .with_context(|| format!("reading {}", path.display()))?
                 .len();
             if size > MAX_IMPORT_BYTES {
-                return Err(anyhow!(
-                    "{} is {} MB, too large for a wish history export",
-                    path.display(),
-                    size / 1_000_000
-                ));
+                return Err(anyhow!(t!(
+                    "app-import-too-large",
+                    file = path.display().to_string(),
+                    size = wish_ui::format::bytes(size)
+                )));
             }
             let bytes =
                 std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
@@ -239,7 +239,7 @@ impl Library {
                     ExportKind::Snapshot => service::export::snapshot(&store)?,
                     ExportKind::Uigf => service::export::uigf(&store, &data)?,
                     ExportKind::Spreadsheet => {
-                        let id = account.ok_or_else(|| anyhow!("choose an account first"))?;
+                        let id = account.ok_or_else(|| anyhow!(t!("app-choose-account-first")))?;
                         service::export::spreadsheet(&store, id, &data)?
                     }
                 }
@@ -279,28 +279,23 @@ const MAX_IMPORT_BYTES: u64 = 64 * 1024 * 1024;
 
 /// What an export holds, in words.
 fn export_message(summary: &ExportSummary) -> String {
-    let accounts = |n: usize| format!("{n} {}", if n == 1 { "account" } else { "accounts" });
     match summary {
-        ExportSummary::Snapshot {
-            wishes,
-            accounts: n,
-        } => {
-            format!("Exported {wishes} wishes of {}.", accounts(*n))
-        }
         ExportSummary::Uigf {
             wishes,
-            accounts: n,
+            accounts,
             without_uid,
-        } => {
-            let mut message = format!("Exported {wishes} wishes of {}.", accounts(*n));
-            if !without_uid.is_empty() {
-                message.push_str(&format!(
-                    " Left out, without a UID: {}.",
-                    without_uid.join(", ")
-                ));
-            }
-            message
+        } if !without_uid.is_empty() => t!(
+            "app-exported-left-out",
+            wishes = *wishes,
+            accounts = *accounts,
+            left_out = without_uid.join(", ")
+        ),
+        ExportSummary::Snapshot { wishes, accounts }
+        | ExportSummary::Uigf {
+            wishes, accounts, ..
+        } => t!("app-exported", wishes = *wishes, accounts = *accounts),
+        ExportSummary::Spreadsheet { account } => {
+            t!("app-exported-account", account = account.as_str())
         }
-        ExportSummary::Spreadsheet { account } => format!("Exported the wishes of {account}."),
     }
 }

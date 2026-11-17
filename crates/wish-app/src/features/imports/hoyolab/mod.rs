@@ -29,7 +29,7 @@ use wish_core::hoyolab::{Cookie, Secret};
 
 use crate::app::library::{FetchControl, HoyolabAccount, Library, is_cancelled};
 use crate::app::{Notice, Session, notify};
-use wish_ui::{ButtonExt as _, Segmented, button, format, input};
+use wish_ui::{ButtonExt as _, Segmented, button, input};
 
 /// The cookie fields the form asks for, as hoyolab.com names them.
 const FIELDS: [&str; 3] = ["ltuid_v2", "ltoken_v2", "ltmid_v2"];
@@ -125,7 +125,7 @@ impl HoyolabSync {
             .each_ref()
             .map(|field| Secret::new(field.read(cx).value().trim().to_owned()));
         if values.iter().any(Secret::is_empty) {
-            return Err("Fill in the three fields, or paste the whole cookie.".into());
+            return Err(t!("hoyolab-fill-fields").into());
         }
         let line = Secret::new(
             FIELDS
@@ -229,17 +229,18 @@ impl HoyolabSync {
                     this.session
                         .update(cx, |session, cx| session.select_account(account, cx));
                     notify(
-                        Notice::done(format!(
-                            "{nickname}’s characters are synced from HoYoLAB: {} {}.",
-                            format::count(plan.changes() as u64),
-                            format::plural(plan.changes() as u32, "change", "changes")
+                        Notice::done(t!(
+                            "hoyolab-synced",
+                            nickname = nickname.as_str(),
+                            count = plan.changes()
                         )),
                         cx,
                     );
                     window.close_dialog(cx);
                 }
                 Err(err) => {
-                    this.step = Step::Failed(format!("{err:#}\n\nNothing was changed.").into());
+                    this.step =
+                        Step::Failed(format!("{err:#}\n\n{}", t!("import-nothing-changed")).into());
                     cx.notify();
                 }
             })

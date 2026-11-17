@@ -20,7 +20,7 @@ use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 pub use backup::{BackupFile, BackupReason, KEEP_BACKUPS, KEEP_HOURLY_BACKUPS};
 pub use collection::SyncTargets;
 
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
 use crate::import::{
     AccountBatch, AccountReport, ImportBatch, ImportRecord, ImportReport, ImportSource,
     OriginalFile, PoolCounts, UndoReport, WishLink,
@@ -79,7 +79,7 @@ impl Store {
     /// A database written by a newer build is refused without being modified.
     pub fn open(paths: AppPaths) -> Result<Self> {
         let root = paths.root();
-        fs::create_dir_all(root).map_err(Error::io("creating", root))?;
+        fs::create_dir_all(root).map_err(Error::io(IoAction::Creating, root))?;
         let db_path = paths.database();
         let existed = db_path.exists();
 
@@ -673,11 +673,11 @@ fn insert_wishes(
     }
 
     for (pool, count) in conflicts {
-        warnings.push(format!(
-            "{}, {}: {count} wish(es) differ from the stored wish with the same id; \
-             the stored version was kept",
-            account.label,
-            pool.display_name(),
+        warnings.push(t!(
+            "import-conflicts",
+            account = account.label.as_str(),
+            pool = pool.display_name(),
+            count = count,
         ));
     }
     Ok(pools)
@@ -733,17 +733,16 @@ fn insert_manual_counters(
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )?;
         if existing != (counters.total, counters.pity5, counters.pity4) {
-            warnings.push(format!(
-                "{}, {}: kept the stored manual counters (total {}, 5★ pity {}, 4★ pity {}) \
-                 instead of the imported ones (total {}, 5★ pity {}, 4★ pity {})",
-                account.label,
-                counters.pool.display_name(),
-                existing.0,
-                existing.1,
-                existing.2,
-                counters.total,
-                counters.pity5,
-                counters.pity4,
+            warnings.push(t!(
+                "import-counters-kept",
+                account = account.label.as_str(),
+                pool = counters.pool.display_name(),
+                stored_total = existing.0,
+                stored_five = existing.1,
+                stored_four = existing.2,
+                total = counters.total,
+                five = counters.pity5,
+                four = counters.pity4,
             ));
         }
     }
@@ -810,17 +809,19 @@ fn find_archived(dir: &Path, name: &str, bytes: &[u8]) -> Result<Option<PathBuf>
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(e) => return Err(Error::io("listing", dir)(e)),
+        Err(e) => return Err(Error::io(IoAction::Listing, dir)(e)),
     };
     let suffix = format!("-{name}");
     for entry in entries {
-        let entry = entry.map_err(Error::io("listing", dir))?;
+        let entry = entry.map_err(Error::io(IoAction::Listing, dir))?;
         let path = entry.path();
         let same_name = entry.file_name().to_string_lossy().ends_with(&suffix);
         let same_size = entry
             .metadata()
             .is_ok_and(|m| m.len() == bytes.len() as u64);
-        if same_name && same_size && fs::read(&path).map_err(Error::io("reading", &path))? == bytes
+        if same_name
+            && same_size
+            && fs::read(&path).map_err(Error::io(IoAction::Reading, &path))? == bytes
         {
             return Ok(Some(path));
         }

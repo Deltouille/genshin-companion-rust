@@ -7,6 +7,18 @@
 //! in Material 3's look (Expressive's typeface): tonal surfaces, pill
 //! controls, the secondary container for what is current (see `theme.json`).
 
+/// A text of the design system in the current language (see
+/// `wish_core::i18n`).
+macro_rules! t {
+    ($($args:tt)*) => {
+        wish_core::tr!($crate::TEXTS, $($args)*)
+    };
+}
+
+/// The design system's texts.
+pub(crate) static TEXTS: std::sync::LazyLock<wish_core::i18n::Texts> =
+    std::sync::LazyLock::new(|| wish_core::texts!("ui"));
+
 mod assets;
 pub mod axis;
 pub mod components;

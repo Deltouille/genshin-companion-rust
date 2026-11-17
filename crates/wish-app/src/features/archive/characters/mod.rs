@@ -59,7 +59,8 @@ const DEFAULT_TALENT_LEVEL: f32 = 10.0;
 impl CharactersView {
     pub fn new(session: Entity<Session>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let library = session.read(cx).library().clone();
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search a character"));
+        let search =
+            cx.new(|cx| InputState::new(window, cx).placeholder(t!("archive-search-character")));
         let last = (Level::steps().len() - 1) as f32;
         let level = cx.new(|_| {
             SliderState::new()
@@ -78,7 +79,12 @@ impl CharactersView {
         let sort_select = cx.new(|cx| PickerState::new(filters::sort_options(), Some(0), cx));
         let owned_level = cx.new(|cx| PickerState::new(level_options(&Level::steps()), None, cx));
         let subscriptions = vec![
-            cx.observe(&library, |_, _, cx| cx.notify()),
+            cx.observe_in(&library, window, |this, _, window, cx| {
+                // A change of language among others.
+                let placeholder = t!("archive-search-character");
+                filters::refresh_texts(&this.sort_select, &this.search, placeholder, window, cx);
+                cx.notify()
+            }),
             cx.observe(&session, |_, _, cx| cx.notify()),
             cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {

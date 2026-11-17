@@ -20,6 +20,7 @@ use super::{
     Character, CharacterGoal, CustomItem, Material, MaterialId, PlannerData, Requirement, Weapon,
     WeaponGoal,
 };
+use crate::i18n::{Text, with_language};
 use crate::model::text_enum;
 
 /// The Crown of Insight, which every character's last talent level takes.
@@ -57,30 +58,32 @@ impl Role {
     /// A weapon's three: its domain material, an elite and a common drop.
     pub const WEAPON: [Role; 3] = [Role::WeaponMaterial, Role::EliteDrop, Role::Common];
 
-    pub fn label(self) -> &'static str {
+    /// Its name in the current language: "Talent book".
+    pub fn label(self) -> String {
         match self {
-            Role::Common => "Common",
-            Role::LocalSpecialty => "Local specialty",
-            Role::BossMaterial => "Boss material",
-            Role::ElementalGem => "Elemental gem",
-            Role::TalentBook => "Talent book",
-            Role::WeeklyMaterial => "Weekly material",
-            Role::WeaponMaterial => "Weapon material",
-            Role::EliteDrop => "Elite drop",
+            Role::Common => t!("role-common"),
+            Role::LocalSpecialty => t!("role-local-specialty"),
+            Role::BossMaterial => t!("role-boss-material"),
+            Role::ElementalGem => t!("role-elemental-gem"),
+            Role::TalentBook => t!("role-talent-book"),
+            Role::WeeklyMaterial => t!("role-weekly-material"),
+            Role::WeaponMaterial => t!("role-weapon-material"),
+            Role::EliteDrop => t!("role-elite-drop"),
         }
     }
 
-    /// The name of its placeholder, a material not known yet.
-    pub fn placeholder_name(self) -> &'static str {
+    /// The name of its placeholder, a material not known yet, in the
+    /// current language.
+    pub fn placeholder_name(self) -> String {
         match self {
-            Role::Common => "Unknown common drop",
-            Role::LocalSpecialty => "Unknown local specialty",
-            Role::BossMaterial => "Unknown boss material",
-            Role::ElementalGem => "Unknown gem",
-            Role::TalentBook => "Unknown talent book",
-            Role::WeeklyMaterial => "Unknown weekly boss material",
-            Role::WeaponMaterial => "Unknown weapon material",
-            Role::EliteDrop => "Unknown elite drop",
+            Role::Common => t!("placeholder-common"),
+            Role::LocalSpecialty => t!("placeholder-local-specialty"),
+            Role::BossMaterial => t!("placeholder-boss-material"),
+            Role::ElementalGem => t!("placeholder-elemental-gem"),
+            Role::TalentBook => t!("placeholder-talent-book"),
+            Role::WeeklyMaterial => t!("placeholder-weekly-material"),
+            Role::WeaponMaterial => t!("placeholder-weapon-material"),
+            Role::EliteDrop => t!("placeholder-elite-drop"),
         }
     }
 
@@ -274,11 +277,19 @@ impl PlannerData {
                     return;
                 };
                 let id = role.placeholder_id() + tier;
-                let name = if role.tiers() == 1 {
-                    role.placeholder_name().to_owned()
-                } else {
-                    format!("{} ({}★)", role.placeholder_name(), model.rarity)
-                };
+                let name = Text::from_each(|language| {
+                    with_language(language, || {
+                        if role.tiers() == 1 {
+                            role.placeholder_name()
+                        } else {
+                            t!(
+                                "placeholder-tier",
+                                name = role.placeholder_name(),
+                                stars = model.rarity
+                            )
+                        }
+                    })
+                });
                 self.add_material(Material {
                     id,
                     key: format!("unknown-{role}-{}", tier + 1),
@@ -381,11 +392,11 @@ impl PlannerData {
                     None => Err(name_tier(
                         &self
                             .material(*first)
-                            .map_or_else(|| first.to_string(), |m| m.name.clone()),
+                            .map_or_else(|| first.to_string(), |m| m.name.to_string()),
                     )),
                 },
                 Some(CustomItem::Named(name)) => Err(name_tier(name)),
-                None => Err(name_tier(role.label())),
+                None => Err(name_tier(&role.label())),
             };
             match own {
                 Ok(id) => *need.materials.entry(id).or_default() += count,

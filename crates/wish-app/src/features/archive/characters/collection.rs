@@ -23,9 +23,6 @@ use wish_ui::{
     ButtonExt as _, Segmented, button, card, card_title, dialog_footer, icon_button, picker,
 };
 
-/// The talents' names, in the order they are stored.
-const TALENTS: [&str; 3] = ["Normal Attack", "Elemental Skill", "Elemental Burst"];
-
 impl CharactersView {
     /// The account whose characters are shown: the sidebar's.
     pub(super) fn account(&self, cx: &App) -> Option<AccountId> {
@@ -46,13 +43,8 @@ impl CharactersView {
         });
         report_outcome(
             task,
-            format!("{name} wasn’t added"),
-            move |()| {
-                format!(
-                    "{name} is in your characters. Set the level, constellation and talents on \
-                     the character's page."
-                )
-            },
+            t!("archive-not-added", name = name.as_str()),
+            move |()| t!("archive-character-owned", name = name.as_str()),
             cx,
         );
     }
@@ -98,16 +90,15 @@ impl CharactersView {
             return;
         };
         let library = self.library.downgrade();
-        let title = SharedString::from(format!("Remove {name} from your characters?"));
+        let title = SharedString::from(t!("archive-remove-character-title", name = name.as_str()));
         window.open_alert_dialog(cx, move |alert, _, _| {
             let (library, key) = (library.clone(), key.clone());
             alert
                 .title(title.clone())
-                .description(
-                    "The level, constellation and talents you entered are forgotten; the \
-                     weapon they hold stays in your weapons. A backup is taken first.",
-                )
-                .footer(dialog_footer(button("confirm").danger().label("Remove")))
+                .description(t!("archive-remove-character-help"))
+                .footer(dialog_footer(
+                    button("confirm").danger().label(t!("archive-remove")),
+                ))
                 .on_ok(move |_, _, cx| {
                     let key = key.clone();
                     let task = library.update(cx, |library, cx| {
@@ -160,9 +151,9 @@ impl CharactersView {
         let favourite = {
             let key = character.key.clone();
             let (icon, label) = if character.favourite {
-                (IconName::StarFill, "Remove from favourites")
+                (IconName::StarFill, t!("archive-remove-favourite"))
             } else {
-                (IconName::Star, "Add to favourites")
+                (IconName::Star, t!("archive-add-favourite"))
             };
             icon_button("favourite", icon, label)
                 .ghost()
@@ -173,7 +164,7 @@ impl CharactersView {
         };
         let remove = button("disown")
             .ghost()
-            .label("Remove")
+            .label(t!("archive-remove"))
             .on_click(cx.listener({
                 let (key, name) = (character.key.clone(), name.to_owned());
                 move |this, _, window, cx| {
@@ -194,8 +185,9 @@ impl CharactersView {
                     this.save_owned(owned, cx);
                 }))
         };
-        let mut talents = Vec::with_capacity(TALENTS.len());
-        for (ix, talent) in TALENTS.iter().enumerate() {
+        let names = crate::features::planner::talent_names();
+        let mut talents = Vec::with_capacity(names.len());
+        for (ix, talent) in names.iter().enumerate() {
             let level = character.talents[ix];
             let step = |delta: i8, icon: IconName, label: String, cx: &mut Context<Self>| {
                 let mut owned = character.clone();
@@ -210,14 +202,24 @@ impl CharactersView {
                     }))
             };
             let (lower, raise) = (
-                step(-1, IconName::Minus, format!("Lower {talent}"), cx),
-                step(1, IconName::Plus, format!("Raise {talent}"), cx),
+                step(
+                    -1,
+                    IconName::Minus,
+                    t!("archive-lower-talent", talent = talent.as_str()),
+                    cx,
+                ),
+                step(
+                    1,
+                    IconName::Plus,
+                    t!("archive-raise-talent", talent = talent.as_str()),
+                    cx,
+                ),
             );
             talents.push(
                 div()
                     .v_flex()
                     .gap_1()
-                    .child(div().text_sm().text_color(muted).child(*talent))
+                    .child(div().text_sm().text_color(muted).child(talent.clone()))
                     .child(
                         div()
                             .h_flex()
@@ -245,14 +247,15 @@ impl CharactersView {
                         .planner()
                         .weapon(&copy.key)
                         .map_or(copy.key.as_str(), |w| w.name.as_str());
-                    format!(
-                        "{name} · R{} · {}/{}",
-                        copy.refinement,
-                        copy.level.level,
-                        copy.level.cap()
+                    t!(
+                        "archive-held-weapon",
+                        name = name,
+                        refinement = copy.refinement,
+                        level = copy.level.level,
+                        cap = copy.level.cap()
                     )
                 }
-                None => "None: give it one on a weapon’s page".to_owned(),
+                None => t!("archive-no-weapon-held"),
             };
             div().h(rems(2.5)).flex().items_center().child(text)
         };
@@ -260,7 +263,7 @@ impl CharactersView {
             .p_4()
             .gap_4()
             .child(
-                card_title("My character", cx)
+                card_title(t!("archive-my-character"), cx)
                     .child(div().h_flex().gap_2().child(favourite).child(remove)),
             )
             .child(
@@ -271,17 +274,17 @@ impl CharactersView {
                     .gap_x_8()
                     .gap_y_4()
                     .child(field(
-                        "Level",
+                        &t!("archive-level"),
                         div().w(rems(9.)).child(
                             picker("owned-level", &self.owned_level)
-                                .accessibility_label("Level")
+                                .accessibility_label(t!("archive-level"))
                                 .menu_width(rems(9.)),
                         ),
                         cx,
                     ))
-                    .child(field("Constellation", constellation, cx))
+                    .child(field(&t!("archive-constellation"), constellation, cx))
                     .child(div().h_flex().gap_6().children(talents))
-                    .child(field("Weapon", held_weapon, cx)),
+                    .child(field(&t!("archive-fact-weapon"), held_weapon, cx)),
             )
             .into_any_element()
     }
@@ -303,5 +306,5 @@ fn field(label: &str, control: impl IntoElement, cx: &App) -> Div {
 
 /// Shows a notice if a write of the collection fails.
 pub(super) fn report_characters<T: 'static>(task: gpui_kit::Task<anyhow::Result<T>>, cx: &mut App) {
-    report(task, "Your characters were not saved", cx);
+    report(task, t!("archive-characters-not-saved"), cx);
 }

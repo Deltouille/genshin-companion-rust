@@ -100,9 +100,7 @@ impl GameImport {
                         this.input
                             .update(cx, |input, cx| input.set_value(found.url, window, cx));
                         this.note = Some(Note {
-                            text: "Found the link of your last visit to the wish history. \
-                                   If that was more than a day ago, open the wish history in the game again first."
-                                .into(),
+                            text: t!("import-link-found").into(),
                             is_error: false,
                         });
                         if let Some(folder) = folder {
@@ -110,14 +108,12 @@ impl GameImport {
                             let task = preferences.update(cx, |preferences, cx| {
                                 preferences.remember_game_folder(folder, cx)
                             });
-                            report(task, "The game folder wasn’t remembered", cx);
+                            report(task, t!("import-folder-not-remembered"), cx);
                         }
                     }
                     None => {
                         this.note = Some(Note {
-                            text: "No link found. Open the wish history in the game (Wish, then History), \
-                                   then try again, or choose the game folder."
-                                .into(),
+                            text: t!("import-link-not-found").into(),
                             is_error: true,
                         });
                     }
@@ -133,7 +129,7 @@ impl GameImport {
             files: false,
             directories: true,
             multiple: false,
-            prompt: Some("Choose".into()),
+            prompt: Some(t!("import-choose-prompt").into()),
         });
         self.task = Some(cx.spawn_in(window, async move |this, cx| {
             if let Ok(Ok(Some(mut folders))) = picked.await
@@ -227,7 +223,8 @@ impl GameImport {
                     window.close_dialog(cx);
                 }
                 Err(err) => {
-                    this.step = Step::Failed(format!("{err:#}\n\nNothing was changed.").into());
+                    this.step =
+                        Step::Failed(format!("{err:#}\n\n{}", t!("import-nothing-changed")).into());
                     cx.notify();
                 }
             })
@@ -241,18 +238,19 @@ impl GameImport {
         div()
             .v_flex()
             .gap_3()
-            .child(div().text_sm().text_color(theme.muted_foreground).child(
-                "Open the wish history in the game (Wish, then History), then find its link \
-                         here or paste it. A link works for about a day. On a phone or a console, \
-                         copy the link there and paste it here.",
-            ))
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(t!("import-game-help")),
+            )
             .child(
                 div()
                     .h_flex()
                     .gap_2()
                     .child(
                         button("find-link")
-                            .label("Find link")
+                            .label(t!("import-find-link"))
                             .icon(IconName::Search)
                             .loading(self.finding)
                             .on_click(
@@ -261,7 +259,7 @@ impl GameImport {
                     )
                     .child(
                         button("choose-game-folder")
-                            .label("Choose game folder…")
+                            .label(t!("import-choose-game-folder"))
                             .unavailable(self.finding)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.choose_game_folder(window, cx)
@@ -285,13 +283,13 @@ impl GameImport {
                 footer()
                     .child(
                         button("cancel")
-                            .label("Cancel")
+                            .label(t!("app-cancel"))
                             .on_click(|_, window, cx| window.close_dialog(cx)),
                     )
                     .child(
                         button("fetch")
                             .primary()
-                            .label("Fetch history")
+                            .label(t!("import-fetch"))
                             .unavailable(!has_text)
                             .on_click(cx.listener(|this, _, window, cx| this.fetch(window, cx))),
                     ),
@@ -303,34 +301,35 @@ impl GameImport {
         let theme = cx.theme();
         let (status, count) = match self.control.progress() {
             Some(progress) => (
-                format!(
-                    "Fetching {} wishes, page {}…",
-                    progress.gacha_type.pool().display_name(),
-                    progress.page
+                t!(
+                    "import-fetching",
+                    pool = progress.gacha_type.pool().display_name(),
+                    page = progress.page
                 ),
-                format!(
-                    "{} new {} so far",
-                    format::count(progress.fetched as u64),
-                    format::plural(progress.fetched as u32, "wish", "wishes")
-                ),
+                t!("import-fetched", count = progress.fetched),
             ),
-            None => ("Connecting to the game server…".to_owned(), String::new()),
+            None => (t!("import-connecting"), String::new()),
         };
         div()
             .v_flex()
             .gap_3()
             .child(div().h_flex().gap_2().child(Spinner::new()).child(status))
-            .child(div().text_sm().text_color(theme.muted_foreground).child(count))
             .child(
                 div()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child("The game server allows about one page of 20 wishes per second, so a long history takes a minute or two."),
+                    .child(count),
+            )
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(t!("import-pace")),
             )
             .child(
                 footer().child(
                     button("cancel-fetch")
-                        .label("Cancel")
+                        .label(t!("app-cancel"))
                         .on_click(cx.listener(|this, _, _, _| this.cancel_fetch())),
                 ),
             )
@@ -348,7 +347,7 @@ impl GameImport {
             return div()
                 .v_flex()
                 .gap_3()
-                .child("The game returned no wishes from the last six months.")
+                .child(t!("import-none-returned"))
                 .child(footer().child(close_button("close")))
                 .into_any_element();
         };
@@ -360,7 +359,7 @@ impl GameImport {
 
         let new_total = target.new_total();
         let new_line = if new_total == 0 {
-            "No new wishes: your history is up to date.".to_owned()
+            t!("import-up-to-date")
         } else {
             let pools = target
                 .new_wishes
@@ -368,11 +367,7 @@ impl GameImport {
                 .map(|(pool, n)| format!("{} {}", pool.display_name(), format::count(*n)))
                 .collect::<Vec<_>>()
                 .join(" · ");
-            format!(
-                "{} new {}: {pools}",
-                format::count(new_total),
-                format::plural(new_total, "wish", "wishes")
-            )
+            t!("import-new-wishes", count = new_total, pools = pools)
         };
         let has_changes = new_total > 0 || target.linked > 0;
 
@@ -381,18 +376,16 @@ impl GameImport {
                 .targets
                 .iter()
                 .map(|t| match &t.target {
-                    Target::New => "A new account".into(),
-                    Target::Existing(account) => format!("{} (no UID yet)", account.label).into(),
+                    Target::New => t!("import-new-account").into(),
+                    Target::Existing(account) => {
+                        t!("import-no-uid-yet", account = account.label.as_str()).into()
+                    }
                 })
                 .collect();
             div()
                 .v_flex()
                 .gap_2()
-                .child(
-                    div()
-                        .text_sm()
-                        .child("This UID has no account here yet. Add its wishes to:"),
-                )
+                .child(div().text_sm().child(t!("import-choose-target")))
                 .child(
                     RadioGroup::new("import-target")
                         .children(labels)
@@ -413,31 +406,36 @@ impl GameImport {
             .children(choices)
             .child(div().text_sm().child(new_line))
             .when(target.linked > 0, |this| {
-                this.child(div().text_sm().text_color(theme.muted_foreground).child(format!(
-                    "{} {} from paimon.moe matched the game’s records, which are noted for future imports.",
-                    format::count(target.linked),
-                    format::plural(target.linked, "wish", "wishes"),
-                )))
+                this.child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(t!("import-linked", count = target.linked)),
+                )
             })
             .children(target.batch.warnings.iter().map(|warning| {
                 div()
                     .h_flex()
                     .gap_2()
                     .text_sm()
-                    .child(Icon::new(IconName::TriangleAlert).small().text_color(theme.warning))
+                    .child(
+                        Icon::new(IconName::TriangleAlert)
+                            .small()
+                            .text_color(theme.warning),
+                    )
                     .child(warning.clone())
             }))
             .child(if has_changes {
                 footer()
                     .child(
                         button("cancel")
-                            .label("Cancel")
+                            .label(t!("app-cancel"))
                             .on_click(|_, window, cx| window.close_dialog(cx)),
                     )
                     .child(
                         button("import")
                             .primary()
-                            .label("Import")
+                            .label(t!("import-button"))
                             .loading(busy)
                             .on_click(cx.listener(|this, _, window, cx| this.import(window, cx))),
                     )
@@ -456,7 +454,7 @@ impl GameImport {
                 footer().child(close_button("close")).child(
                     button("try-again")
                         .primary()
-                        .label("Try again")
+                        .label(t!("import-try-again"))
                         .on_click(cx.listener(|this, _, _, cx| {
                             this.step = Step::Link;
                             cx.notify();
@@ -494,18 +492,18 @@ fn footer() -> gpui_kit::Div {
 
 fn close_button(id: &'static str) -> Button {
     button(id)
-        .label("Close")
+        .label(t!("app-close"))
         .on_click(|_, window, cx| window.close_dialog(cx))
 }
 
-fn server_name(server: wish_core::model::Server) -> &'static str {
+fn server_name(server: wish_core::model::Server) -> String {
     use wish_core::model::Server;
     match server {
-        Server::Asia => "Asia",
-        Server::America => "America",
-        Server::Europe => "Europe",
-        Server::TwHkMo => "TW, HK, MO",
-        Server::China => "China",
+        Server::Asia => t!("import-server-asia"),
+        Server::America => t!("import-server-america"),
+        Server::Europe => t!("import-server-europe"),
+        Server::TwHkMo => t!("import-server-tw-hk-mo"),
+        Server::China => t!("import-server-china"),
     }
 }
 

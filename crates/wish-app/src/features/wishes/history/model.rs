@@ -8,7 +8,7 @@ use std::ops::Range;
 
 use wish_core::data::GameData;
 use wish_core::engine::{PoolAnalysis, Pull, RateUpOutcome};
-use wish_core::model::{ItemType, Pool, Rarity};
+use wish_core::model::{ItemType, Pool, Rarity, Wish};
 use wish_ui::format;
 
 /// The page sizes offered under the table.
@@ -30,15 +30,29 @@ pub(super) enum Col {
 }
 
 impl Col {
-    pub fn name(self) -> &'static str {
+    /// Its header, in the current language.
+    pub fn name(self) -> String {
         match self {
-            Col::Item => "Item",
-            Col::Kind => "Type",
-            Col::Pity => "Pity",
-            Col::RateUp => "Rate-up",
-            Col::Banner => "Banner",
-            Col::Roll => "#",
-            Col::Time => "Time",
+            Col::Item => t!("history-col-item"),
+            Col::Kind => t!("history-col-type"),
+            Col::Pity => t!("history-col-pity"),
+            Col::RateUp => t!("history-col-rate-up"),
+            Col::Banner => t!("history-col-banner"),
+            Col::Roll => "#".to_owned(),
+            Col::Time => t!("history-col-time"),
+        }
+    }
+
+    /// Its id, the same in every language.
+    pub fn key(self) -> &'static str {
+        match self {
+            Col::Item => "item",
+            Col::Kind => "type",
+            Col::Pity => "pity",
+            Col::RateUp => "rate-up",
+            Col::Banner => "banner",
+            Col::Roll => "roll",
+            Col::Time => "time",
         }
     }
 
@@ -112,7 +126,7 @@ fn compare(pulls: &[Pull], rolls: &[Option<u32>], col: Col, a: usize, b: usize) 
         })
     };
     match col {
-        Col::Item => a.wish.name.cmp(&b.wish.name),
+        Col::Item => item_name(&a.wish).cmp(&item_name(&b.wish)),
         Col::Kind => {
             (a.wish.rarity, kind(a.wish.item_type)).cmp(&(b.wish.rarity, kind(b.wish.item_type)))
         }
@@ -171,14 +185,14 @@ impl Paging {
     /// "26–50 of 120", or "No wishes".
     pub fn shown(self, rows: usize) -> String {
         if rows == 0 {
-            return "No wishes".to_owned();
+            return t!("history-none");
         }
         let range = self.range(rows);
-        format!(
-            "{}–{} of {}",
-            format::count((range.start + 1) as u64),
-            format::count(range.end as u64),
-            format::count(rows as u64)
+        t!(
+            "history-shown",
+            first = range.start + 1,
+            last = range.end,
+            total = rows
         )
     }
 }
@@ -199,10 +213,10 @@ pub(super) fn banner_labels(data: &GameData, pool: Pool) -> Vec<String> {
 pub(super) fn cell(pull: &Pull, col: Col, banner_labels: &[String], roll: Option<u32>) -> String {
     match col {
         Col::Time => pull.wish.time.naive().format("%Y-%m-%d %H:%M").to_string(),
-        Col::Item => pull.wish.name.clone(),
+        Col::Item => item_name(&pull.wish),
         Col::Kind => match kind(pull.wish.item_type) {
-            "" => format!("{}★", pull.wish.rarity.stars()),
-            kind => format!("{}★ {kind}", pull.wish.rarity.stars()),
+            None => format!("{}★", pull.wish.rarity.stars()),
+            Some(kind) => format!("{}★ {kind}", pull.wish.rarity.stars()),
         },
         Col::Pity => pull.pity.map(|p| p.to_string()).unwrap_or_default(),
         Col::RateUp => pull
@@ -219,11 +233,21 @@ pub(super) fn cell(pull: &Pull, col: Col, banner_labels: &[String], roll: Option
 
 /// "Character" or "Weapon"; nothing for a 3★ counted by hand, whose item is
 /// not known.
-pub(super) fn kind(item_type: ItemType) -> &'static str {
+pub(super) fn kind(item_type: ItemType) -> Option<String> {
     match item_type {
-        ItemType::Character => "Character",
-        ItemType::Weapon => "Weapon",
-        ItemType::Unknown => "",
+        ItemType::Character => Some(t!("history-character")),
+        ItemType::Weapon => Some(t!("history-weapon")),
+        ItemType::Unknown => None,
+    }
+}
+
+/// A wish's item as the table names it, in the current language: a 3★
+/// counted by hand, whose item isn't known, is "Unknown".
+pub(super) fn item_name(wish: &Wish) -> String {
+    if wish.item_type == ItemType::Unknown && wish.name == wish_core::import::manual::UNKNOWN_ITEM {
+        t!("history-unknown-item")
+    } else {
+        wish_core::i18n::item_name(&wish.name).to_owned()
     }
 }
 
@@ -231,26 +255,22 @@ pub(super) fn kind(item_type: ItemType) -> &'static str {
 pub(super) fn subtitle(pool: &PoolAnalysis) -> String {
     let counters = pool.counters;
     let mut parts = vec![
-        format!(
-            "{} {}",
-            format::count(counters.total),
-            format::plural(counters.total, "wish", "wishes")
+        t!("history-wish-count", count = counters.total),
+        t!(
+            "history-five-pity",
+            pity = counters.pity5,
+            hard = pool.pool.hard_pity_five()
         ),
-        format!(
-            "5★ pity {} / {}",
-            counters.pity5,
-            pool.pool.hard_pity_five()
-        ),
-        format!(
-            "4★ pity {} / {}",
-            counters.pity4,
-            pool.pool.hard_pity_four()
+        t!(
+            "history-four-pity",
+            pity = counters.pity4,
+            hard = pool.pool.hard_pity_four()
         ),
     ];
     if let Some(guarantee) = pool.guarantee {
-        parts.push(format!(
-            "next 5★: {}",
-            format::next_rate_up(pool.pool, guarantee.five)
+        parts.push(t!(
+            "history-next-five",
+            odds = format::next_rate_up(pool.pool, guarantee.five)
         ));
     }
     parts.join(" · ")

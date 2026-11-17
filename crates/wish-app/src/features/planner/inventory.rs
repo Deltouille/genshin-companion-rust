@@ -81,9 +81,9 @@ impl InventoryForm {
     ) -> Self {
         // A series' fields are narrow.
         let hint = if materials.len() > 1 {
-            "±"
+            "±".to_owned()
         } else {
-            "+60,000 or -20"
+            t!("planner-change-hint")
         };
         let mut subscriptions = Vec::new();
         let rows: Vec<Row> = materials
@@ -100,7 +100,7 @@ impl InventoryForm {
                         owned => state.default_value(format::count(owned)),
                     }
                 });
-                let change = cx.new(|cx| InputState::new(window, cx).placeholder(hint));
+                let change = cx.new(|cx| InputState::new(window, cx).placeholder(hint.clone()));
                 // The figures under the fields follow what is typed.
                 for state in [&have, &change] {
                     subscriptions.push(cx.subscribe(state, |_, _, event: &InputEvent, cx| {
@@ -143,7 +143,7 @@ impl InventoryForm {
 
     /// How many of a row the player has with what is typed, or why it
     /// doesn't read.
-    fn typed(row: &Row, cx: &App) -> Result<u64, &'static str> {
+    fn typed(row: &Row, cx: &App) -> Result<u64, String> {
         let read = |state: &Entity<InputState>| {
             let text = state.read(cx).value();
             if text.trim().is_empty() {
@@ -153,9 +153,9 @@ impl InventoryForm {
             }
         };
         match (read(&row.have), read(&row.change)) {
-            (Some(have), _) if have < 0 => Err("You can't have fewer than none."),
+            (Some(have), _) if have < 0 => Err(t!("planner-fewer-than-none")),
             (Some(have), Some(change)) => Ok(have.saturating_add(change).max(0) as u64),
-            _ => Err("Type whole numbers, such as 360,000 or -20."),
+            _ => Err(t!("planner-whole-numbers")),
         }
     }
 
@@ -186,16 +186,17 @@ impl InventoryForm {
                 }
             }
         }
+        let ok = problem.is_none();
         self.error = problem.map(SharedString::from);
         cx.notify();
-        problem.is_none().then_some(changed)
+        ok.then_some(changed)
     }
 
     /// One material: its tile and name, then its two fields.
     fn render_one(&self, row: &Row, figures: Figures, cx: &Context<Self>) -> Div {
         let theme = cx.theme();
         let material = &row.material;
-        let field = |label: &'static str, state: &Entity<InputState>| {
+        let field = |label: String, state: &Entity<InputState>| {
             div()
                 .v_flex()
                 .gap_1p5()
@@ -208,8 +209,8 @@ impl InventoryForm {
                 .child(input(state, cx))
         };
         let still = match figures.missing {
-            0 => "nothing still needed".to_owned(),
-            n => format!("{} still needed", format::count(n)),
+            0 => t!("planner-nothing-still-needed"),
+            n => t!("planner-n-still-needed", count = n),
         };
         div()
             .v_flex()
@@ -229,25 +230,21 @@ impl InventoryForm {
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .child(material.name.clone()),
                             )
-                            .child(div().text_sm().text_color(theme.muted_foreground).child(
-                                format!(
-                                    "The plan needs {}, {still}",
-                                    format::count(figures.needed)
-                                ),
-                            )),
+                            .child(div().text_sm().text_color(theme.muted_foreground).child(t!(
+                                "planner-plan-needs-line",
+                                count = figures.needed,
+                                still = still
+                            ))),
                     ),
             )
-            .child(field("You have", &row.have))
-            .child(field("Add or subtract", &row.change))
+            .child(field(t!("planner-you-have"), &row.have))
+            .child(field(t!("planner-add-or-subtract"), &row.change))
             .when(material.item == CustomItem::Material(MORA), |this| {
                 this.child(
                     div().child(
                         button("ley-line")
                             .ghost()
-                            .label(format!(
-                                "Add a ley line (+{})",
-                                format::count(LEY_LINE_MORA as u64)
-                            ))
+                            .label(t!("planner-ley-line", mora = LEY_LINE_MORA))
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.add_ley_line(window, cx)),
                             ),
@@ -261,7 +258,7 @@ impl InventoryForm {
     fn render_series(&self, figures: &[Figures], cx: &Context<Self>) -> Div {
         let theme = cx.theme();
         let muted = theme.muted_foreground;
-        let label = |text: &'static str| {
+        let label = |text: String| {
             div()
                 .w(rems(LABEL_REMS))
                 .h_full()
@@ -302,7 +299,7 @@ impl InventoryForm {
                             div()
                                 .text_xs()
                                 .text_color(muted)
-                                .child(format!("{} EXP", format::count(gives))),
+                                .child(t!("planner-exp", exp = gives)),
                         )
                     }),
             )
@@ -334,38 +331,42 @@ impl InventoryForm {
             // "4 Adventurer's Experience or 20 Wanderer's Advice do a Hero's
             // Wit's work."
             let top = self.rows.last().map(|row| row.material.name.clone());
-            let others: Vec<String> = (self.rows.iter().rev().skip(1))
+            let others = (self.rows.iter().rev().skip(1))
                 .filter_map(|row| Some((largest? / row.material.exp?, &row.material.name)))
-                .map(|(n, name)| format!("{n} {name}"))
-                .collect();
-            format!(
-                "Each counts for its EXP: {} do a {}'s work.",
-                others.join(" or "),
-                top.unwrap_or_default()
+                .map(|(n, name)| format!("{} {name}", format::count(n)))
+                .reduce(|first, second| t!("planner-or", first = first, second = second));
+            t!(
+                "planner-exp-note",
+                others = others.unwrap_or_default(),
+                top = top.unwrap_or_default()
             )
         } else {
-            "What a tier lacks is crafted from the spare of the tiers below, three for one: \
-             what is still needed is what is left to farm."
-                .to_owned()
+            t!("planner-craft-note")
         };
 
         div()
             .v_flex()
             .gap_3()
             .child(line(div().w(rems(LABEL_REMS)), tiles.collect()))
-            .child(line(label("You have"), fields(|row| &row.have)))
-            .child(line(label("Add or subtract"), fields(|row| &row.change)))
+            .child(line(label(t!("planner-you-have")), fields(|row| &row.have)))
             .child(line(
-                label("The plan needs").text_color(muted),
+                label(t!("planner-add-or-subtract")),
+                fields(|row| &row.change),
+            ))
+            .child(line(
+                label(t!("planner-plan-needs")).text_color(muted),
                 numbers(|f| f.needed, true),
             ))
             .when(!exp, |this| {
                 this.child(line(
-                    label("Crafted").text_color(muted),
+                    label(t!("planner-crafted")).text_color(muted),
                     numbers(|f| f.crafted, false),
                 ))
             })
-            .child(line(label("Still needed"), numbers(|f| f.missing, true)))
+            .child(line(
+                label(t!("planner-still-needed")),
+                numbers(|f| f.missing, true),
+            ))
             .child(div().text_sm().text_color(muted).child(note))
     }
 }
@@ -443,11 +444,11 @@ impl PlannerView {
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, view) = (form.clone(), view.clone());
             dialog
-                .title("Inventory")
+                .title(t!("planner-inventory"))
                 .w(window.rem_size() * width)
                 .child(form.clone())
                 .footer(dialog_footer(
-                    button("save-inventory").primary().label("Save"),
+                    button("save-inventory").primary().label(t!("planner-save")),
                 ))
                 .on_ok(move |_, _, cx| {
                     let Some(changed) = form.update(cx, |form, cx| form.submit(cx)) else {

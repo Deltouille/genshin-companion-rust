@@ -24,6 +24,7 @@ use super::super::shared::{facts_grid, hero_banner, level_badge, materials, tabl
 use super::CharactersView;
 use super::model;
 use crate::app::images::Images;
+use wish_ui::format;
 use wish_ui::{PageFrame, badge, button, card, card_title, rich_text, theme};
 
 impl CharactersView {
@@ -44,14 +45,12 @@ impl CharactersView {
         let back = button("back-to-characters")
             .ghost()
             .icon(IconName::ArrowLeft)
-            .label("All characters")
+            .label(t!("archive-all-characters"))
             .on_click(cx.listener(|this, _, _, cx| this.show_list(cx)));
         let (Some(character), Some(page)) = (planner.character(key), archive.character(key)) else {
             return PageFrame::new(
-                "Character",
-                div()
-                    .px_6()
-                    .child("This character is not in the game data."),
+                t!("archive-character"),
+                div().px_6().child(t!("archive-character-missing")),
             )
             .action(back)
             .into_any_element();
@@ -82,34 +81,34 @@ impl CharactersView {
                     .pb_8()
                     .child(hero(character, page, &images, width, window, cx))
                     .children(mine)
-                    .child(section("Stats", stats, cx))
-                    .child(section("Ascension", ascension, cx))
-                    .child(section("Talents", talents, cx))
-                    .child(section("Constellations", constellations, cx)),
+                    .child(section(t!("archive-stats"), stats, cx))
+                    .child(section(t!("archive-ascension"), ascension, cx))
+                    .child(section(t!("archive-talents"), talents, cx))
+                    .child(section(t!("archive-constellations"), constellations, cx)),
             );
         let plan = button("plan-character")
             .primary()
             .icon(IconName::Plus)
-            .label("Add to the planner")
+            .label(t!("archive-add-to-planner"))
             .on_click(cx.listener({
                 let (key, name) = (character.key.clone(), character.name.clone());
-                move |this, _, _, cx| this.add_to_plan(key.clone(), name.clone(), cx)
+                move |this, _, _, cx| this.add_to_plan(key.clone(), name.to_string(), cx)
             }));
-        let mut frame = PageFrame::new(character.name.clone(), body).action(plan);
+        let mut frame = PageFrame::new(character.name.to_string(), body).action(plan);
         if owned.is_none() {
             frame = frame.action(
                 button("own-character")
                     .icon(IconName::Plus)
-                    .label("Add to my characters")
+                    .label(t!("archive-add-character"))
                     .on_click(cx.listener({
                         let (key, name) = (character.key.clone(), character.name.clone());
-                        move |this, _, _, cx| this.own(key.clone(), name.clone(), cx)
+                        move |this, _, _, cx| this.own(key.clone(), name.to_string(), cx)
                     })),
             );
         }
         let mut frame = frame.action(back);
         if let Some(title) = &page.title {
-            frame = frame.subtitle(title.clone());
+            frame = frame.subtitle(title.to_string());
         }
         frame.body_scrolls().into_any_element()
     }
@@ -129,11 +128,13 @@ impl CharactersView {
         let stats_card = card(cx)
             .p_4()
             .gap_3()
-            .child(card_title("Base stats", cx).child(level_badge(&stats.level_label, cx)))
+            .child(
+                card_title(t!("archive-base-stats"), cx).child(level_badge(&stats.level_label, cx)),
+            )
             .child(
                 Slider::new(&self.level)
                     .cursor_pointer()
-                    .accessibility_label("Level"),
+                    .accessibility_label(t!("archive-level")),
             )
             .child(table(stats.rows.clone(), cx));
 
@@ -141,11 +142,15 @@ impl CharactersView {
             .p_4()
             .gap_3()
             .child(
-                card_title(format!("To reach {}", stats.level_label), cx).child(
+                card_title(
+                    t!("archive-to-reach", level = stats.level_label.as_str()),
+                    cx,
+                )
+                .child(
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("from level 1"),
+                        .child(t!("archive-from-level-one")),
                 ),
             )
             .child(materials(&stats.cost, planner, images, cx));
@@ -174,11 +179,14 @@ impl CharactersView {
         let level_card = card(cx)
             .p_4()
             .gap_3()
-            .child(card_title("Talent level", cx).child(level_badge(&format!("Lv. {level}"), cx)))
+            .child(
+                card_title(t!("archive-talent-level"), cx)
+                    .child(level_badge(&t!("archive-talent-badge", level = level), cx)),
+            )
             .child(
                 Slider::new(&self.talent_level)
                     .cursor_pointer()
-                    .accessibility_label("Talent level"),
+                    .accessibility_label(t!("archive-talent-level")),
             )
             .child(
                 div()
@@ -204,16 +212,11 @@ impl CharactersView {
 }
 
 /// A section of a character's page: its title, then its content.
-fn section(title: &str, content: AnyElement, _: &App) -> Div {
+fn section(title: String, content: AnyElement, _: &App) -> Div {
     div()
         .v_flex()
         .gap_3()
-        .child(
-            div()
-                .text_xl()
-                .font_weight(FontWeight::BOLD)
-                .child(title.to_owned()),
-        )
+        .child(div().text_xl().font_weight(FontWeight::BOLD).child(title))
         .child(content)
 }
 
@@ -221,7 +224,7 @@ fn section(title: &str, content: AnyElement, _: &App) -> Div {
 /// level: "20/20" before ascending, "20/40" after.
 fn ascension_table(page: &CharacterPage, archive: &ArchiveData, cx: &App) -> AnyElement {
     let theme = cx.theme();
-    let special_name = page.stats.special.clone();
+    let special_name = format::stat(&page.stats.special);
     let row = |cells: [String; 5], head: bool, even: bool| {
         div()
             .h_flex()
@@ -245,10 +248,10 @@ fn ascension_table(page: &CharacterPage, archive: &ArchiveData, cx: &App) -> Any
     };
     let header = row(
         [
-            "Level".to_owned(),
-            "Base HP".to_owned(),
-            "Base ATK".to_owned(),
-            "Base DEF".to_owned(),
+            t!("archive-level"),
+            format::stat("Base HP"),
+            format::stat("Base ATK"),
+            format::stat("Base DEF"),
             special_name,
         ],
         true,
@@ -282,13 +285,31 @@ fn hero(
     };
     let facts = facts_grid(
         &[
-            ("Element", Some(character.element.as_str())),
-            ("Weapon", Some(character.weapon.as_str())),
-            ("Region", page.region.as_deref()),
-            ("Affiliation", page.affiliation.as_deref()),
-            ("Birthday", page.birthday.as_deref()),
-            ("Constellation", page.constellation.as_deref()),
-            ("Released in", page.version.as_deref()),
+            (
+                t!("archive-fact-element"),
+                Some(format::element(&character.element)),
+            ),
+            (
+                t!("archive-fact-weapon"),
+                Some(format::weapon_type(&character.weapon)),
+            ),
+            (
+                t!("archive-fact-region"),
+                page.region.as_deref().map(str::to_owned),
+            ),
+            (
+                t!("archive-fact-affiliation"),
+                page.affiliation.as_deref().map(str::to_owned),
+            ),
+            (
+                t!("archive-fact-birthday"),
+                page.birthday.as_deref().map(str::to_owned),
+            ),
+            (
+                t!("archive-fact-constellation"),
+                page.constellation.as_deref().map(str::to_owned),
+            ),
+            (t!("archive-released-in"), page.version.clone()),
         ],
         cx,
     );
@@ -370,13 +391,13 @@ fn talent_card(talent: &Talent, level: u8, images: &Images, cx: &App) -> Div {
                                 div()
                                     .text_sm()
                                     .text_color(theme.muted_foreground)
-                                    .child(talent.kind.clone()),
+                                    .child(talent_kind(&talent.kind)),
                             )
                             .child(
                                 div()
                                     .text_lg()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .child(talent.name.clone()),
+                                    .child(talent.name.to_string()),
                             ),
                     )
                     .child(div().text_sm().child(rich_text(&talent.description)))
@@ -424,7 +445,7 @@ fn constellations(page: &CharacterPage, images: &Images, cx: &App) -> AnyElement
                                                 div()
                                                     .text_lg()
                                                     .font_weight(FontWeight::SEMIBOLD)
-                                                    .child(constellation.name.clone()),
+                                                    .child(constellation.name.to_string()),
                                             ),
                                     )
                                     .child(
@@ -452,14 +473,27 @@ impl CharactersView {
         let from = goal.from;
         crate::app::notices::report_outcome(
             task,
-            format!("{name} was not added to the planner"),
+            t!("archive-not-planned", name = name.as_str()),
             move |_| {
-                format!(
-                    "{name} is in the planner, from level {} to 90 with talents to 10.",
-                    from.level
+                t!(
+                    "archive-character-planned",
+                    name = name.as_str(),
+                    level = from.level
                 )
             },
             cx,
         );
+    }
+}
+
+/// A talent's kind, from the data's English: "Normal Attack", "Passive"…
+fn talent_kind(english: &str) -> String {
+    match english {
+        "Normal Attack" => t!("archive-kind-normal-attack"),
+        "Elemental Skill" => t!("archive-kind-elemental-skill"),
+        "Elemental Burst" => t!("archive-kind-elemental-burst"),
+        "Alternate Sprint" => t!("archive-kind-alternate-sprint"),
+        "Passive" => t!("archive-kind-passive"),
+        other => other.to_owned(),
     }
 }

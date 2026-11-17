@@ -70,13 +70,26 @@ pub(super) struct WeaponCard {
 impl WeaponCard {
     /// What a screen reader says of the card.
     pub fn label(&self) -> String {
-        format!(
-            "{}, {}★ {}{}",
-            self.name,
+        let (name, stars, kind) = (
+            self.name.as_str(),
             self.rarity,
-            self.kind,
-            if self.owned { ", owned" } else { "" }
-        )
+            format::weapon_type(&self.kind),
+        );
+        if self.owned {
+            t!(
+                "archive-weapon-label-owned",
+                name = name,
+                stars = stars,
+                kind = kind
+            )
+        } else {
+            t!(
+                "archive-weapon-label",
+                name = name,
+                stars = stars,
+                kind = kind
+            )
+        }
     }
 }
 
@@ -133,7 +146,7 @@ pub(super) fn list(
         });
         WeaponCard {
             key: weapon.key.clone(),
-            name: weapon.name.clone(),
+            name: weapon.name.to_string(),
             rarity: weapon.rarity,
             kind: weapon.weapon.clone(),
             owned: !copies.is_empty(),
@@ -159,7 +172,7 @@ pub(super) struct WeaponPage {
     pub kind: String,
     pub description: Option<String>,
     /// Type, secondary stat, passive, version: those the data has.
-    pub facts: [(&'static str, Option<String>); 4],
+    pub facts: [(String, Option<String>); 4],
     /// Its wish art's file name.
     pub art: Option<String>,
     /// Whether its refinements differ (1★ and 2★ weapons have none).
@@ -195,16 +208,16 @@ pub(super) fn page(
     let level = levels[level.min(levels.len() - 1)];
     let stats = archive.weapon_stats(page, level);
     let mut rows = vec![(
-        "Base ATK".to_owned(),
+        format::stat("Base ATK"),
         format::count(stats.attack.round() as u64),
     )];
     if let (Some(name), Some(value)) = (&page.stats.special, stats.special) {
         let value = if page.stats.special_percent {
-            format!("{:.1}%", value * 100.0)
+            format::percent(value)
         } else {
             format::count(value.round() as u64)
         };
-        rows.push((name.clone(), value));
+        rows.push((format::stat(name), value));
     }
     let cost = planner
         .weapon_cost(
@@ -218,29 +231,38 @@ pub(super) fn page(
     let passive = page.passive.as_ref().map(|passive| {
         let refinement = refinement.clamp(1, passive.refinements.len());
         Passive {
-            name: passive.name.clone(),
+            name: passive.name.to_string(),
             refinement,
             refinements: passive.refinements.len(),
-            text: passive.refinements[refinement - 1].clone(),
+            text: passive.refinements[refinement - 1].to_string(),
         }
     });
     Some(WeaponPage {
-        name: weapon.name.clone(),
+        name: weapon.name.to_string(),
         rarity: weapon.rarity,
         kind: weapon.weapon.clone(),
-        description: page.description.clone(),
+        description: page.description.as_deref().map(str::to_owned),
         facts: [
-            ("Type", Some(weapon.weapon.clone())),
-            ("Secondary", page.stats.special.clone()),
-            ("Passive", page.passive.as_ref().map(|p| p.name.clone())),
-            ("Released in", page.version.clone()),
+            (
+                t!("archive-fact-type"),
+                Some(format::weapon_type(&weapon.weapon)),
+            ),
+            (
+                t!("archive-fact-secondary"),
+                page.stats.special.as_deref().map(format::stat),
+            ),
+            (
+                t!("archive-fact-passive"),
+                page.passive.as_ref().map(|p| p.name.to_string()),
+            ),
+            (t!("archive-released-in"), page.version.clone()),
         ],
         art: page.art.clone(),
         refinable: page
             .passive
             .as_ref()
             .is_some_and(|p| p.refinements.len() > 1),
-        level_label: format!("Lv. {}/{}", level.level, level.cap()),
+        level_label: t!("archive-level-cap", level = level.level, cap = level.cap()),
         stats: rows,
         cost,
         passive,
@@ -370,7 +392,7 @@ mod tests {
         let passive = amos.passive.unwrap();
         assert_eq!((passive.refinement, passive.refinements), (5, 5));
         assert!(!amos.cost.is_empty());
-        assert_eq!(amos.facts[0], ("Type", Some("Bow".to_owned())));
+        assert_eq!(amos.facts[0], ("Type".to_owned(), Some("Bow".to_owned())));
 
         let start = page(planner, archive, "amosbow", 0, 1).unwrap();
         assert_eq!(start.level_label, "Lv. 1/20");

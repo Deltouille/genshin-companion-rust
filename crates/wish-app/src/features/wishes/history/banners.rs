@@ -62,7 +62,7 @@ pub(super) fn five_star_history(
                     .truncate()
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(gold)
-                    .child(pull.wish.name.clone()),
+                    .child(wish_core::i18n::item_name(&pull.wish.name).to_owned()),
             )
             .child(
                 div()
@@ -93,14 +93,17 @@ pub(super) fn five_star_history(
                     .flex_shrink_0()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child(pull.wish.time.naive().format("%-d %b %Y").to_string()),
+                    .child(format::date(&pull.wish.time.naive())),
             )
     });
     Some(
         card(cx)
             .gap_2()
             .p_4()
-            .child(card_title("5★ history", cx).child(stat_label(format!("pity out of {cap}"), cx)))
+            .child(
+                card_title(t!("history-five-history"), cx)
+                    .child(stat_label(t!("history-pity-out-of", cap = cap), cx)),
+            )
             .children(rows)
             .into_any_element(),
     )
@@ -130,8 +133,8 @@ pub(super) fn banner_card(
     let count = |rarity| pulls.iter().filter(|p| p.wish.rarity == rarity).count() as u32;
     let dates = format!(
         "{} – {}",
-        banner.start.naive().format("%-d %b %Y"),
-        banner.end.naive().format("%-d %b %Y")
+        format::date(&banner.start.naive()),
+        format::date(&banner.end.naive())
     );
     // The art across the card, inset: its own corners, since clipping is
     // rectangular.
@@ -157,7 +160,7 @@ pub(super) fn banner_card(
             .child(banner.short_name.clone())
             .into_any_element(),
     };
-    let stat = |label: &'static str, value: String| {
+    let stat = |label: String, value: String| {
         div()
             .v_flex()
             .gap_0p5()
@@ -193,7 +196,7 @@ pub(super) fn banner_card(
                         .text_sm()
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(gold)
-                        .child(pull.wish.name.clone()),
+                        .child(wish_core::i18n::item_name(&pull.wish.name).to_owned()),
                 )
                 .child(
                     div()
@@ -254,17 +257,17 @@ pub(super) fn banner_card(
                         .grid()
                         .grid_cols(4)
                         .gap_2()
-                        .child(stat("Wishes", format::count(total)))
-                        .child(stat("Primogems", format::primogems(total)))
-                        .child(stat("5★", count(Rarity::Five).to_string()))
-                        .child(stat("4★", count(Rarity::Four).to_string())),
+                        .child(stat(t!("history-wishes"), format::count(total)))
+                        .child(stat(t!("history-primogems"), format::primogems(total)))
+                        .child(stat("5★".to_owned(), count(Rarity::Five).to_string()))
+                        .child(stat("4★".to_owned(), count(Rarity::Four).to_string())),
                 )
                 .child(div().v_flex().gap_1p5().children(fives).when(none, |this| {
                     this.child(
                         div()
                             .text_sm()
                             .text_color(theme.muted_foreground)
-                            .child("No 5★ on this banner."),
+                            .child(t!("history-no-five-on-banner")),
                     )
                 })),
         )

@@ -51,7 +51,7 @@ pub(super) fn stats_table(pool: &PoolAnalysis, cx: &App) -> Div {
     let won = |rate: Option<RateStats>, count: u32, color: Hsla| {
         rate.filter(|_| count > 0).map(|rate| {
             table_row(
-                &format!("Won {odds}"),
+                &t!("overview-won-odds", odds = odds),
                 true,
                 [
                     format::count(rate.won),
@@ -64,20 +64,25 @@ pub(super) fn stats_table(pool: &PoolAnalysis, cx: &App) -> Div {
         })
     };
 
-    let head = |text: &'static str| numeric(text).text_xs().text_color(colors.muted_foreground);
+    let head = |text: String| numeric(text).text_xs().text_color(colors.muted_foreground);
     let header = div()
         .h_flex()
         .pb_1()
         .child(div().flex_1())
-        .child(head("Total").w_12())
-        .child(head("Share").w_16())
-        .child(head("Avg. pity").w_16());
+        .child(head(t!("overview-total")).w_12())
+        .child(head(t!("overview-share")).w_16())
+        .child(head(t!("overview-average")).w_16());
     let rows = [
         Some(row("5★", false, stats.five, gold)),
         won(stats.rate_five, stats.five.count, gold),
         Some(row("4★", false, stats.four, purple)),
-        Some(row("Character", true, stats.four_character, purple)),
-        Some(row("Weapon", true, stats.four_weapon, purple)),
+        Some(row(
+            &t!("overview-character"),
+            true,
+            stats.four_character,
+            purple,
+        )),
+        Some(row(&t!("overview-weapon"), true, stats.four_weapon, purple)),
         won(stats.rate_four, stats.four.count, purple),
     ];
 
@@ -96,9 +101,9 @@ pub(super) fn five_star_pills(pool: &PoolAnalysis, data: Option<&GameData>, cx: 
         .filter(|pull| pull.wish.rarity == Rarity::Five)
         .collect();
     let caption = if fives.is_empty() {
-        "No 5★ yet."
+        t!("overview-no-five")
     } else {
-        "Every 5★ and its pity, latest first"
+        t!("overview-every-five")
     };
     let pills = fives
         .iter()
@@ -182,20 +187,20 @@ fn pity_pill(
         .zip(pull.banner)
         .and_then(|(data, ix)| data.banners.for_pool(pool.pool).get(ix))
         .map(|banner| banner.name.clone());
-    let mut about = vec![pull.wish.time.naive().format("%-d %b %Y").to_string()];
+    let mut about = vec![format::date(&pull.wish.time.naive())];
     about.extend(banner);
     about.extend(outcome.map(|outcome| match outcome {
-        RateUpOutcome::Won => format!("won the {}", format::rate_up_odds(pool.pool)),
+        RateUpOutcome::Won => t!("overview-pill-won", odds = format::rate_up_odds(pool.pool)),
         RateUpOutcome::Lost | RateUpOutcome::LostWhileGuaranteed => {
-            format!("lost the {}", format::rate_up_odds(pool.pool))
+            t!("overview-pill-lost", odds = format::rate_up_odds(pool.pool))
         }
-        RateUpOutcome::Guaranteed => "guaranteed".to_owned(),
+        RateUpOutcome::Guaranteed => t!("overview-pill-guaranteed"),
     }));
     let about = SharedString::from(about.join(" · "));
 
     div()
         .id(ElementId::NamedInteger(
-            SharedString::new_static(pool.pool.display_name()),
+            SharedString::from(pool.pool.as_str()),
             ix as u64,
         ))
         .h_flex()
@@ -209,7 +214,7 @@ fn pity_pill(
         .child(
             div()
                 .text_color(colors.muted_foreground)
-                .child(pull.wish.name.clone()),
+                .child(wish_core::i18n::item_name(&pull.wish.name).to_owned()),
         )
         .child(
             div()

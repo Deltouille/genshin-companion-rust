@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use crate::error::{Error, Result};
+use crate::error::{Error, IoAction, Result};
 
 /// Where the app keeps its files. Everything lives under one root folder:
 ///
@@ -81,18 +81,18 @@ impl AppPaths {
     /// already has it (the app is open). It stays taken while the returned
     /// file is open, so until the process ends, even by a crash.
     pub fn lock(&self) -> Result<Option<File>> {
-        fs::create_dir_all(&self.root).map_err(Error::io("creating", &self.root))?;
+        fs::create_dir_all(&self.root).map_err(Error::io(IoAction::Creating, &self.root))?;
         let path = self.root.join(".lock");
         let file = fs::OpenOptions::new()
             .create(true)
             .truncate(false)
             .write(true)
             .open(&path)
-            .map_err(Error::io("opening", &path))?;
+            .map_err(Error::io(IoAction::Opening, &path))?;
         match file.try_lock() {
             Ok(()) => Ok(Some(file)),
             Err(fs::TryLockError::WouldBlock) => Ok(None),
-            Err(fs::TryLockError::Error(e)) => Err(Error::io("locking", &path)(e)),
+            Err(fs::TryLockError::Error(e)) => Err(Error::io(IoAction::Locking, &path)(e)),
         }
     }
 }
@@ -116,7 +116,7 @@ const FORMER_APP_FOLDER: &str = "genshin-wishes";
 /// complete, even after a crash midway.
 pub fn copy_data_folder(from: &Path, to: &Path) -> Result<()> {
     if to.exists() {
-        return Err(Error::io("copying the data folder to", to)(
+        return Err(Error::io(IoAction::CopyingDataFolder, to)(
             std::io::ErrorKind::AlreadyExists.into(),
         ));
     }
@@ -124,39 +124,42 @@ pub fn copy_data_folder(from: &Path, to: &Path) -> Result<()> {
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    fs::create_dir_all(parent).map_err(Error::io("creating", parent))?;
+    fs::create_dir_all(parent).map_err(Error::io(IoAction::Creating, parent))?;
     let name = to
         .file_name()
         .map_or_else(Default::default, |n| n.to_string_lossy());
     let tmp = parent.join(format!(".{name}.copying"));
     if tmp.exists() {
         // Left by an interrupted copy: start over.
-        fs::remove_dir_all(&tmp).map_err(Error::io("removing", &tmp))?;
+        fs::remove_dir_all(&tmp).map_err(Error::io(IoAction::Removing, &tmp))?;
     }
     copy_tree(from, &tmp)?;
-    fs::rename(&tmp, to).map_err(Error::io("renaming", &tmp))?;
+    fs::rename(&tmp, to).map_err(Error::io(IoAction::Renaming, &tmp))?;
     Ok(())
 }
 
 /// Copies the files and folders under `from` to `to`, checking each file.
 fn copy_tree(from: &Path, to: &Path) -> Result<()> {
-    fs::create_dir_all(to).map_err(Error::io("creating", to))?;
-    for entry in fs::read_dir(from).map_err(Error::io("reading", from))? {
-        let entry = entry.map_err(Error::io("reading", from))?;
+    fs::create_dir_all(to).map_err(Error::io(IoAction::Creating, to))?;
+    for entry in fs::read_dir(from).map_err(Error::io(IoAction::Reading, from))? {
+        let entry = entry.map_err(Error::io(IoAction::Reading, from))?;
         let source = entry.path();
         let target = to.join(entry.file_name());
-        let kind = entry.file_type().map_err(Error::io("reading", &source))?;
+        let kind = entry
+            .file_type()
+            .map_err(Error::io(IoAction::Reading, &source))?;
         if kind.is_dir() {
             copy_tree(&source, &target)?;
         } else if kind.is_file() {
-            let copied = fs::copy(&source, &target).map_err(Error::io("copying", &source))?;
+            let copied =
+                fs::copy(&source, &target).map_err(Error::io(IoAction::Copying, &source))?;
             let original = fs::metadata(&source)
-                .map_err(Error::io("reading", &source))?
+                .map_err(Error::io(IoAction::Reading, &source))?
                 .len();
             if copied != original {
-                return Err(Error::io("copying", &source)(std::io::Error::other(
-                    format!("copied {copied} of {original} bytes"),
-                )));
+                return Err(Error::io(IoAction::Copying, &source)(
+                    std::io::Error::other(format!("copied {copied} of {original} bytes")),
+                ));
             }
         }
     }
@@ -170,19 +173,21 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    fs::create_dir_all(dir).map_err(Error::io("creating", dir))?;
+    fs::create_dir_all(dir).map_err(Error::io(IoAction::Creating, dir))?;
 
-    let file_name = path
-        .file_name()
-        .ok_or_else(|| Error::io("writing", path)(std::io::ErrorKind::InvalidInput.into()))?;
+    let file_name = path.file_name().ok_or_else(|| {
+        Error::io(IoAction::Writing, path)(std::io::ErrorKind::InvalidInput.into())
+    })?;
     let tmp = dir.join(format!(".{}.tmp", file_name.to_string_lossy()));
 
-    let mut file = File::create(&tmp).map_err(Error::io("creating", &tmp))?;
-    file.write_all(bytes).map_err(Error::io("writing", &tmp))?;
-    file.sync_all().map_err(Error::io("flushing", &tmp))?;
+    let mut file = File::create(&tmp).map_err(Error::io(IoAction::Creating, &tmp))?;
+    file.write_all(bytes)
+        .map_err(Error::io(IoAction::Writing, &tmp))?;
+    file.sync_all()
+        .map_err(Error::io(IoAction::Flushing, &tmp))?;
     drop(file);
 
-    fs::rename(&tmp, path).map_err(Error::io("replacing", path))?;
+    fs::rename(&tmp, path).map_err(Error::io(IoAction::Replacing, path))?;
     sync_dir(dir)
 }
 
@@ -192,7 +197,7 @@ fn sync_dir(dir: &Path) -> Result<()> {
     #[cfg(unix)]
     File::open(dir)
         .and_then(|d| d.sync_all())
-        .map_err(Error::io("flushing", dir))?;
+        .map_err(Error::io(IoAction::Flushing, dir))?;
     #[cfg(not(unix))]
     let _ = dir;
     Ok(())

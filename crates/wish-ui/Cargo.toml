@@ -8,6 +8,8 @@ publish.workspace = true
 
 [dependencies]
 wish-core.workspace = true
+# Dates, written by `format` in each language.
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 gpui-kit.workspace = true
 # Reads the app's own colours in `theme.json` (its `app` sections).
 serde_json = "1.0.154"

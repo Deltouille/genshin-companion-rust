@@ -76,7 +76,7 @@ impl RenderOnce for Pager {
             move |_: &_, window: &mut Window, cx: &mut App| state.request_page(page, window, cx)
         };
 
-        let step = |id: &'static str, label: &'static str, target: Option<usize>| {
+        let step = |id: &'static str, label: String, target: Option<usize>| {
             let icon = if id == "previous" {
                 IconName::ChevronLeft
             } else {
@@ -99,7 +99,7 @@ impl RenderOnce for Pager {
             PaginationItem::Page(page) => {
                 let this = square(SharedString::from(format!("page-{page}")))
                     .label(page.to_string())
-                    .accessibility_label(format!("Page {page}"));
+                    .accessibility_label(t!("ui-page", page = page));
                 if page == current {
                     this.primary()
                         .selected(true)
@@ -120,7 +120,7 @@ impl RenderOnce for Pager {
                 )))
                 .ghost()
                 .label("…")
-                .accessibility_label(format!("Pages {} to {}", hidden.start, hidden.end - 1))
+                .accessibility_label(t!("ui-pages", first = hidden.start, last = hidden.end - 1))
                 .dropdown_menu(move |mut menu, window, _| {
                     for page in pages.clone() {
                         let state = state.clone();
@@ -140,9 +140,9 @@ impl RenderOnce for Pager {
             .h_flex()
             .items_center()
             .gap_1()
-            .child(step("previous", "Previous", state.previous_page()))
+            .child(step("previous", t!("ui-previous"), state.previous_page()))
             .children(items)
-            .child(step("next", "Next", state.next_page()))
+            .child(step("next", t!("ui-next"), state.next_page()))
     }
 }
 

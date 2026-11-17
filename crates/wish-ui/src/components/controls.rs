@@ -66,7 +66,7 @@ impl ButtonExt for Button {
 /// `.danger()` for what removes data).
 pub fn dialog_footer(action: Button) -> DialogFooter {
     DialogFooter::new()
-        .child(DialogClose::new().trigger(|close| button_style(close).label("Cancel")))
+        .child(DialogClose::new().trigger(|close| button_style(close).label(t!("ui-cancel"))))
         .child(DialogAction::new().child(action))
 }
 

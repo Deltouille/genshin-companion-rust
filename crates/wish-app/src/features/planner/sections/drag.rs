@@ -12,7 +12,7 @@ use gpui_kit::{
 };
 use wish_ui::{MaterialTile, badge, format};
 
-use super::super::model::{EntryModel, TALENTS};
+use super::super::model::{EntryModel, talent_names};
 use super::card::Picture;
 use super::{Actions, Look};
 
@@ -47,15 +47,15 @@ impl CardPreview {
         let mut ranges = Vec::new();
         if let Some(goal) = &entry.ranges {
             ranges.push((
-                "Level".into(),
+                t!("planner-level").into(),
                 goal.level_text().into(),
                 goal.position(goal.from),
                 goal.position(goal.to),
             ));
-            for (label, &(from, to)) in TALENTS.iter().zip(&goal.talents) {
+            for (label, &(from, to)) in talent_names().into_iter().zip(&goal.talents) {
                 let at = |level: u8| f32::from(level.saturating_sub(1)) / 9.;
                 ranges.push((
-                    (*label).into(),
+                    label.into(),
                     format!("{from} → {to}").into(),
                     at(from),
                     at(to),

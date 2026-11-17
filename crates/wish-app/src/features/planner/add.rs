@@ -71,8 +71,8 @@ impl AddDialog {
     ) -> Self {
         let search = cx.new(|cx| {
             InputState::new(window, cx).placeholder(match kind {
-                Kind::Character => "Search a character",
-                Kind::Weapon => "Search a weapon",
+                Kind::Character => t!("planner-search-character"),
+                Kind::Weapon => t!("planner-search-weapon"),
             })
         });
         let subscriptions = vec![cx.subscribe(&search, |_, _, event: &InputEvent, cx| {
@@ -109,11 +109,17 @@ impl AddDialog {
                     let mine = owned.character(&c.key);
                     Card {
                         key: c.key.clone(),
-                        name: c.name.clone(),
+                        name: c.name.to_string(),
                         stars: c.rarity,
                         icon: images.character(c),
                         element: images.element(&c.element),
-                        owned: mine.map(|m| format!("Lv. {} · C{}", m.level.level, m.constellation)),
+                        owned: mine.map(|m| {
+                            t!(
+                                "planner-owned-level",
+                                level = m.level.level,
+                                constellation = m.constellation
+                            )
+                        }),
                         planned: plan.iter().any(|entry| {
                             matches!(&entry.target, PlanTarget::Character { key, .. } if *key == c.key)
                         }),
@@ -128,7 +134,7 @@ impl AddDialog {
                     let best = owned.copies(&w.key).map(|copy| copy.refinement).max();
                     Card {
                         key: w.key.clone(),
-                        name: w.name.clone(),
+                        name: w.name.to_string(),
                         stars: w.rarity,
                         icon: images.weapon(w),
                         element: None,
@@ -199,7 +205,7 @@ impl AddDialog {
             }))
             .when(card.planned, |this| {
                 this.child(div().absolute().top_1().right_1().child(badge(
-                    "Planned",
+                    t!("planner-planned"),
                     (theme.primary_foreground, theme.primary),
                     cx,
                 )))
@@ -259,8 +265,8 @@ impl Render for AddDialog {
                 .child(div().grid().grid_cols(COLUMNS).gap_3().children(cards))
         };
         let (owned_title, others_title) = match self.kind {
-            Kind::Character => ("Owned", "Not owned"),
-            Kind::Weapon => ("Owned", "Every weapon"),
+            Kind::Character => (t!("planner-owned"), t!("planner-not-owned")),
+            Kind::Weapon => (t!("planner-owned"), t!("planner-every-weapon")),
         };
         let empty = owned.is_empty() && others.is_empty();
         let (owned_count, others_count) = (owned.len(), others.len());
@@ -279,17 +285,31 @@ impl Render for AddDialog {
                         .gap_4()
                         .pr_2()
                         .when(owned_count > 0, |this| {
-                            this.child(section(format!("{owned_title} · {owned_count}"), owned))
+                            this.child(section(
+                                t!(
+                                    "planner-section-count",
+                                    title = owned_title,
+                                    count = owned_count
+                                ),
+                                owned,
+                            ))
                         })
                         .when(others_count > 0, |this| {
-                            this.child(section(format!("{others_title} · {others_count}"), others))
+                            this.child(section(
+                                t!(
+                                    "planner-section-count",
+                                    title = others_title,
+                                    count = others_count
+                                ),
+                                others,
+                            ))
                         })
                         .when(empty, |this| {
                             this.child(
                                 div()
                                     .text_sm()
                                     .text_color(muted)
-                                    .child("Nothing matches this search."),
+                                    .child(t!("planner-no-match")),
                             )
                         }),
                 ),
@@ -312,8 +332,8 @@ impl PlannerView {
                 search.update(cx, |search, cx| search.focus(window, cx));
             }
             this.title(match kind {
-                Kind::Character => "Add a character",
-                Kind::Weapon => "Add a weapon",
+                Kind::Character => t!("planner-add-character-title"),
+                Kind::Weapon => t!("planner-add-weapon-title"),
             })
             .w(window.rem_size() * width)
             .child(dialog.clone())

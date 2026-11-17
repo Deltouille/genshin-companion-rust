@@ -42,18 +42,19 @@ pub(super) fn weapons_tab(
     if stats.weapons.is_empty() {
         let on_navigate = on_navigate.clone();
         return empty_state(
-            "No weapons yet",
-            "Mark the weapons you have in the archive, or sync them from HoYoLAB with the \
-             characters holding them: they are counted here, by rarity and type.",
+            t!("overview-no-weapons"),
+            t!("overview-no-weapons-help"),
             div()
                 .h_flex()
                 .gap_2()
                 .child(hoyolab_sync_button().primary())
-                .child(button("open-weapons").label("Open the weapons").on_click(
-                    move |_, window, cx| {
-                        on_navigate(Page::Archive(ArchivePage::Weapons), window, cx)
-                    },
-                )),
+                .child(
+                    button("open-weapons")
+                        .label(t!("overview-open-weapons"))
+                        .on_click(move |_, window, cx| {
+                            on_navigate(Page::Archive(ArchivePage::Weapons), window, cx)
+                        }),
+                ),
             cx,
         );
     }
@@ -61,12 +62,12 @@ pub(super) fn weapons_tab(
     let colors = cx.theme();
     let (foreground, muted) = (colors.foreground, colors.muted_foreground);
     let count = |n: usize| format::count(n as u64);
-    let of = |tally: Tally| format!("of {}", count(tally.total));
+    let of = |tally: Tally| t!("overview-of", total = tally.total);
 
     let totals = figures(
         [
             stat(
-                "Weapons",
+                t!("overview-weapons"),
                 big_number(count(stats.all.owned), foreground),
                 of(stats.all),
                 cx,
@@ -84,13 +85,12 @@ pub(super) fn weapons_tab(
                 cx,
             ),
             stat(
-                "Refined to R5",
+                t!("overview-refined-fully"),
                 big_number(count(stats.refined_fully), foreground),
-                format!(
-                    "{} of {} {} held",
-                    count(stats.held),
-                    count(stats.copies),
-                    format::plural(stats.copies as u32, "copy", "copies")
+                t!(
+                    "overview-copies-held",
+                    held = stats.held,
+                    copies = stats.copies
                 ),
                 cx,
             ),
@@ -101,7 +101,7 @@ pub(super) fn weapons_tab(
 
     let types = stats.types.iter().map(|(kind, tally)| {
         stat_tile(
-            div().child(*kind),
+            div().child(format::weapon_type(kind)),
             of(*tally),
             big_number(count(tally.owned), foreground),
             cx,
@@ -109,11 +109,14 @@ pub(super) fn weapons_tab(
     });
 
     let mut body = div().v_flex().gap_6().child(totals).child(section(
-        "By type",
+        t!("overview-by-type"),
         tile_grid(stats.types.len(), TYPE_REMS, room).children(types),
         cx,
     ));
-    for (rarity, title) in [(5, "5★ weapons"), (4, "4★ weapons")] {
+    for (rarity, title) in [
+        (5, t!("overview-five-star-weapons")),
+        (4, t!("overview-four-star-weapons")),
+    ] {
         let list: Vec<&OwnedWeaponSummary> = stats.of_rarity(rarity).collect();
         if list.is_empty() {
             continue;
@@ -129,11 +132,12 @@ pub(super) fn weapons_tab(
     }
     let lesser = stats.weapons.iter().filter(|w| w.rarity < 4).count();
     body.when(lesser > 0, |this| {
-        this.child(div().text_sm().text_color(muted).child(format!(
-            "And {} {} of 3★ or less, in the archive.",
-            count(lesser),
-            format::plural(lesser as u32, "weapon", "weapons")
-        )))
+        this.child(
+            div()
+                .text_sm()
+                .text_color(muted)
+                .child(t!("overview-lesser-weapons", count = lesser)),
+        )
     })
 }
 
@@ -150,7 +154,10 @@ fn entry(
     let icon = planner.weapon(&weapon.key).and_then(|w| images.weapon(w));
     let mut detail = format!("R{}", weapon.refinement);
     if weapon.copies > 1 {
-        detail.push_str(&format!(" · {} copies", weapon.copies));
+        detail.push_str(&format!(
+            " · {}",
+            t!("overview-copies", count = weapon.copies)
+        ));
     }
     let holders: Vec<&str> = weapon
         .holders
