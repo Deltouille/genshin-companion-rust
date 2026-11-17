@@ -25,7 +25,12 @@ unsound = "all"
 yanked = "warn"
 # An advisory to live with goes here, with its reason:
 # { id = "RUSTSEC-YYYY-NNNN", reason = "…" }
-ignore = []
+ignore = [
+    # 2026-11-17: chrono is unmaintained, with no flaw known. GPUI Kit (gpui-pre,
+    # gpui-base, gpui-component) and calamine use it too, so dropping the app's
+    # own use would leave it in the build: a move to jiff waits until they move.
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained; GPUI Kit and calamine depend on it too" },
+]
 
 [sources]
 # crates.io only: no git dependency, no other registry.
