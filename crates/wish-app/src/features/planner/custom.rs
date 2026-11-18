@@ -27,6 +27,9 @@ use super::{PlannerView, report_plan};
 use crate::app::images::Images;
 use wish_ui::{MaterialTile, Segmented, button, dialog_footer, icon_button, input};
 
+/// The roles side by side in the form.
+const SLOT_COLUMNS: usize = 3;
+
 /// What a custom entry is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum CustomKind {
@@ -261,52 +264,84 @@ impl CustomForm {
                     form.update(cx, |form, cx| form.set_kind(kind, cx)).ok();
                 })
         });
-        let slots = self.kind.roles().iter().map(|&role| {
-            let chosen = self.materials.get(&role).map(|item| self.shown(role, item));
-            let tile = match &chosen {
-                Some((icon, stars, _)) => div().child(MaterialTile::bare(icon.clone(), *stars)),
-                None => div()
-                    .size(rems(3.5))
-                    .rounded(theme.radius)
-                    .border_2()
-                    .border_dashed()
-                    .border_color(theme.border)
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .child(
-                        Icon::new(IconName::Plus)
-                            .size_5()
-                            .text_color(theme.muted_foreground),
-                    ),
-            };
-            div()
-                .id(SharedString::from(format!("slot-{role}")))
-                .v_flex()
-                .items_center()
-                .gap_1p5()
-                .p_2()
-                .rounded(theme.radius_lg)
-                .cursor_pointer()
-                .hover(|style| style.bg(theme.muted))
-                .on_click(cx.listener(move |this, _, window, cx| this.pick(role, window, cx)))
-                .child(
+        // Each role takes three rows of its column: its name, its tile, the
+        // material chosen. A name that wraps ("Matériau hebdomadaire") makes
+        // its whole row taller, so the tiles beside it stay level.
+        let slots = self
+            .kind
+            .roles()
+            .iter()
+            .enumerate()
+            .flat_map(|(ix, &role)| {
+                let column = i16::try_from(ix % SLOT_COLUMNS).unwrap_or(0) + 1;
+                let row = i16::try_from(ix / SLOT_COLUMNS).unwrap_or(0) * 3 + 1;
+                let cell = |div: Div, row: i16| {
+                    (div.col_start(column).col_end(column + 1))
+                        .row_start(row)
+                        .row_end(row + 1)
+                };
+                let chosen = self.materials.get(&role).map(|item| self.shown(role, item));
+                let tile = match &chosen {
+                    Some((icon, stars, _)) => div().child(MaterialTile::bare(icon.clone(), *stars)),
+                    None => div()
+                        .size(rems(3.5))
+                        .rounded(theme.radius)
+                        .border_2()
+                        .border_dashed()
+                        .border_color(theme.border)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .child(
+                            Icon::new(IconName::Plus)
+                                .size_5()
+                                .text_color(theme.muted_foreground),
+                        ),
+                };
+                [
+                    // The slot's surface, under its three cells, which take no
+                    // pointer: hovering or clicking any of them is the slot's.
                     div()
+                        .id(SharedString::from(format!("slot-{role}")))
+                        .col_start(column)
+                        .col_end(column + 1)
+                        .row_start(row)
+                        .row_end(row + 3)
+                        .rounded(theme.radius_lg)
+                        .cursor_pointer()
+                        .hover(|style| style.bg(theme.muted))
+                        .on_click(
+                            cx.listener(move |this, _, window, cx| this.pick(role, window, cx)),
+                        )
+                        .into_any_element(),
+                    // A name on one line sits on the tile, as one on two does.
+                    cell(div(), row)
+                        .v_flex()
+                        .justify_end()
+                        .px_2()
+                        .pt_2()
+                        .text_center()
                         .text_sm()
                         .font_weight(FontWeight::SEMIBOLD)
-                        .child(role.label()),
-                )
-                .child(tile)
-                .child(
-                    div()
-                        .w_full()
+                        .child(role.label())
+                        .into_any_element(),
+                    cell(div(), row + 1)
+                        .flex()
+                        .justify_center()
+                        .child(tile)
+                        .into_any_element(),
+                    cell(div(), row + 2)
+                        .px_2()
+                        .pb_2()
                         .text_xs()
                         .text_center()
                         .text_color(theme.muted_foreground)
-                        .truncate()
-                        .child(chosen.map_or_else(|| t!("planner-choose"), |(_, _, name)| name)),
-                )
-        });
+                        .line_clamp(2)
+                        .text_ellipsis()
+                        .child(chosen.map_or_else(|| t!("planner-choose"), |(_, _, name)| name))
+                        .into_any_element(),
+                ]
+            });
         div()
             .v_flex()
             .gap_4()
@@ -324,7 +359,14 @@ impl CustomForm {
                     )
                     .child(stars),
             )
-            .child(div().grid().grid_cols(3).gap_2().children(slots))
+            .child(
+                div()
+                    .grid()
+                    .grid_cols(SLOT_COLUMNS as u16)
+                    .gap_x_2()
+                    .gap_y_1p5()
+                    .children(slots),
+            )
     }
 
     fn render_picker(&self, role: Role, cx: &mut Context<Self>) -> Div {
@@ -478,7 +520,7 @@ impl PlannerView {
             let (form, view) = (dialog_form.clone(), view.clone());
             dialog
                 .title(title.clone())
-                .w(window.rem_size() * 34.)
+                .w(window.rem_size() * 38.)
                 .child(form.clone())
                 .footer(dialog_footer(button("save-custom").primary().label(
                     match edited {
