@@ -1,167 +1,68 @@
 # Genshin Companion
 
-A desktop companion for Genshin Impact: a wish counter that never loses your history, a character archive
-and an ascension planner. It runs on Windows, macOS and Linux, is written in Rust with
-[GPUI](https://www.gpui.rs) (through [GPUI Kit](https://gpui-kit.com)). Your data stays on your computer.
+A desktop app for Genshin Impact: it keeps your wish history, shows where your pity stands, and works out what your
+characters need to level up. It runs on Windows, macOS and Linux, and is written in Rust with
+[GPUI](https://www.gpui.rs).
 
-The wish counter is a desktop remake of [paimon.moe](https://paimon.moe)'s, and gives the same numbers. The
-difference is where the data lives. paimon.moe keeps your history in the browser, where clearing site data
-erases it. HoYoverse's API only returns the last six months, so wishes older than that exist nowhere else.
-Here they live in a database on your disk, with backups.
+It started as a desktop take on [paimon.moe](https://paimon.moe)'s wish counter. paimon.moe stores your history in
+the browser, so clearing your site data wipes it, and the game itself only shows the last six months. Here the
+history goes into a database on your own disk, with backups, and importing never deletes a wish.
 
-[Download it](#download) for Windows, macOS or Linux, or [build it yourself](#building-from-source).
+[Download it](#download), or [build it yourself](#building-from-source).
 
-![The overview: an account's wishes in figures](docs/screenshots/overview.png)
+![The overview of an account](docs/screenshots/overview.png)
 
-## Features
+## What it does
 
-### Overview
+**Wish counter.** Import your history straight from the game: on Windows (or Linux with Wine or Proton) the app
+finds the history link in the game's files, otherwise you paste the link, which also works for phone and console
+players. You can also bring in a paimon.moe save, a paimon.moe spreadsheet or a [UIGF](https://uigf.org) file from
+another tracker. You then get pity and 50/50 for each banner, with the same numbers paimon.moe would show, a history
+you can sort and filter, and a few charts. If you used paimon.moe's manual mode, you can keep counting by hand.
 
-The app opens on your account in figures, one tab each:
+**Archive.** Every character, weapon and material in the game: stats at any level, talents, constellations,
+passives, and what each ascension costs. Mark what you own yourself, or fill it in from HoYoLAB or from a GOOD file
+(the format [Irminsul](https://github.com/konkers/irminsul),
+[Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera) and
+[Genshin Optimizer](https://frzyc.github.io/genshin-optimizer/) export). A GOOD file brings your whole bag along:
+weapons, materials and all.
 
-- **Wishes:** key figures, then a card per banner type: its pity and the odds of the next 5★ and 4★, then a
-  summary (share, average pity, 50/50 record, 4★ characters against 4★ weapons, every 5★ with its pity). Below
-  them, wishes per month and the pity of each 5★.
-- **Characters:** how many of the game's characters you own, by rarity, element and weapon, then your
-  constellations, characters at level 90 and talents at level 10.
-- **Weapons:** how many of the game's weapons you own, by rarity and type, then each of your 5★ and 4★ with its
-  refinement, its copies and the characters holding them.
-
-### Wish counter
-
-- Pity, 50/50 and guarantees for every banner type, computed exactly as paimon.moe does. The Character Event
-  banners share their pity.
-- A history you can sort, with each wish's banner and its number on that banner, and a view per banner.
-- Counting by hand (+1, +10, one 4★ or 5★), like paimon.moe's manual mode, turned on in Settings.
-
-### Imports and exports
-
-- **From the game.** The app finds the wish history link in the game's cache (Windows, or a Wine/Proton prefix
-  on Linux), or you paste it. It then asks HoYoverse's API directly, with no proxy in between. Phone and console
-  players can copy the link on their device and paste it here.
-- **From a file:**
-  - a paimon.moe save (JSON) or spreadsheet (Excel);
-  - a [UIGF](https://uigf.org) v4 file from another tracker;
-  - this app's own snapshot (wishes, characters, weapons, plan and inventory: those you already have are kept,
-    nothing is lowered).
-- **Characters from HoYoLAB.** Your characters as they are in the game (level, constellations, talents) and the
-  weapon each holds, into your collection: it only adds or raises, never lowers, and shows what would change
-  first. It reads them with your HoYoLAB cookie, which you copy from the browser (F12 → Storage → Cookies →
-  hoyolab.com: `ltuid_v2`, `ltoken_v2`, `ltmid_v2`) for that sync only: the app never saves it and sends it to
-  HoYoverse only. HoYoLAB doesn't show the weapons in your bag, nor your materials, nor whether a character at a
-  level cap ascended (counted as not yet).
-- **Characters, weapons and materials from a GOOD file**, the format [Irminsul](https://github.com/konkers/irminsul),
-  [Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera) and
-  [Genshin Optimizer](https://frzyc.github.io/genshin-optimizer/) export (from a file, or Irminsul's copy in the
-  clipboard), into the account shown: your characters (level, ascension, constellations, talents), every weapon
-  copy in your bag with its holder, and your materials, which the planner then shares out. Characters and weapons
-  are only added or raised; the materials the planner uses take the file's counts (one the file lacks goes to 0,
-  the Mora is kept, since these files have none). A preview shows every change, and a backup comes first. The app
-  only reads the file: how the tool that wrote it gets your data is between you and that tool.
-- **Exports:** the lossless snapshot (every account: wishes, characters, weapons, plan and inventory), UIGF v4 and
-  paimon.moe's spreadsheet.
-- **Accounts:** imports make theirs on their own; Settings → Accounts adds one by hand (a name, and optionally its
-  UID or server), renames one, gives one without a UID its UID (it then stays: imports find the account by it),
-  and removes one that has no wishes, after a backup.
-All of these are on the Import page; the wish imports are also on the Overview.
-
-### Your history is never lost
-
-- Imports only add wishes. Nothing already stored is replaced or deleted, so importing the same file twice is safe.
-- A backup of the database is taken before every import, undo, restore or bulk change, and once a day; the last
-  30 are kept. Counting by hand and editing the plan back up once an hour, and the last 10 of those are kept apart,
-  so they never push out the others. A backup can be restored from Settings: it replaces everything (accounts,
-  wishes, characters, weapons, the plan and the inventory) after a backup of the current state.
-- Every imported file is kept as it was received.
-- Every import can be undone, from Settings → Recent imports.
-- A **mirror folder** (optional): a few seconds after each change, and when the app closes, a snapshot of
-  everything (wishes, characters, weapons, plan and inventory) is written to a folder that you sync with your own
-  tool, such as Syncthing or a cloud drive. Changes made in a row are written once, so the synced file doesn't
-  change at every click; your data itself is saved at once, in the database. It
-  holds your UID and wishes, so a synced folder sends them to that service. Give each computer its own mirror folder: the file has one name, and two computers
-  writing it would replace each other's copy.
-
-### Character and weapon archive
-
-Every character, like [Project Amber](https://gi.yatta.moe)'s archive. The characters you have come first, with
-their level and constellation on the card; add or remove them from the list, and mark favourites. Search, filter
-(element, weapon, rarity, favourites) and sort the list. Each character's page shows, one section after another:
-
-- **My character:** the level, constellation and talents you have, when you have the character.
-- **Stats:** at any level and ascension phase, and the materials needed to get there.
-- **Ascension:** the stats at each ascension.
-- **Talents:** values at any talent level.
-- **Constellations.**
-
-Every material too, under Resources, by type as the game's bag sorts them (Mora and EXP, gems, boss and weekly
-boss materials, talent materials, weapon materials, enemy drops, each region's local specialties), with how many
-you have; click one to set its count.
-
-Every weapon too, the ones you have first (with their best refinement and how many copies), filtered by type,
-rarity and favourites. A weapon's page lists your copies (level, refinement, the character holding it; copies
-alike once, with their count) above
-its ATK and secondary stat at any level, what reaching it costs, and its passive at each refinement.
-
-### Ascension planner
-
-Like [genshin-center](https://genshin-center.com/planner)'s planner.
-
-- Pick a character or a weapon among the cards (yours first; a character you own starts from your levels), then set
-  the level (and a character's three talents) from where they are to where you want them.
-  The materials are shown for each character and for the whole plan, with EXP as Hero's Wit (or Mystic Enhancement
-  Ore for weapons) and its Mora.
-- **Inventory:** click a material to enter how many you have, or add what a domain run just gave you. What you
-  have goes to the characters in the plan's order (drag a card by its header to change it): each card shows what its character still lacks once the ones
-  before it have taken their share, and "Still needed" what the whole plan lacks. A tier you lack is crafted from
-  the tiers below, three for one, as at the alchemy table (a flask badge on a material says how many are
-  crafted, as on genshin-center), and EXP books count for their EXP. The dialog shows the
-  whole series (or the three books under Hero's Wit) with what the plan needs, crafts and still lacks of each, as
-  you type.
-- A **custom character or weapon** covers one the game data doesn't have yet, such as a leak: give it a name,
-  its stars and its materials (a character's six: common, local specialty, boss, gem, talent book, weekly boss;
-  a weapon's three: domain material, elite and common drops), picked from the game's or typed by name. A material
-  not known yet can be its role's placeholder, "?" (an unknown talent book, boss material…): it is counted, crafted
-  and farmed like the real one. It then costs what any character, or weapon of its stars, costs.
-- **Farm today:** the domains open today that give what the plan still lacks, with the tiers missing and who
-  needs them; when none does, the next day one will. The day is the game's, which starts at 4:00 in your server's
-  time (the account's, from its UID; this computer's clock when it has none).
-- **Resin:** how much Original Resin farming what is still lacking takes on average, and how many days, as on
-  genshin-center: on each card, and for the whole plan by source (talent books and weapon materials from domains,
-  boss materials, Hero's Wit and Mora from ley lines). *Resin options…* sets your world level, the resin you spend
-  a day (180 regenerate) and what to count. Weekly bosses, gems and enemy drops aren't counted.
+**Planner.** Pick characters and weapons, drag the sliders from where they are to where you want them, and you see
+what is still missing once your materials are shared out, crafting included. It shows which domains are worth running
+today, and roughly how much resin everything will take. It works much like
+[genshin-center](https://genshin-center.com/planner)'s planner, and it also handles characters that aren't out yet,
+whose materials you fill in yourself.
 
 <p>
-  <img src="docs/screenshots/archive.png" width="49%" alt="A character's page in the archive">
-  <img src="docs/screenshots/planner.png" width="49%" alt="The ascension planner">
+  <img src="docs/screenshots/characters.png" width="49%" alt="The character list">
+  <img src="docs/screenshots/character.png" width="49%" alt="A character's page">
 </p>
 
-### Languages
+![The ascension planner](docs/screenshots/planner.png)
 
-The app is in **English** and **French**: the interface, and the game's own names and texts (characters, weapons,
-materials, descriptions, talents, constellations, passives), as the game writes them in each language. It opens in
-your system's language when it has it, else in English; *Settings → Language* changes it at once. Banner names
-stay in English (paimon.moe has them in English only).
+The app is in English and French, including the game's own names and descriptions. It follows your system's
+language, and you can change it in Settings.
 
 ## Download
 
-The builds are on the [Releases](https://github.com/Deltouille/genshin-companion-rust/releases) page. Unpack the
-archive for your system and start the app: there is nothing to install.
+Builds are on the [Releases](https://github.com/Deltouille/genshin-companion-rust/releases) page. Unpack the
+archive and run the app; there is nothing to install.
 
-- **Windows** (`…-windows-x86_64.zip`): `genshin-companion.exe`. The build isn't signed, so SmartScreen may warn
-  before the first launch: choose *More info*, then *Run anyway*.
-- **macOS 11 or later** (`…-macos-apple-silicon.zip`, or `…-macos-intel.zip` for an Intel Mac):
-  `Genshin Companion.app`. It is signed ad hoc, not by a developer account, so macOS refuses to open it the first
-  time: open System Settings → Privacy & Security and choose *Open Anyway*.
-- **Linux** (`…-linux-x86_64.tar.gz`): `genshin-companion`, built on Ubuntu 22.04, so it needs glibc 2.35 or later.
-  It also needs fontconfig, freetype, libxkbcommon, Wayland, libX11, libxcb and the Vulkan loader, which desktop
-  systems usually have.
+- **Windows** (`…-windows-x86_64.zip`): run `genshin-companion.exe`. The build isn't signed, so SmartScreen may
+  warn you the first time. Click *More info*, then *Run anyway*.
+- **macOS 11 or later** (`…-macos-apple-silicon.zip`, or `…-macos-intel.zip` on an Intel Mac): open
+  `Genshin Companion.app`. It isn't signed with a developer account, so macOS blocks it the first time. Go to System
+  Settings → Privacy & Security and click *Open Anyway*.
+- **Linux** (`…-linux-x86_64.tar.gz`): run `genshin-companion`. It's built on Ubuntu 22.04, so it needs glibc 2.35
+  or newer, plus fontconfig, freetype, libxkbcommon, Wayland, libX11, libxcb and the Vulkan loader, which a desktop
+  system usually has.
 
-`SHA256SUMS.txt`, beside the archives, holds their checksums (`sha256sum -c SHA256SUMS.txt --ignore-missing`).
-To update, replace the app with the newer one: your data lives in its own folder (below), not beside the app.
+Each release also has a `SHA256SUMS.txt` to check the archives against. To update, replace the app with the new
+one: your data lives in its own folder, not next to the app.
 
 ## Your data
 
-Everything stays in one folder:
+Everything stays on your computer, in one folder:
 
 | System  | Folder                                            |
 |---------|---------------------------------------------------|
@@ -169,182 +70,132 @@ Everything stays in one folder:
 | Windows | `%APPDATA%\genshin-companion\data`                |
 | macOS   | `~/Library/Application Support/genshin-companion` |
 
-```text
-wishes.db       the database, the one source of truth
-backups/        automatic backups of the database
-imports/        a copy of every imported file, as received
-game-data/      optional newer game data (see below)
-cache/images/   the game's images, downloaded the first time they're shown
-settings.json   this computer's preferences
-```
+Inside it are the database (`wishes.db`), its backups, a copy of every file you imported, and the game's images
+once they've been downloaded. Settings shows the folder and can open it for you.
 
-Settings shows this folder and can open it in your file manager. To run the app on another folder, for example
-to try something on a copy, set `GENSHIN_COMPANION_DATA_DIR=<folder>`. One copy of the app at a time can use a
-folder; starting a second one says the app is already open.
+The app backs up the database before every import and every change that touches a lot of data, and once a day.
+Settings lists the backups and can restore one, and a wish import can be undone from there too.
 
-If the app can't start, it says why in a small window and in `genshin-companion-errors.txt`, where crashes are
-written too. That file is in your cache folder: `~/.cache/genshin-companion/` on Linux,
-`~/Library/Caches/genshin-companion/` on macOS, `%LOCALAPPDATA%\genshin-companion\cache\` on Windows.
+If you want a copy somewhere else, choose a mirror folder in Settings: a few seconds after each change, the app
+writes a full snapshot there, which you can sync with Syncthing, a cloud drive or anything else. Keep in mind that
+the snapshot contains your UID and your wishes, and give each computer its own folder, otherwise they'll overwrite
+each other's file.
 
-The app used to be called *Genshin Wishes*. On its first start under the new name, it copies the old
-`genshin-wishes` folder to `genshin-companion` and then uses the copy. The old folder is left as it was: delete it
-yourself once you've checked that everything is there.
+To try something without touching your real data, point the app at another folder with
+`GENSHIN_COMPANION_DATA_DIR=<folder>`.
 
-The app goes online for three things only:
+If the app won't start, it says why in a small window and writes it to `genshin-companion-errors.txt` in your cache
+folder (`~/.cache/genshin-companion/` on Linux, `~/Library/Caches/genshin-companion/` on macOS,
+`%LOCALAPPDATA%\genshin-companion\cache\` on Windows).
 
-- importing from the game, through HoYoverse's API;
-- syncing your characters from HoYoLAB, when you ask: your cookie goes to HoYoLAB's servers
-  (`api-os-takumi.mihoyo.com`, `sg-public-api.hoyolab.com`), for those requests only;
-- downloading the game's images the first time a page shows them, from the fan sites that already serve them:
-  paimon.moe (item icons, banner art) and Project Amber (everything else). They are kept in `cache/images/`, so
-  each is downloaded once. Without a connection, pages show an empty space where an image would be. To use the
-  app offline, Settings → Images downloads them all at once: every icon (about 35 MB), or everything with the
-  banner and wish art (about 350 MB). It can also empty the cache.
+The app used to be called Genshin Wishes. The first time the new version starts, it copies the old
+`genshin-wishes` folder and works on the copy; once you've checked everything is there, you can delete the old one.
 
-Like any website, these sites see your IP address and which files are asked for. The app sends nothing about you or
-your wishes anywhere else: the wish history link and the HoYoLAB cookie go to HoYoverse alone. It is an unofficial
-tool: it reads the game's files without changing them and asks HoYoverse's API what the game's own history page
-shows, but using it is your choice. HoYoLAB has no public API: the sync uses the one its website uses, which
-HoYoverse may change or block. The app only asks when you sync, never on its own.
+### What goes online
 
-The HoYoLAB cookie values let whoever has them use your HoYoLAB account. Give them to this app only, never to a
-website, a Discord bot or another person. Typing them in the three fields is safer than pasting the whole cookie:
-the app empties the clipboard after reading it, but a clipboard history (Windows' Win+V, KDE's Klipper…) keeps its
-own copy, which you should delete there too.
+The app only connects to the internet for three things:
+
+- importing from the game, through HoYoverse's API, with the link you gave it;
+- syncing from HoYoLAB, when you ask for it;
+- downloading the game's images the first time a page needs them, from paimon.moe and
+  [Project Amber](https://gi.yatta.moe). They're cached, so each one is downloaded once. To use the app offline,
+  Settings → Images can download all of them in one go.
+
+Nothing about you or your wishes is sent anywhere else. Like any website, those servers do see your IP address.
+
+**About the HoYoLAB cookie.** The sync needs three values from your HoYoLAB cookie (`ltuid_v2`, `ltoken_v2`,
+`ltmid_v2`; in your browser press F12, then Storage → Cookies → hoyolab.com). The app uses them for that one sync,
+sends them only to HoYoverse, and never saves them. Those values give access to your HoYoLAB account, so don't hand
+them to anything else: no website, no Discord bot, no person. HoYoLAB has no public API either; the app uses the same
+one as the HoYoLAB website, which HoYoverse can change or block at any time.
+
+This is an unofficial tool. It reads the game's files without changing them and only asks HoYoverse for what the
+game's own pages show, but using it is your call.
 
 ## Building from source
 
-You need stable Rust (edition 2024).
-
-- **Windows and macOS:** run `cargo run --release -p wish-app`.
-- **Linux:** GPUI loads its window and GPU libraries when it starts. You need fontconfig, freetype, libxkbcommon,
-  Wayland, libX11, libxcb and the Vulkan loader. With Nix, `nix develop` opens a shell that has them all.
+You need a recent stable Rust (edition 2024).
 
 ```sh
-nix develop                     # Linux, with Nix
 cargo run --release -p wish-app
 ```
 
-The binary is `target/release/genshin-companion`, and needs no other files. It contains none of the game's images:
-the app downloads them as it needs them (see [Your data](#your-data)).
+On Linux, GPUI also needs fontconfig, freetype, libxkbcommon, Wayland, libX11, libxcb and the Vulkan loader. With
+Nix, `nix develop` gives you a shell with all of them.
+
+The result is `target/release/genshin-companion`, a single file. It contains none of the game's images; the app
+downloads them as it needs them.
 
 ## Updating the game data
 
-The game data is generated from other projects, then committed:
-
-| File | Content | Generated from |
-|---|---|---|
-| `crates/wish-core/data/items.json`, `banners.json` | Banners and items | paimon.moe |
-| `crates/wish-core/data/planner.json`, `archive.json` | Planner and archive data | genshin-db |
-| `crates/wish-core/data/fr.json` | The game's names and texts in French | genshin-db |
+The game data (banners, items, characters, weapons, materials, and the French texts) is generated from
+[paimon.moe](https://github.com/MadeBaruna/paimon-moe) and [genshin-db](https://github.com/theBowja/genshin-db) by
+two scripts, and the result is committed in `crates/wish-core/data/`:
 
 ```sh
-# Banners and items, from a paimon.moe clone in reference/
-git clone https://github.com/MadeBaruna/paimon-moe reference   # or: git -C reference pull
-node tools/extract-paimon-data.mjs
-
-# Planner and archive, from a sparse genshin-db clone in genshin-db/
-git clone --depth 1 --filter=blob:none --sparse https://github.com/theBowja/genshin-db
-git -C genshin-db sparse-checkout set src/data/English/characters src/data/English/talents \
-  src/data/English/weapons src/data/English/materials src/data/English/constellations \
-  src/data/French/characters src/data/French/talents src/data/French/weapons \
-  src/data/French/materials src/data/French/constellations \
-  src/data/image src/data/stats src/data/curve src/data/version
-node tools/extract-genshin-db.mjs
-
+node tools/extract-paimon-data.mjs   # banners and items, from a paimon-moe clone in reference/
+node tools/extract-genshin-db.mjs    # characters, weapons, materials, from a genshin-db clone in genshin-db/
 ```
 
-Newer data can also be added without rebuilding the app. Put `items.json`, `banners.json`, `planner.json` or
-`archive.json` in the data folder's `game-data/`. A planner file whose costs name an unknown material is refused.
+[docs/architecture/game-data.md](docs/architecture/game-data.md) explains how to set up both clones. When a new
+banner comes out, you don't have to rebuild: drop the new `banners.json` (or any of the data files) into the
+`game-data/` folder inside your data folder.
 
 ## Development
-
-The workspace has four crates, and each one depends only on the ones after it:
-
-- `wish-app` is the window.
-- `wish-ui` is the design system: theme, fonts, icons and shared components.
-- `wish-core` holds the logic and the tests: data, storage, imports, the pity engine and the planner. It never
-  depends on GPUI.
-- `hoyolab`, under `wish-core`, is a small HoYoLAB client for the sync.
-
-How the code works (where each thing is, how data moves, the storage, the imports, the planner, the design system,
-with diagrams) is in [docs/architecture](docs/architecture/README.md).
 
 ```sh
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all
+```
 
-# Command-line import, export and summary (use --data-dir to keep away from your real data)
+The code is split into four crates: `wish-core` (all the logic, storage and imports, with no UI), `wish-ui` (the
+design system), `wish-app` (the window) and `hoyolab` (a small HoYoLAB client).
+[docs/architecture](docs/architecture/README.md) explains how they fit together, where everything lives, and how to
+make the usual changes. [`CLAUDE.md`](CLAUDE.md) has the project's rules and commands.
+
+Some tools that help along the way:
+
+```sh
+# The data folder from the command line: imports, exports, a summary (use a scratch folder)
 cargo run -p wish-core --example wishctl -- --data-dir /tmp/scratch summary
 
-# Offscreen screenshots of every page, and a gallery of every component
+# Every page rendered offscreen to PNG, and every component of the design system
 cargo run -p wish-app --example screenshot -- <data-dir> <out-dir>
 cargo run -p wish-ui --example gallery -- <out-dir>
-
-# After changing Cargo.lock: the licences of every dependency, shown in the app and
-# shipped in the release archives (needs cargo-about; CI checks the file is current)
-tools/third-party-licenses.sh
 ```
 
 ### Translating
 
-Every text the app shows comes from [Fluent](https://projectfluent.org) files, one per part of each crate:
-`crates/<crate>/locales/<language>/<part>.ftl`. Plurals and variants are written in the translation itself, so a
-language gets them right without changing the code. The tests check that every language has every text, with the
-same variables, that every text the code names exists, and the French typography (a no-break space before `?` `!`
-`:` `;` and inside « »). `SCREENSHOT_LANGUAGE=fr` shoots the pages in French.
-
-To add a language: add it to `Language` (`crates/wish-core/src/i18n/mod.rs`) and to the `texts!` macro there, copy
-each `locales/en/` folder and translate it, then add it to `LANGUAGES` in `tools/extract-genshin-db.mjs` (and to
-the sparse checkout) for the game's texts, which go in `crates/wish-core/data/<code>.json`.
-
-CI runs fmt, clippy, the tests and a release build on Linux, Windows and macOS, checks that
-`THIRD-PARTY-LICENSES.txt` is current, and audits the dependencies for known vulnerabilities (cargo-deny) on every
-push and every week.
-[`CLAUDE.md`](CLAUDE.md) holds the conventions.
-
-To publish a release, set the version in the workspace's `Cargo.toml`, write the release notes in
-`docs/releases/v<version>.md`, commit, then push a tag of that version:
-
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-`release.yml` then runs the CI and the audit again, builds each system's archive from `Cargo.lock` without a cache
-(`tools/package-release.sh`), and publishes them on the Releases page with `SHA256SUMS.txt`, the notes and GitHub's
-list of changes. A tag that doesn't match the version publishes nothing.
+Every text in the app lives in [Fluent](https://projectfluent.org) files, under
+`crates/<crate>/locales/<language>/`. Plurals and the like are handled in the translation, not in the code, and the
+tests catch a missing or extra text in any language. To add a language, see
+[docs/architecture/i18n.md](docs/architecture/i18n.md).
 
 ## Credits
 
-- [paimon.moe](https://github.com/MadeBaruna/paimon-moe) by Made Baruna. The wish counter is a remake of its own, and
-  its banner and item data come from it. Used under the MIT License.
-- [genshin-db](https://github.com/theBowja/genshin-db) by theBowja. The data for the archive and the planner. Used
-  under the MIT License.
-- [Project Amber](https://gi.yatta.moe): the character, weapon, material, talent and constellation icons, and the
-  wish art.
-- [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData): the EXP each level needs.
-- [Genshin Impact Wiki](https://genshin-impact.fandom.com): the average drops behind the resin estimate,
-  gathered by the Genshin Data Gathering team.
-- [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync's requests and
-  their signing follow it (MIT License).
-- [UIGF](https://uigf.org): item ids for UIGF exports.
-- [GOOD](https://frzyc.github.io/genshin-optimizer/#/doc), Genshin Optimizer's data format: the GOOD import reads it.
-- [Google Sans Flex](https://github.com/googlefonts/googlesans-flex), under the SIL Open Font License 1.1, and
-  [Lucide](https://lucide.dev) icons, under the ISC License.
-- [GPUI Kit](https://gpui-kit.com), under the Apache License 2.0.
+- [paimon.moe](https://github.com/MadeBaruna/paimon-moe) by Made Baruna: the wish counter is a remake of it, and the
+  banner and item data come from it (MIT License).
+- [genshin-db](https://github.com/theBowja/genshin-db) by theBowja: the data behind the archive and the planner (MIT
+  License).
+- [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync follows its
+  requests (MIT License).
+- [Project Amber](https://gi.yatta.moe) for the icons and character art, the
+  [Genshin Impact Wiki](https://genshin-impact.fandom.com) and the Genshin Data Gathering team for the drop rates behind
+  the resin estimate, and [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) for the EXP tables.
+- [UIGF](https://uigf.org) and [GOOD](https://frzyc.github.io/genshin-optimizer/#/doc), the formats it reads and
+  writes.
+- [GPUI Kit](https://gpui-kit.com) (Apache License 2.0), [Google Sans Flex](https://github.com/googlefonts/googlesans-flex)
+  (SIL Open Font License 1.1) and [Lucide](https://lucide.dev) icons (ISC License).
 
-The full MIT notices are in [`crates/wish-app/licenses/`](crates/wish-app/licenses), and on the app's Credits page.
-So is `THIRD-PARTY-LICENSES.txt`, the licence of every open-source crate the app is built with, also in every
-release archive.
+The full notices are in [`crates/wish-app/licenses/`](crates/wish-app/licenses) and on the app's Credits page, along
+with the licence of every open-source crate the app is built with.
 
 ## Licence
 
-Genshin Companion's code is licensed under the [GNU General Public License v3.0 or later](LICENSE).
+The code is licensed under the [GNU General Public License v3.0 or later](LICENSE).
 
-Genshin Impact, its characters, weapons, art and all other game content belong to HoYoverse.
-They are not covered by this licence. Neither this repository nor the app's builds contain the game's images: the
-app downloads them for the player who runs it. Its data files do hold the game's names, numbers and texts
-(descriptions of characters, talents, constellations and weapons), as the wikis publish them, so the archive works
-offline. Genshin Companion is a fan project. It is not affiliated with or endorsed by HoYoverse.
+Genshin Impact and everything in it belong to HoYoverse, and aren't covered by this licence. Neither this repository
+nor the builds contain the game's images; the app downloads them for whoever runs it. The data files do include the
+game's names, numbers and descriptions, as the wikis publish them, so the archive works offline. Genshin Companion
+is a fan project, not affiliated with or endorsed by HoYoverse.
