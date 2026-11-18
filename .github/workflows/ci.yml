@@ -95,4 +95,11 @@ jobs:
       - run: cargo test --workspace --locked --no-fail-fast
         env:
           CARGO_TERM_COLOR: never
+      # The code's documentation: a link to an item that moved or went fails.
+      # Once is enough: it reads the same on every system.
+      - run: cargo doc --workspace --no-deps --locked
+        if: runner.os == 'Linux'
+        env:
+          CARGO_TERM_COLOR: never
+          RUSTDOCFLAGS: -D warnings
       - run: cargo build --workspace --release --locked

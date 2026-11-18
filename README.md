@@ -259,12 +259,16 @@ Newer data can also be added without rebuilding the app. Put `items.json`, `bann
 
 ## Development
 
-The workspace has three crates, and each one depends only on the one after it:
+The workspace has four crates, and each one depends only on the ones after it:
 
 - `wish-app` is the window.
 - `wish-ui` is the design system: theme, fonts, icons and shared components.
 - `wish-core` holds the logic and the tests: data, storage, imports, the pity engine and the planner. It never
   depends on GPUI.
+- `hoyolab`, under `wish-core`, is a small HoYoLAB client for the sync.
+
+How the code works (where each thing is, how data moves, the storage, the imports, the planner, the design system,
+with diagrams) is in [docs/architecture](docs/architecture/README.md).
 
 ```sh
 cargo test --workspace
