@@ -84,8 +84,3 @@ import-linked = { $count ->
        *[other] { $count } wishes
     } from paimon.moe matched the game’s records, which are noted for future imports.
 import-try-again = Try again
-import-server-asia = Asia
-import-server-america = America
-import-server-europe = Europe
-import-server-tw-hk-mo = TW, HK, MO
-import-server-china = China

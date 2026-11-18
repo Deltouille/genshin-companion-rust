@@ -36,6 +36,44 @@ impl Library {
         )
     }
 
+    /// Renames an account and, for one without a UID, gives it its UID or
+    /// server (`identity`), in one write. The UID's problems (taken, not a
+    /// UID) are found before the name changes.
+    pub fn edit_account(
+        &mut self,
+        account: AccountId,
+        label: String,
+        identity: Option<(Option<String>, Option<Server>)>,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| {
+                if let Some((uid, server)) = identity {
+                    store.identify_account(account, uid.as_deref(), server)?;
+                }
+                Ok(store.rename_account(account, &label)?)
+            },
+            |_, ()| (),
+        )
+    }
+
+    /// Removes an account without wishes, with what it owns and plans,
+    /// after a backup.
+    pub fn remove_account(
+        &mut self,
+        account: AccountId,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        self.write(
+            cx,
+            true,
+            move |store, _| Ok(store.remove_account(account)?),
+            |_, ()| (),
+        )
+    }
+
     /// Reads and checks a file for import. Nothing is written.
     /// A spreadsheet without a UID goes to `target`, the account on screen.
     pub fn prepare_import(

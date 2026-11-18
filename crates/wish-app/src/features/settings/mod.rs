@@ -1,4 +1,5 @@
-//! Settings: where the data lives, its backups, and the mirror folder.
+//! Settings: the accounts, where the data lives, its backups, and the mirror
+//! folder.
 
 use crate::app::notices::report;
 use gpui_kit::base::StyledExt as _;
@@ -11,6 +12,7 @@ use gpui_kit::{
     rems,
 };
 
+mod accounts;
 mod backups;
 mod export;
 mod images;
@@ -384,6 +386,7 @@ impl SettingsPage {
 
         let images = self.images_group(cx);
         let language = self.language_group(cx);
+        let accounts = self.accounts_group(cx);
         // A centred column; on a wide window, two: the data and its imports
         // on the left, the rest on the right.
         let room = crate::shell::content_width(window) / window.rem_size();
@@ -394,7 +397,14 @@ impl SettingsPage {
                 .grid_cols(2)
                 .gap_6()
                 .items_start()
-                .child(div().v_flex().gap_6().child(data).child(recent))
+                .child(
+                    div()
+                        .v_flex()
+                        .gap_6()
+                        .child(accounts)
+                        .child(data)
+                        .child(recent),
+                )
                 .child(
                     div()
                         .v_flex()
@@ -410,6 +420,7 @@ impl SettingsPage {
                 .v_flex()
                 .gap_6()
                 .child(language)
+                .child(accounts)
                 .child(data)
                 .child(recent)
                 .child(export)

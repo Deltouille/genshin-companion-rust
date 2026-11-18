@@ -84,8 +84,3 @@ import-linked = { $count ->
        *[other] { $count } vœux de paimon.moe correspondaient
     } aux données du jeu, qui sont notées pour les prochains imports.
 import-try-again = Réessayer
-import-server-asia = Asie
-import-server-america = Amérique
-import-server-europe = Europe
-import-server-tw-hk-mo = TW, HK, MO
-import-server-china = Chine

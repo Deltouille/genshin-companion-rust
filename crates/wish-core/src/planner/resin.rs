@@ -106,7 +106,7 @@ impl ResinSource {
     /// talent materials a domain gives (not the Crown of Insight; a
     /// placeholder's, which has no days, counts as one); boss
     /// materials the 4★ level-up ones (the weekly bosses' are 5★).
-    fn of(material: &Material) -> Option<ResinSource> {
+    pub(super) fn of(material: &Material) -> Option<ResinSource> {
         match material.kind.as_str() {
             "Character Talent Material"
                 if !material.days.is_empty() || material.is_placeholder() =>

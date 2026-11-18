@@ -1,5 +1,6 @@
 //! The planner page's pieces, each drawing its part of the
-//! [`PlannerModel`](super::model::PlannerModel): the "Still needed" card,
+//! [`PlannerModel`](super::model::PlannerModel): the "Farm today" card, the
+//! "Still needed" card,
 //! an entry's card, a list of materials, the card that follows the pointer
 //! while one is moved. They pass the clicks back through [`Actions`], the
 //! view's; none reads or writes the library.
@@ -16,9 +17,11 @@ mod card;
 mod drag;
 mod materials;
 mod still_needed;
+mod today;
 
 pub(super) use card::{CardControls, EntryCard};
 pub(super) use still_needed::StillNeeded;
+pub(super) use today::FarmToday;
 
 /// What a click on a material does.
 pub(super) type OnMaterial = Rc<dyn Fn(CustomItem, &mut Window, &mut App)>;

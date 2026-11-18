@@ -44,6 +44,7 @@ text_enum! {
         BeforeCounting => "before-counting",
         BeforePlanning => "before-planning",
         BeforeSync => "before-sync",
+        BeforeRemovingAccount => "before-removing-account",
     }
 }
 

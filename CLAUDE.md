@@ -185,6 +185,10 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     4★ level-up ones, per boss; Character EXP and Mora from ley lines). Averages by world level from the Genshin Impact
     wiki (Genshin Data Gathering team); weekly bosses, gems, ores and enemy drops are left out, as genshin-center does.
     `ResinOptions` (world level, resin a day, sources ignored) live in `settings.json` (`Settings::resin`).
+    `farming.rs`: what to farm today. `game_day(now)` (the game's day starts at 04:00 in the server's time,
+    `DAY_STARTS_AT`) and `next_game_day`; `PlannerData::farms(allocation)` → `Farm`s: each talent book or weapon
+    material series the plan still lacks once the inventory is shared out (its tiers lacking, the entries lacking
+    some, the domain and its days from `Material::days`; a placeholder has no days, so it isn't one).
   - `store/plan.rs` + migrations `003_planner.sql`, `004_inventory_and_custom_characters.sql` and
     `005_planner_weapons.sql` (a weapon entry has `weapon_key`, and its key in `name` too, which 003's CHECK wants),
     `006_planner_custom_weapons.sql` (`custom_weapon` tells a custom weapon from a custom character): `plan_entries`
@@ -194,7 +198,13 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     removes the row). Each write is one transaction after at most one `before-planning` backup an hour. Costs are
     never stored. Each account has its own plan and inventory (migration 007); the snapshot and the mirror carry
     them.
-  - `store/`: SQLite (`Store`), migrations in `store/schema/`, backups. `Store::take_changed` says which accounts'
+  - `store/`: SQLite (`Store`), migrations in `store/schema/`, backups. Accounts: `add_account` (by hand: a
+    name, optionally a UID and server), `rename_account`, `identify_account` (gives an account without a UID its
+    UID or only its server; a UID, once there, stays, `Error::AccountHasUid`: the game import and HoYoLAB find the
+    account by it), `remove_account` (only one without wishes, counters or imports, `Error::AccountHasWishes`;
+    its collection, plan and inventory go with it, after a `before-removing-account` backup, in one transaction).
+    A UID's server is the one its leading digits say (`Server::from_uid`, as genshin.py reads them) and wins over
+    one given. `Store::take_changed` says which accounts'
     analyses the writes since the last call may have changed (`Changed`: their wishes, manual counters or server;
     `All` once opened or a backup restored): a write that changes one of those must note it (`Store::changed`), so
     the app's cached analysis is worked out again.
@@ -315,7 +325,8 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
     takes `.cursor_pointer()` itself.
     A new piece used by two pages or more goes here; one used by a single page stays in its feature.
   - `assets.rs`: `UiAssets` (component icons plus the Lucide icons listed in `icon_assets!`) and `pool_icon`.
-  - `format.rs`: numbers, sizes, dates (`date`, `date_time`, `month_year`…), quotes and the game's fixed terms
+  - `format.rs`: numbers, sizes, dates (`date`, `date_time`, `month_year`, `weekday`…), quotes, servers
+    (`server`), `capitalize` (a core error, which starts lowercase, as a sentence) and the game's fixed terms
     (`element`, `weapon_type`, `stat`: from the data's English) in the current language. Never chrono's
     `format("%b")` for a player: its names are English.
   - Charts: the user wants as few bar charts as possible; prefer areas, lines with dots, donuts. Give a chart
@@ -449,7 +460,11 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       and closes): a character from the levels and talents the account has (else `CharacterGoal::FULL`) to 90/90
       with talents to 10, a weapon from 1 to its rarity's top (`Shell::open_planner_add` for the screenshot tool); each
       character entry has range sliders (level over `Level::steps`, the three talents) that save on release, and
-      the costs follow them while dragged. The "Still needed" card is on top (`Allocation::missing`), then the
+      the costs follow them while dragged. "Farm today" (`sections/today.rs`, `model::TodayModel`) comes first, when
+      the plan lacks talent books or weapon materials: the domains open on the game's day (`GameDay`: in the
+      account's server time, else the computer's) with the tiers lacking (the "Still needed" card's tiles) and who
+      needs them, or the next day one is open; `PlannerView::watch_the_day` rebuilds when the day changes (it
+      looks every ten minutes at most, as timers don't count a computer's sleep). The "Still needed" card follows (`Allocation::missing`), then the
       character cards in a grid of up to 4 columns (each card at least `CARD_REMS` wide, worked out from the
       window's width); a card's tiles show what the entry still lacks after the inventory share-out, greyed at 0 once
       covered. A card is dragged by its header (grip, picture, name: `DraggedEntry`) and dropped on another,
@@ -535,10 +550,13 @@ The three crates mirror a front-end's core / shared / features split, and Cargo 
       account shown (`GoodSource`), a preview (`model.rs`: the words, tested alone; the characters' and weapons'
       lines are the HoYoLAB preview's, identical lines once with their count, then the materials "before → after"),
       then `Library::apply_good`. The Import page has a card for it (`good_import_button`).
-    - `settings/`: `SettingsPage` (entity) and its rows (the language first: a picker, the system's or one chosen,
+    - `settings/`: `SettingsPage` (entity) and its rows (`accounts.rs`: Settings → Accounts, each account with its
+      UID, server, wishes and characters; "Add…" and "Edit…" open `AccountForm` (a name; the UID and server while
+      the account has none, the server following a UID typed; checked before the store does), "Remove…" only an
+      account without wishes, after asking; `Shell::open_account` for the screenshot tool; the language first: a picker, the system's or one chosen,
       `Preferences::set_language` → `crate::apply_language`, which redraws every window; pages that work text out
       ahead of a render do it again when the library notifies), in a centred column, or two on a page at least
-      `TWO_COLUMNS_REMS` wide (your data and recent imports on the left, the rest on the right); `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
+      `TWO_COLUMNS_REMS` wide (the accounts, your data and recent imports on the left, the rest on the right); `backups.rs`, `imports.rs` (undo), `export.rs`, `mirror.rs`,
       `images.rs` (the image cache: size, empty, download all for offline use).
     - `credits/`: `Credits` (`RenderOnce`). It must keep paimon.moe's, genshin-db's and genshin.py's MIT notices
       (`licenses/paimon-moe-MIT.txt`, `licenses/genshin-db-MIT.txt`, `licenses/genshin-py-MIT.txt`; the `hoyolab`

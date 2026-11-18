@@ -259,6 +259,24 @@ impl Server {
             _ => None,
         }
     }
+
+    /// The server a UID plays on, from its leading digits (the last eight
+    /// are the player's number), as genshin.py reads them: 6 America, 7
+    /// Europe, 8 and 18 Asia, 9 TW/HK/MO, 1, 2, 3 and 5 China. `None` for
+    /// anything else.
+    pub fn from_uid(uid: &str) -> Option<Self> {
+        if !(9..=10).contains(&uid.len()) || !uid.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        match &uid[..uid.len() - 8] {
+            "6" => Some(Server::America),
+            "7" => Some(Server::Europe),
+            "8" | "18" => Some(Server::Asia),
+            "9" => Some(Server::TwHkMo),
+            "1" | "2" | "3" | "5" => Some(Server::China),
+            _ => None,
+        }
+    }
 }
 
 /// Star rating of a wished item.

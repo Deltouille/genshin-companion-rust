@@ -60,6 +60,9 @@ The app opens on your account in figures, one tab each:
   only reads the file: how the tool that wrote it gets your data is between you and that tool.
 - **Exports:** the lossless snapshot (every account: wishes, characters, weapons, plan and inventory), UIGF v4 and
   paimon.moe's spreadsheet.
+- **Accounts:** imports make theirs on their own; Settings → Accounts adds one by hand (a name, and optionally its
+  UID or server), renames one, gives one without a UID its UID (it then stays: imports find the account by it),
+  and removes one that has no wishes, after a backup.
 All of these are on the Import page; the wish imports are also on the Overview.
 
 ### Your history is never lost
@@ -119,6 +122,9 @@ Like [genshin-center](https://genshin-center.com/planner)'s planner.
   a weapon's three: domain material, elite and common drops), picked from the game's or typed by name. A material
   not known yet can be its role's placeholder, "?" (an unknown talent book, boss material…): it is counted, crafted
   and farmed like the real one. It then costs what any character, or weapon of its stars, costs.
+- **Farm today:** the domains open today that give what the plan still lacks, with the tiers missing and who
+  needs them; when none does, the next day one will. The day is the game's, which starts at 4:00 in your server's
+  time (the account's, from its UID; this computer's clock when it has none).
 - **Resin:** how much Original Resin farming what is still lacking takes on average, and how many days, as on
   genshin-center: on each card, and for the whole plan by source (talent books and weapon materials from domains,
   boss materials, Hero's Wit and Mora from ley lines). *Resin options…* sets your world level, the resin you spend

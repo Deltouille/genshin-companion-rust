@@ -23,6 +23,9 @@ mod sections;
 
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::time::Duration;
+
+use chrono::{FixedOffset, Local, Utc};
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
@@ -33,16 +36,18 @@ use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::slider::{SliderEvent, SliderState, SliderValue};
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, FontWeight, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Subscription, Window, div,
+    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Subscription, Task, Window,
+    div,
 };
+use wish_core::model::Server;
 use wish_core::planner::{
     CharacterGoal, CustomItem, Level, MaterialId, PlanEntry, PlanTarget, Role, WeaponGoal,
-    exp_series,
+    exp_series, game_day, next_game_day,
 };
 
 use crate::app::{Library, Session};
-use model::PlannerModel;
-use sections::{Actions, CardControls, EntryCard, Look, StillNeeded};
+use model::{GameDay, PlannerModel};
+use sections::{Actions, CardControls, EntryCard, FarmToday, Look, StillNeeded};
 use wish_core::model::AccountId;
 use wish_ui::{PageFrame, button, card, dialog_footer};
 
@@ -54,8 +59,13 @@ pub struct PlannerView {
     /// The entry whose card is being dragged, dimmed meanwhile.
     dragging: Option<i64>,
     /// What the page shows, worked out again when the plan, the inventory,
-    /// the account or a slider changes; the render only reads it.
+    /// the account, a slider or the game's day changes; the render only
+    /// reads it.
     model: Rc<PlannerModel>,
+    /// The game's day the model is for.
+    day: GameDay,
+    /// Wakes when the game's day changes, for its domains.
+    _day_watch: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -86,12 +96,18 @@ impl PlannerView {
                 cx.notify();
             }),
         ];
+        let day = GameDay {
+            day: game_day(now_on(None)),
+            server: None,
+        };
         let mut view = Self {
             session,
             library,
             controls: HashMap::new(),
             dragging: None,
             model: Rc::default(),
+            day,
+            _day_watch: Self::watch_the_day(cx),
             _subscriptions: subscriptions,
         };
         view.sync_controls(window, cx);
@@ -102,6 +118,40 @@ impl PlannerView {
     /// The account whose plan is shown: the sidebar's.
     fn account(&self, cx: &App) -> Option<AccountId> {
         self.session.read(cx).account()
+    }
+
+    /// The game's day for the account shown: in its server's time, else in
+    /// the player's.
+    fn game_day(&self, cx: &App) -> GameDay {
+        let server = (self.account(cx))
+            .and_then(|id| self.library.read(cx).account(id))
+            .and_then(|summary| summary.account.server);
+        GameDay {
+            day: game_day(now_on(server)),
+            server,
+        }
+    }
+
+    /// Shows the new game day's domains when it starts. It looks again every
+    /// ten minutes at most: a computer put to sleep doesn't count the time
+    /// asleep in its timers.
+    fn watch_the_day(cx: &mut Context<Self>) -> Task<()> {
+        cx.spawn(async move |this, cx| {
+            loop {
+                let Ok(wait) = this.update(cx, |this, cx| {
+                    if this.game_day(cx) != this.day {
+                        this.rebuild(cx);
+                        cx.notify();
+                    }
+                    let now = now_on(this.day.server);
+                    (next_game_day(now) - now).to_std().unwrap_or_default()
+                }) else {
+                    break;
+                };
+                let wait = (wait + Duration::from_secs(1)).min(Duration::from_secs(600));
+                cx.background_executor().timer(wait).await;
+            }
+        })
     }
 
     /// Adds a character: from the levels and talents the account has (as the
@@ -378,12 +428,14 @@ impl PlannerView {
     fn rebuild(&mut self, cx: &App) {
         let account = self.account(cx);
         let plan = self.live_plan(cx);
+        self.day = self.game_day(cx);
         let library = self.library.read(cx);
         let model = PlannerModel::build(
             &plan,
             library.inventory(account),
             library.planner(),
             &library.settings(cx).resin,
+            self.day,
         );
         self.model = Rc::new(model);
     }
@@ -534,6 +586,11 @@ impl Render for PlannerView {
                         .px_6()
                         .pt_2()
                         .pb_6()
+                        .children(model.today.clone().map(|today| FarmToday {
+                            today,
+                            look: look.clone(),
+                            actions: actions.clone(),
+                        }))
                         .child(StillNeeded {
                             model: model.clone(),
                             look,
@@ -644,4 +701,12 @@ impl PlannerView {
 /// Shows a notice if a plan write fails.
 fn report_plan<T: 'static>(task: gpui_kit::Task<anyhow::Result<T>>, cx: &mut App) {
     crate::app::notices::report(task, t!("planner-not-saved"), cx);
+}
+
+/// Now, in the server's time, else in the player's.
+fn now_on(server: Option<Server>) -> chrono::DateTime<FixedOffset> {
+    match server.and_then(|server| FixedOffset::east_opt(server.utc_offset_hours() * 3600)) {
+        Some(offset) => Utc::now().with_timezone(&offset),
+        None => Local::now().fixed_offset(),
+    }
 }

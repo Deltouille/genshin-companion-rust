@@ -458,6 +458,24 @@ fn main() -> Result<()> {
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
 
+        // Settings → Accounts: a new account, then the first one.
+        let first = cx.update(|cx| library.read(cx).accounts().first().map(|a| a.account.id));
+        for (name, account) in [("new", None), ("edit", first)] {
+            cx.update_window(window, |_, window, cx| {
+                shell.update(cx, |shell, cx| shell.open_account(account, window, cx))
+            })?;
+            for _ in 0..3 {
+                std::thread::sleep(Duration::from_millis(300));
+                cx.advance_clock(Duration::from_millis(300));
+                cx.update_window(window, |_, window, _| window.refresh())?;
+                cx.run_until_parked();
+            }
+            shoot(&mut cx, format!("settings-account-{name}-{mode_name}"))?;
+            cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
+            cx.advance_clock(Duration::from_secs(1));
+            cx.run_until_parked();
+        }
+
         // The character archive: the list, then one character's three tabs.
         cx.update(|cx| {
             shell.update(cx, |shell, cx| {

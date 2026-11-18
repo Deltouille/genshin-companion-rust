@@ -86,6 +86,13 @@ pub enum Error {
         uid: String,
     },
 
+    /// An account's UID came from the game, or was given once: it stays.
+    AccountHasUid(String),
+
+    /// An account with wishes (or counters, or imports in the history)
+    /// isn't removed.
+    AccountHasWishes(String),
+
     NotManual(String),
 
     UnknownImport(i64),
@@ -231,6 +238,12 @@ impl fmt::Display for Error {
                 t!("error-unknown-account", account = account.to_string())
             }
             Error::EmptyAccountName => t!("error-empty-account-name"),
+            Error::AccountHasUid(account) => {
+                t!("error-account-has-uid", account = account.as_str())
+            }
+            Error::AccountHasWishes(account) => {
+                t!("error-account-has-wishes", account = account.as_str())
+            }
             Error::InvalidUid(uid) => t!("error-invalid-uid", uid = uid.as_str()),
             Error::UidTaken { uid, account } => {
                 t!(

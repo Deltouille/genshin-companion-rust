@@ -62,6 +62,7 @@ settings-backup-reason-delete = Before deleting wishes
 settings-backup-reason-counting = Before counting wishes
 settings-backup-reason-planning = Before changing your collection or plan
 settings-backup-reason-sync = Before a HoYoLAB sync
+settings-backup-reason-account = Before removing an account
 settings-backup-reason-unknown = Backup
 
 ## Recent imports
@@ -153,3 +154,42 @@ settings-images-empty-title = Empty the downloaded images?
 settings-images-empty-help = They are downloaded again when pages show them. None of your data is touched.
 settings-images-empty-button = Empty
 settings-images-empty-failed = Couldn’t empty the downloaded images
+
+## Accounts
+settings-group-accounts = Accounts
+settings-account-uid = UID { $uid }
+settings-account-no-uid = No UID
+settings-account-no-server = server unknown
+settings-account-wishes = { $count ->
+        [0] no wishes
+        [one] { $count } wish
+       *[other] { $count } wishes
+    }
+settings-account-characters = { $count ->
+        [0] no characters
+        [one] { $count } character
+       *[other] { $count } characters
+    }
+settings-account-edit = Edit…
+settings-account-remove = Remove…
+settings-account-add-title = Add an account
+settings-account-add-help = For a player who imports no wishes yet, or another account of yours. Imports and HoYoLAB make their accounts on their own.
+settings-account-add = Add…
+settings-account-add-button = Add
+settings-account-added = { $account } added
+settings-account-add-failed = Couldn’t add the account
+settings-account-edit-title = Edit the account
+settings-account-save = Save
+settings-account-edit-failed = Couldn’t change the account
+settings-account-remove-title = Remove { $account }?
+settings-account-remove-help = Its characters, weapons, plan and inventory go with it. A backup is taken first: Restore… brings them back.
+settings-account-remove-button = Remove
+settings-account-remove-failed = Couldn’t remove the account
+settings-account-removed = { $account } removed
+settings-account-name = Name
+settings-account-uid-label = UID (optional)
+settings-account-uid-placeholder = 9 or 10 digits
+settings-account-server = Server
+settings-account-server-unknown = Not known
+settings-account-uid-kept = It came with an import or was given once: the imports find the account by it, so it stays.
+settings-account-identity-help = A UID says its server. Without one, choose the server: the wish banners’ times and the planner’s day follow it. Once given, the UID stays.

@@ -428,6 +428,23 @@ impl Shell {
         crate::features::credits::open_licenses(window, cx);
     }
 
+    /// Opens Settings and the account form: for a new account, or to edit
+    /// `account` (the screenshot tool uses it).
+    pub fn open_account(
+        &mut self,
+        account: Option<AccountId>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate(Page::Settings, cx);
+        let account = account
+            .and_then(|id| self.library.read(cx).account(id))
+            .map(|summary| summary.account.clone());
+        self.settings.update(cx, |settings, cx| {
+            settings.open_account(account, window, cx)
+        });
+    }
+
     /// Opens weapon `key`'s page in the archive.
     pub fn open_weapon(&mut self, key: &str, cx: &mut Context<Self>) {
         self.navigate(Page::Archive(ArchivePage::Weapons), cx);

@@ -1,10 +1,10 @@
 //! Numbers, sizes and dates as the current language writes them
 //! (`wish_core::i18n::language`), and the labels every page shares.
 
-use chrono::{Datelike, Timelike};
+use chrono::{Datelike, Timelike, Weekday};
 use wish_core::engine::RateUpOutcome;
 use wish_core::i18n::{decimal, integer};
-use wish_core::model::{PRIMOGEMS_PER_WISH, Pool};
+use wish_core::model::{PRIMOGEMS_PER_WISH, Pool, Server};
 
 /// The odds of a rate-up item when not guaranteed: 50/50 on character
 /// banners, 75/25 on the weapon banner.
@@ -197,6 +197,40 @@ fn month_name(month: u32) -> String {
         10 => t!("ui-month-10"),
         11 => t!("ui-month-11"),
         _ => t!("ui-month-12"),
+    }
+}
+
+/// A message that starts lowercase (the core's errors, also used
+/// mid-sentence) as a sentence's start.
+pub fn capitalize(text: &str) -> String {
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => String::new(),
+    }
+}
+
+/// A game server: "Europe", or "Asie".
+pub fn server(server: Server) -> String {
+    match server {
+        Server::Asia => t!("ui-server-asia"),
+        Server::America => t!("ui-server-america"),
+        Server::Europe => t!("ui-server-europe"),
+        Server::TwHkMo => t!("ui-server-tw-hk-mo"),
+        Server::China => t!("ui-server-china"),
+    }
+}
+
+/// A day of the week: "Tuesday", or "mardi".
+pub fn weekday(day: Weekday) -> String {
+    match day {
+        Weekday::Mon => t!("ui-weekday-mon"),
+        Weekday::Tue => t!("ui-weekday-tue"),
+        Weekday::Wed => t!("ui-weekday-wed"),
+        Weekday::Thu => t!("ui-weekday-thu"),
+        Weekday::Fri => t!("ui-weekday-fri"),
+        Weekday::Sat => t!("ui-weekday-sat"),
+        Weekday::Sun => t!("ui-weekday-sun"),
     }
 }
 

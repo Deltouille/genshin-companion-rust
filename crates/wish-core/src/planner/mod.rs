@@ -9,6 +9,7 @@
 mod allocate;
 mod custom;
 mod data;
+mod farming;
 mod inventory;
 mod plan;
 mod resin;
@@ -20,6 +21,7 @@ pub use custom::{CustomMaterials, Role};
 pub use data::{
     Character, Cost, MAX_LEVEL, Material, MaterialId, PLANNER_FILE, PlannerData, Weapon,
 };
+pub use farming::{DAY_STARTS_AT, Farm, game_day, next_game_day};
 pub use inventory::Inventory;
 pub use plan::{CustomCost, CustomItem, PlanEntry, PlanTarget, PlanTotals};
 pub use resin::{

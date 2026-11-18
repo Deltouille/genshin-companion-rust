@@ -168,6 +168,165 @@ mod accounts {
         let alt = store.add_account("Alt", Some("  "), None).unwrap();
         assert_eq!(alt.uid, None);
     }
+
+    #[test]
+    fn a_uid_says_its_server() {
+        assert_eq!(Server::from_uid("612345678"), Some(Server::America));
+        assert_eq!(Server::from_uid("712345678"), Some(Server::Europe));
+        assert_eq!(Server::from_uid("812345678"), Some(Server::Asia));
+        assert_eq!(Server::from_uid("1812345678"), Some(Server::Asia));
+        assert_eq!(Server::from_uid("912345678"), Some(Server::TwHkMo));
+        assert_eq!(Server::from_uid("112345678"), Some(Server::China));
+        assert_eq!(Server::from_uid("512345678"), Some(Server::China));
+        assert_eq!(Server::from_uid("412345678"), None);
+        assert_eq!(Server::from_uid("71234567"), None);
+
+        // The UID's server wins over the one given.
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let main = store
+            .add_account("Main", Some("700000001"), Some(Server::Asia))
+            .unwrap();
+        assert_eq!(main.server, Some(Server::Europe));
+    }
+
+    #[test]
+    fn an_account_without_a_uid_is_given_one_once() {
+        use std::collections::BTreeSet;
+        use wish_core::store::Changed;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let main = store.add_account("Main", None, None).unwrap().id;
+        store.add_account("Other", Some("800000002"), None).unwrap();
+        store.take_changed();
+
+        // Only a server: the banners' times move, so the analysis does too.
+        let only = store
+            .identify_account(main, None, Some(Server::America))
+            .unwrap();
+        assert_eq!((only.uid, only.server), (None, Some(Server::America)));
+        assert_eq!(store.take_changed(), Changed::Accounts([main].into()));
+        // The same server again changes nothing.
+        store
+            .identify_account(main, Some(" "), Some(Server::America))
+            .unwrap();
+        assert_eq!(store.take_changed(), Changed::Accounts(BTreeSet::new()));
+
+        // A taken or bad UID is refused, and nothing changes.
+        assert!(matches!(
+            store.identify_account(main, Some("800000002"), None),
+            Err(Error::UidTaken { .. })
+        ));
+        assert!(matches!(
+            store.identify_account(main, Some("80000"), None),
+            Err(Error::InvalidUid(_))
+        ));
+        assert_eq!(store.account(main).unwrap().uid, None);
+
+        // A UID brings its server.
+        let given = store
+            .identify_account(main, Some("700000001"), Some(Server::America))
+            .unwrap();
+        assert_eq!(given.uid.as_deref(), Some("700000001"));
+        assert_eq!(given.server, Some(Server::Europe));
+        assert_eq!(store.account(main).unwrap(), given);
+
+        // Then it stays.
+        assert!(matches!(
+            store.identify_account(main, Some("700000003"), None),
+            Err(Error::AccountHasUid(_))
+        ));
+        assert!(matches!(
+            store.identify_account(AccountId(99), None, None),
+            Err(Error::UnknownAccount(_))
+        ));
+    }
+
+    #[test]
+    fn an_account_without_wishes_is_removed_with_all_it_holds() {
+        use wish_core::store::BackupReason;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let main = store.add_account("Main", None, None).unwrap().id;
+        let kept = store.add_account("Kept", None, None).unwrap().id;
+        for account in [main, kept] {
+            store.add_plan_entry(account, &ganyu()).unwrap();
+            store
+                .set_owned(account, &CustomItem::Material(MORA), 1000)
+                .unwrap();
+            store
+                .save_owned_character(account, &OwnedCharacter::new("ganyu"))
+                .unwrap();
+            store
+                .add_owned_weapon(account, &OwnedWeapon::new("amosbow"))
+                .unwrap();
+        }
+        let custom = PlanTarget::CustomCharacter {
+            name: "Leak".to_owned(),
+            stars: 5,
+            materials: Default::default(),
+            goal: CharacterGoal::FULL,
+        };
+        store.add_plan_entry(main, &custom).unwrap();
+
+        store.remove_account(main).unwrap();
+        assert!(matches!(store.account(main), Err(Error::UnknownAccount(_))));
+        assert!(
+            (store.backups().unwrap().iter())
+                .any(|backup| backup.reason == Some(BackupReason::BeforeRemovingAccount))
+        );
+        // Nothing of it is left behind, and the other account keeps its own.
+        let conn = Connection::open(AppPaths::at(dir.path()).database()).unwrap();
+        for table in [
+            "plan_entries",
+            "inventory",
+            "owned_weapons",
+            "owned_characters",
+        ] {
+            let left: i64 = conn
+                .query_row(
+                    &format!("SELECT count(*) FROM {table} WHERE account_id = ?1"),
+                    params![main.0],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert_eq!(left, 0, "{table}");
+        }
+        let orphans: i64 = conn
+            .query_row(
+                "SELECT (SELECT count(*) FROM plan_custom_costs WHERE entry_id NOT IN (SELECT id FROM plan_entries))
+                      + (SELECT count(*) FROM plan_custom_materials WHERE entry_id NOT IN (SELECT id FROM plan_entries))",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(orphans, 0);
+        assert_eq!(store.plan(kept).unwrap().len(), 1);
+        assert_eq!(store.collection(kept).unwrap().characters.len(), 1);
+    }
+
+    #[test]
+    fn an_account_with_wishes_is_not_removed() {
+        use wish_core::data::GameData;
+        use wish_core::import::paimon;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let sample = include_bytes!("fixtures/paimon-sample.json");
+        let batch = paimon::parse(sample, GameData::embedded()).unwrap();
+        let report = store.apply_import(batch).unwrap();
+        let account = report.accounts[0].account.id;
+        let before = store.backups().unwrap().len();
+        assert!(matches!(
+            store.remove_account(account),
+            Err(Error::AccountHasWishes(_))
+        ));
+        assert!(store.account(account).is_ok());
+        // Refused before any backup.
+        assert_eq!(store.backups().unwrap().len(), before);
+    }
 }
 
 mod per_account {

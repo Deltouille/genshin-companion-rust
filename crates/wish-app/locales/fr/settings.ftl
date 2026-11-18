@@ -62,6 +62,7 @@ settings-backup-reason-delete = Avant la suppression de vœux
 settings-backup-reason-counting = Avant un comptage de vœux
 settings-backup-reason-planning = Avant un changement de votre collection ou de votre plan
 settings-backup-reason-sync = Avant une synchronisation HoYoLAB
+settings-backup-reason-account = Avant de supprimer un compte
 settings-backup-reason-unknown = Sauvegarde
 
 ## Imports récents
@@ -161,3 +162,42 @@ settings-images-empty-title = Vider les images téléchargées ?
 settings-images-empty-help = Elles sont téléchargées à nouveau quand les pages les montrent. Aucune de vos données n’est touchée.
 settings-images-empty-button = Vider
 settings-images-empty-failed = Impossible de vider les images téléchargées
+
+## Comptes
+settings-group-accounts = Comptes
+settings-account-uid = UID { $uid }
+settings-account-no-uid = Sans UID
+settings-account-no-server = serveur inconnu
+settings-account-wishes = { $count ->
+        [0] aucun vœu
+        [one] { $count } vœu
+       *[other] { $count } vœux
+    }
+settings-account-characters = { $count ->
+        [0] aucun personnage
+        [one] { $count } personnage
+       *[other] { $count } personnages
+    }
+settings-account-edit = Modifier…
+settings-account-remove = Supprimer…
+settings-account-add-title = Ajouter un compte
+settings-account-add-help = Pour un joueur qui n’importe pas encore de vœux, ou un autre de vos comptes. Les imports et HoYoLAB créent leurs comptes d’eux-mêmes.
+settings-account-add = Ajouter…
+settings-account-add-button = Ajouter
+settings-account-added = { $account } ajouté
+settings-account-add-failed = Impossible d’ajouter le compte
+settings-account-edit-title = Modifier le compte
+settings-account-save = Enregistrer
+settings-account-edit-failed = Impossible de modifier le compte
+settings-account-remove-title = Supprimer { $account } ?
+settings-account-remove-help = Ses personnages, ses armes, son plan et son inventaire partent avec lui. Une sauvegarde est faite d’abord : Restaurer… les ramène.
+settings-account-remove-button = Supprimer
+settings-account-remove-failed = Impossible de supprimer le compte
+settings-account-removed = { $account } supprimé
+settings-account-name = Nom
+settings-account-uid-label = UID (facultatif)
+settings-account-uid-placeholder = 9 ou 10 chiffres
+settings-account-server = Serveur
+settings-account-server-unknown = Non renseigné
+settings-account-uid-kept = Il vient d’un import ou a été donné une fois : les imports retrouvent le compte par lui, il ne change donc plus.
+settings-account-identity-help = Un UID dit son serveur. Sans UID, choisissez le serveur : les horaires des bannières et le jour du planificateur le suivent. Une fois donné, l’UID ne change plus.

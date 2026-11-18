@@ -152,7 +152,7 @@ impl GameImport {
             Ok(link) => link,
             Err(err) => {
                 self.note = Some(Note {
-                    text: capitalize(&err.to_string()).into(),
+                    text: wish_ui::format::capitalize(&err.to_string()).into(),
                     is_error: true,
                 });
                 cx.notify();
@@ -176,7 +176,9 @@ impl GameImport {
                         plan,
                     },
                     Err(err) if is_cancelled(&err) => Step::Link,
-                    Err(err) => Step::Failed(capitalize(&format!("{err:#}")).into()),
+                    Err(err) => {
+                        Step::Failed(wish_ui::format::capitalize(&format!("{err:#}")).into())
+                    }
                 };
                 cx.notify();
             })
@@ -354,7 +356,7 @@ impl GameImport {
 
         let mut heading = format!("UID {}", plan.uid.clone().unwrap_or_default());
         if let Some(server) = plan.server {
-            heading = format!("{heading} · {}", server_name(server));
+            heading = format!("{heading} · {}", wish_ui::format::server(server));
         }
 
         let new_total = target.new_total();
@@ -494,24 +496,4 @@ fn close_button(id: &'static str) -> Button {
     button(id)
         .label(t!("app-close"))
         .on_click(|_, window, cx| window.close_dialog(cx))
-}
-
-fn server_name(server: wish_core::model::Server) -> String {
-    use wish_core::model::Server;
-    match server {
-        Server::Asia => t!("import-server-asia"),
-        Server::America => t!("import-server-america"),
-        Server::Europe => t!("import-server-europe"),
-        Server::TwHkMo => t!("import-server-tw-hk-mo"),
-        Server::China => t!("import-server-china"),
-    }
-}
-
-/// Error messages start lowercase (they are also used mid-sentence).
-fn capitalize(text: &str) -> String {
-    let mut chars = text.chars();
-    match chars.next() {
-        Some(first) => first.to_uppercase().chain(chars).collect(),
-        None => String::new(),
-    }
 }

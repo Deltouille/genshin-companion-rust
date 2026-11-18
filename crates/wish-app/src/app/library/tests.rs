@@ -225,6 +225,43 @@ fn quitting_knows_every_write_under_way_whatever_its_end() {
 /// Each account's analysis (pity, 50/50, the history's numbers) is kept from
 /// one reload to the next: a write works out again only those it changed.
 #[test]
+fn an_account_is_edited_whole_or_not_at_all_then_removed() {
+    use wish_core::model::Server;
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = Harness::open(dir.path());
+    let add = |app: &mut Harness, label: &str, uid: Option<&str>| {
+        let (label, uid) = (label.to_owned(), uid.map(str::to_owned));
+        let task = app.update(|library, cx| library.add_account(label, uid, None, cx));
+        app.finish(task).unwrap().id
+    };
+    let main = add(&mut app, "Main", None);
+    add(&mut app, "Alt", Some("800000001"));
+
+    // A taken UID: the name doesn't change either.
+    let identity = Some((Some("800000001".to_owned()), None));
+    let task =
+        app.update(|library, cx| library.edit_account(main, "Renamed".to_owned(), identity, cx));
+    assert!(app.finish(task).is_err());
+    assert_eq!(app.labels(), ["Main", "Alt"]);
+
+    // A free one: both, and the server it says.
+    let identity = Some((Some("700000001".to_owned()), Some(Server::Asia)));
+    let task =
+        app.update(|library, cx| library.edit_account(main, "Renamed".to_owned(), identity, cx));
+    app.finish(task).unwrap();
+    assert_eq!(app.labels(), ["Renamed", "Alt"]);
+    let account = app.read(|library| library.account(main).unwrap().account.clone());
+    assert_eq!(account.uid.as_deref(), Some("700000001"));
+    assert_eq!(account.server, Some(Server::Europe));
+
+    // Removed: gone from the list.
+    let task = app.update(|library, cx| library.remove_account(main, cx));
+    app.finish(task).unwrap();
+    assert_eq!(app.labels(), ["Alt"]);
+}
+
+#[test]
 fn a_write_works_out_again_only_the_analyses_it_changed() {
     use wish_core::data::GameData;
     use wish_core::engine::Analysis;

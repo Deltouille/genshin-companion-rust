@@ -42,6 +42,22 @@ ui-month-10 = October
 ui-month-11 = November
 ui-month-12 = December
 
+## Game servers.
+ui-server-asia = Asia
+ui-server-america = America
+ui-server-europe = Europe
+ui-server-tw-hk-mo = TW, HK, MO
+ui-server-china = China
+
+## Days of the week.
+ui-weekday-mon = Monday
+ui-weekday-tue = Tuesday
+ui-weekday-wed = Wednesday
+ui-weekday-thu = Thursday
+ui-weekday-fri = Friday
+ui-weekday-sat = Saturday
+ui-weekday-sun = Sunday
+
 ## The 50/50
 
 ui-guaranteed-rate-up = guaranteed rate-up
