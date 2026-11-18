@@ -1,16 +1,22 @@
-//! The character archive, after paimon.moe's character list and Project
-//! Amber's, and the player's own characters, after genshin-tracker's: the
-//! characters the selected account owns first (level and constellation on the
-//! card, a star for favourites), then the others, filtered by element, weapon
-//! and rarity; a click opens the character's page (what the player has,
-//! profile with stats at any level, talents, constellations).
+//! The archive: the game's characters, weapons and materials, after
+//! Project Amber's and genshinlist.vercel.app's lists, with what the selected
+//! account owns of each, after genshin-tracker's. Three pages, each an entity
+//! of its own, kept while the player goes elsewhere:
 //!
-//! An entity: the filters, the open character and the level sliders
-//! are its own state, kept while the user goes elsewhere. What the account
-//! owns is the [`Library`]'s, per account, followed through the [`Session`].
-//! The shell opens the list from the sidebar and a character with
-//! [`CharactersView::show_character`]. The weapons are [`WeaponsView`]'s, the
-//! materials and how many the account has [`ResourcesView`]'s.
+//! - `characters/` ([`CharactersView`]): the list (owned first, then the
+//!   others faded), filters and sort, and a character's page (the hero banner,
+//!   "My character", stats at any level, ascension, talents, constellations);
+//! - `weapons/` ([`WeaponsView`]): the same for weapons, with the account's
+//!   copies of each;
+//! - `resources/` ([`ResourcesView`]): every material by type, with how many
+//!   the account has; a click opens the planner's inventory dialog.
+//!
+//! What they share: `filters.rs` (the filter bar and its drawer), `shared.rs`
+//! (the list card, the hero banner, the stats table…), and here the sort
+//! order and the level pickers. What the account owns is the [`Library`]'s,
+//! per account, followed through the [`Session`]. The shell opens a list from
+//! the sidebar, and a page with [`CharactersView::show_character`] or
+//! [`WeaponsView::show_weapon`].
 
 mod characters;
 mod filters;

@@ -34,6 +34,8 @@ pub fn count(value: impl Into<u64>) -> String {
     integer(value.into())
 }
 
+/// What `wishes` cost in primogems, written as the current language writes
+/// numbers.
 pub fn primogems(wishes: u32) -> String {
     count(u64::from(wishes) * u64::from(PRIMOGEMS_PER_WISH))
 }
@@ -75,6 +77,7 @@ pub fn plural(count: u32, one: &'static str, many: &'static str) -> &'static str
     if count == 1 { one } else { many }
 }
 
+/// A rate-up result in words: "Won", "Lost", "Guaranteed"…
 pub fn outcome(outcome: RateUpOutcome) -> String {
     match outcome {
         RateUpOutcome::Won => t!("ui-outcome-won"),

@@ -13,6 +13,7 @@ pub struct PlanEntry {
     pub target: PlanTarget,
 }
 
+/// What a plan entry levels up.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PlanTarget {
     /// A character of the game data, from where it is to where it should be.

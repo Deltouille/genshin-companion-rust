@@ -19,6 +19,7 @@ use wish_core::model::{AccountId, Pool};
 
 use super::library::{AccountSummary, Library};
 
+/// The account on screen and the flow in progress, for the whole window.
 pub struct Session {
     library: Entity<Library>,
     account: Option<AccountId>,

@@ -1,8 +1,21 @@
-//! The user's wish history as the window sees it: the store, the game data,
-//! every account's analysis, and the operations that change them.
+//! All the player's data as the window sees it: the store, the game data
+//! (the wish history's, the planner's, the archive's), every account's
+//! analysis, collection, plan and inventory, and the operations that change
+//! them.
 //!
-//! `Library` owns this state; views observe it. Database work runs on the
-//! background executor, behind a mutex, one write at a time.
+//! [`Library`] owns this state; views observe it. Database work runs on the
+//! background executor, behind a mutex, one write at a time. The files:
+//!
+//! - this one: the state, opening the data folder, the accessors, and
+//!   reloading after a write;
+//! - `write.rs`: the write queue (`Library::write` keeps the order, finishes
+//!   a write its caller let go of, and reloads after a failure or a panic);
+//! - `data.rs`: imports, syncs, exports, backups, undo and accounts;
+//! - `plan.rs`: the plan and the inventory; `collection.rs`: what an account
+//!   owns;
+//! - `mirror.rs`: the mirror folder's snapshot, written a moment after the
+//!   last change;
+//! - `tests.rs`: the write queue's promises, under the test scheduler.
 
 use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
@@ -17,22 +30,14 @@ use futures_channel::mpsc::UnboundedSender;
 use futures_channel::oneshot;
 use gpui_kit::{App, AppContext as _, Context, Entity, SharedString, Subscription, Task};
 use wish_core::archive::ArchiveData;
-use wish_core::data::GameData;
-use wish_core::images::{self, Collection};
-
-use super::image_service::ImageCatalog;
-use super::images::Job;
 use wish_core::collection::{
     Collection as Owned, GoodFile, GoodPlan, OwnedCharacter, OwnedWeapon, SyncPlan,
 };
+use wish_core::data::GameData;
+use wish_core::engine::{self, Analysis};
 use wish_core::error::IoAction;
 use wish_core::hoyolab;
-use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
-use wish_core::service::export::ExportSummary;
-use wish_core::service::{self, lock};
-
-use super::images::Images;
-use wish_core::engine::{self, Analysis};
+use wish_core::images::{self, Collection};
 use wish_core::import::api::{FetchProgress, GachaLink};
 use wish_core::import::api_plan::ApiPlan;
 use wish_core::import::game_cache::{self, FoundLink};
@@ -40,16 +45,22 @@ use wish_core::import::{
     self, ImportBatch, ImportRecord, ImportReport, PreparedImport, UndoReport,
 };
 use wish_core::model::{Account, AccountId, Server, WishId};
+use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
+use wish_core::service::export::ExportSummary;
+use wish_core::service::{self, lock};
 use wish_core::settings::Settings;
 use wish_core::snapshot;
+use wish_core::store::{BackupFile, BackupReason};
+use wish_core::{AppPaths, Store};
+
+use super::image_service::ImageCatalog;
+use super::images::{Images, Job};
 
 pub use super::image_service::{DownloadState, ImageDownload, ImageService};
 pub use super::preferences::Preferences;
 pub use super::services::{ImageDownloads, Services};
 pub use wish_core::service::good::GoodPreview;
 pub use wish_core::service::hoyolab::{HoyolabAccount, SyncChoice};
-use wish_core::store::{BackupFile, BackupReason};
-use wish_core::{AppPaths, Store};
 
 /// Where a GOOD file comes from: a file the player picked, or the text they
 /// copied (Irminsul exports to the clipboard too).
@@ -61,6 +72,8 @@ pub enum GoodSource {
 
 /// How many imports the import log shows.
 const RECENT_IMPORTS: u32 = 10;
+/// Whether the data folder is open yet: the window shows a spinner while it
+/// opens, and why when it failed.
 pub enum LoadState {
     Loading,
     Ready,
@@ -91,6 +104,7 @@ impl Holdings {
     }
 }
 
+/// The backups in the data folder, for Settings.
 #[derive(Clone, Debug, Default)]
 pub struct BackupStatus {
     pub count: usize,
@@ -135,6 +149,9 @@ impl FetchControl {
     }
 }
 
+/// The player's data as the window sees it, and every operation on it. Created
+/// once by `main` (or a test); each page holds an `Entity<Library>`, reads it
+/// and observes it. Its writes go through `Library::write`, one at a time.
 pub struct Library {
     paths: AppPaths,
     /// The network: the game's API, HoYoLAB, the image sites.
@@ -528,6 +545,8 @@ fn write_mirror(store: &Store, folder: &Path) -> MirrorStatus {
     }
 }
 
+/// A path's file name, to name a file in a message; the whole path when it has
+/// none.
 pub fn file_name(path: &Path) -> String {
     path.file_name().map_or_else(
         || path.display().to_string(),

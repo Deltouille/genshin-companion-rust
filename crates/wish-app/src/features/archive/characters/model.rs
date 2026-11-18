@@ -43,6 +43,8 @@ impl Filters<'_> {
     }
 }
 
+/// The character list as the page draws it: the owned ones first, then the
+/// others, filtered and sorted.
 pub(super) struct CharacterList {
     /// What the account owns, its favourites first, each part in the chosen
     /// order.
@@ -54,6 +56,7 @@ pub(super) struct CharacterList {
     pub total: usize,
 }
 
+/// One character's card in the list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct CharacterCard {
     pub key: String,

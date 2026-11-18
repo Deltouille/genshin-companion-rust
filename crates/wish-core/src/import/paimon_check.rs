@@ -17,6 +17,7 @@ use crate::error::{Error, Result};
 use crate::model::{Rarity, WishId};
 use crate::stats::RateStats;
 
+/// What [`compare`] found.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Comparison {
     /// How many stored values were compared.
@@ -38,6 +39,8 @@ impl Comparison {
     }
 }
 
+/// Runs the engine on a paimon.moe save and compares each pull's pity and 50/50
+/// and each counter with the values the save stored. Writes nothing.
 pub fn compare(json: &[u8], data: &GameData) -> Result<Comparison> {
     let save: Map<String, Value> = match serde_json::from_slice(json)? {
         Value::Object(save) => save,

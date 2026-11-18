@@ -1,3 +1,11 @@
+//! The core's one error type, [`Error`], and [`IoAction`], what was being
+//! done to a file when it failed.
+//!
+//! Each variant's message is an `error-…` text of `locales/<code>/core.ftl`,
+//! so it reads in the current language; the app shows it as it is, often after
+//! "what failed:" (`Notice::failure`). A test checks that no message names a
+//! developer's step.
+
 use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};

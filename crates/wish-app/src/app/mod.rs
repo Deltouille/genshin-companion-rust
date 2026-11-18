@@ -1,7 +1,9 @@
-//! The app's state and services, below the views: the [`Library`] model,
-//! the [`Session`] (selected account, flow in progress),
-//! item images, the embedded assets and the [`Notices`] (messages about work
-//! done in the background).
+//! The app's state and services, below the views: the [`Library`] (all the
+//! player's data, and the writes), its [`Preferences`](library::Preferences)
+//! and [`ImageService`](library::ImageService), the [`Session`] (selected
+//! account, flow in progress), the [`Services`] it reaches outside, the
+//! embedded assets and the [`Notices`] (messages about work done in the
+//! background). No views.
 
 mod assets;
 pub mod image_service;

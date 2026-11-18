@@ -1,3 +1,5 @@
+//! Page navigation for long tables (the wish history).
+
 use std::ops::Range;
 use std::rc::Rc;
 

@@ -12,8 +12,8 @@ use super::{Language, language};
 /// A text of the game's data in every language it comes in. It reads (as a
 /// `str`, or shown) in the current language, else in English.
 ///
-/// What the game, HoYoLAB or a file says is matched against [`english`]
-/// (`Text::english`), never against the text shown: a comparison has to say
+/// What the game, HoYoLAB or a file says is matched against [`Text::english`],
+/// never against the text shown: a comparison has to say
 /// which, so `Text` has no `==` with a string.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Text {

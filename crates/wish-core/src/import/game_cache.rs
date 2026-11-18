@@ -18,6 +18,7 @@ const LOG_FOLDERS: [&str; 2] = ["Genshin Impact", "原神"];
 /// The game's data folder, global and China releases.
 const DATA_FOLDERS: [&str; 2] = ["GenshinImpact_Data", "YuanShen_Data"];
 
+/// A wish history link found in the game's web cache.
 #[derive(Clone, Debug)]
 pub struct FoundLink {
     pub link: GachaLink,

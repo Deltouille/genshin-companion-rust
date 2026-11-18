@@ -196,6 +196,8 @@ pub(super) fn item_columns(item: &CustomItem) -> (Option<i64>, Option<&str>) {
     }
 }
 
+/// Writes a new plan entry at `position`, with its custom costs or materials;
+/// returns its id.
 pub(super) fn insert_entry(
     tx: &Transaction,
     account: AccountId,

@@ -1,16 +1,60 @@
-//! Settings → Recent imports: undo one after confirming.
+//! Settings → Recent imports: the latest imports, and undoing one after
+//! confirming.
 
 use crate::app::notices::report_outcome;
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
-use gpui_kit::{Context, SharedString, Window};
+use gpui_kit::prelude::FluentBuilder as _;
+use gpui_kit::{AnyElement, Context, Div, ParentElement as _, SharedString, Window, div};
 
 use wish_core::import::{ImportRecord, ImportSource};
 
-use super::SettingsPage;
-use wish_ui::{button, dialog_footer, format};
+use super::{SettingsPage, group, help, row};
+use wish_ui::{ButtonExt as _, button, dialog_footer, format};
 
 impl SettingsPage {
+    /// The latest imports, newest first, each with Undo while it has
+    /// something to take out.
+    pub(super) fn imports_group(&self, cx: &mut Context<Self>) -> Div {
+        let library = self.library.read(cx);
+        let busy = library.is_busy();
+        let imports = library.imports().to_vec();
+        let rows: Vec<AnyElement> = if imports.is_empty() {
+            vec![row(t!("settings-imports-none"), div(), div())]
+        } else {
+            imports
+                .into_iter()
+                .map(|record| {
+                    let undoable = record.undone_at.is_none() && record.added > 0;
+                    let status = if record.undone_at.is_some() {
+                        t!("settings-import-undone")
+                    } else {
+                        t!("settings-import-added", count = record.added)
+                    };
+                    let id = SharedString::from(format!("undo-import-{}", record.id));
+                    row(
+                        format!("{} · {}", import_origin(&record), record.account_label),
+                        help(
+                            format!("{} · {status}", local_time(&record.imported_at)),
+                            cx,
+                        ),
+                        div().when(undoable, |this| {
+                            this.child(
+                                button(id)
+                                    .label(t!("settings-undo"))
+                                    .unavailable(busy)
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        this.confirm_undo(record.clone(), window, cx)
+                                    })),
+                            )
+                        }),
+                    )
+                })
+                .collect()
+        };
+        group(t!("settings-group-imports"), rows, cx)
+    }
+
     pub(super) fn confirm_undo(
         &mut self,
         record: ImportRecord,

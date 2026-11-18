@@ -1,3 +1,6 @@
+//! A material on its rarity tile with a count: the planner's costs and the
+//! inventory.
+
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::{ActiveTheme as _, Icon};

@@ -57,6 +57,7 @@ pub(super) fn read_inventory(conn: &Connection, account: AccountId) -> Result<In
     Ok(inventory)
 }
 
+/// Sets how many of `item` the account has; 0 removes its row.
 pub(super) fn set_owned(
     tx: &Transaction,
     account: AccountId,

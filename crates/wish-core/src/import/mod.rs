@@ -234,6 +234,7 @@ pub struct WishLink {
     pub api_id: WishId,
 }
 
+/// An imported file as received, kept under `imports/` beside the data.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OriginalFile {
     pub name: String,
@@ -262,6 +263,7 @@ impl ImportReport {
     }
 }
 
+/// What an import changed in one account.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountReport {
     pub account: Account,
@@ -297,6 +299,7 @@ pub struct UndoReport {
     pub removed_counters: u32,
 }
 
+/// An import's wishes of one pool: added, or already stored.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PoolCounts {
     pub added: u32,

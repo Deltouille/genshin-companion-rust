@@ -1,8 +1,24 @@
-//! Core of the app: the wish counter's data model, banner/item data, storage,
-//! importers and pity / 50-50 engine, and the ascension planner's data and
-//! costs.
+//! The core of Genshin Companion: everything but the window. It never
+//! depends on GPUI, so all of it tests alone, and `wishctl` (an example)
+//! drives it from a terminal.
 //!
-//! This crate must never depend on GPUI so it stays unit-testable and reusable.
+//! The modules, by layer (`docs/architecture/` has the whole picture):
+//!
+//! - **Domain**, the game's rules, which reach no database, network or file
+//!   (`tests/layers.rs` checks it): [`model`] (wishes, pools, accounts),
+//!   [`engine`] (pity, banners, 50/50), [`stats`], [`planner`] (costs,
+//!   allocation, resin, what to farm), [`collection`] (what an account owns,
+//!   HoYoLAB syncs, GOOD files), [`archive`] (character and weapon pages).
+//! - **Game data**, embedded JSON a newer copy can override: [`data`] (items
+//!   and banners), with the planner's and the archive's own files.
+//! - **Storage**: [`store`] (SQLite, migrations, backups), [`snapshot`] (the
+//!   lossless export and the mirror), [`paths`] (the data folder),
+//!   [`settings`] (`settings.json`).
+//! - **Imports and exports**: [`import`] (paimon.moe saves, the game's API,
+//!   UIGF, spreadsheets, counting by hand), [`uigf`], [`excel`].
+//! - **Use cases** shared by the app and `wishctl`: [`service`].
+//! - **Cross-cutting**: [`i18n`] (Fluent texts, the game's names in every
+//!   language), [`error`], [`images`] (where each game image comes from).
 
 /// A text of the core in the current language: `t!("key", name = value)`
 /// (see [`i18n`]).

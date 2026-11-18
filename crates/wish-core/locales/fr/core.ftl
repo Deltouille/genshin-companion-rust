@@ -113,6 +113,10 @@ import-conflicts = { $account }, { $pool } : { $count ->
        *[other] { $count } vœux diffèrent
     } du vœu enregistré avec le même identifiant ; la version enregistrée a été gardée
 import-counters-kept = { $account }, { $pool } : les compteurs manuels enregistrés (total { $stored_total }, pity 5★ { $stored_five }, pity 4★ { $stored_four }) ont été gardés à la place de ceux importés (total { $total }, pity 5★ { $five }, pity 4★ { $four })
+import-links-kept = { $account } : { $count ->
+        [one] { $count } identifiant du jeu ne correspond pas
+       *[other] { $count } identifiants du jeu ne correspondent pas
+    } à ceux déjà enregistrés ; ceux enregistrés ont été gardés
 
 ## Synchronisation HoYoLAB : ce que le joueur doit savoir
 

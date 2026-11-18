@@ -2,16 +2,17 @@
 //! sidebar) or app-wide page.
 //!
 //! - `overview/`: the app's home, the account in figures, one tab each: its
-//!   wishes, its characters, the weapons its wishes brought.
+//!   wishes, its characters, its weapons.
 //! - `wishes/`: the wish counter (history per banner type, import).
-//! - `archive/`, `planner/`: the game's characters and weapons, the ascension
-//!   planner.
+//! - `archive/`: the game's characters, weapons and materials, with what the
+//!   account owns of each.
+//! - `planner/`: the ascension planner.
 //! - `imports/`: every way to bring data in, on one page (the wish history,
-//!   the HoYoLAB sync of the characters).
+//!   the HoYoLAB sync, a GOOD file).
 //! - `settings/`, `credits/`: the app's own pages, at the foot of the sidebar.
 //!
-//! A new feature (such as an ascension planner) gets its own folder here, its
-//! pages in `shell::Page` and its group in the sidebar.
+//! A new feature (such as a quest reader) gets its own folder here, its pages
+//! in `shell::Page` and its group in the sidebar.
 
 pub(crate) mod archive;
 pub(crate) mod credits;

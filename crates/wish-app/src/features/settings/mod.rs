@@ -1,10 +1,12 @@
-//! Settings: the accounts, where the data lives, its backups, and the mirror
-//! folder.
+//! Settings, one card per group: the accounts (`accounts`), the language,
+//! your data, its backups and the mirror (`data`, `backups`, `mirror`),
+//! recent imports and undoing one (`imports`), exports (`export`), the image
+//! cache (`images`), counting by hand, and the game data. This file holds the
+//! page, its small groups, the layout (one centred column, or two on a wide
+//! window) and the rows every group is made of.
 
-use crate::app::notices::report;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::switch::Switch;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, FontWeight, IntoElement, ParentElement as _,
@@ -14,20 +16,16 @@ use gpui_kit::{
 
 mod accounts;
 mod backups;
+mod data;
 mod export;
 mod images;
 mod imports;
 mod mirror;
 
-use crate::app::library::{ExportKind, MirrorStatus};
+use crate::app::notices::report;
 use crate::app::{Library, Session};
-use imports::{import_origin, local_time};
 use wish_core::i18n::Language;
-use wish_core::store::{KEEP_BACKUPS, KEEP_HOURLY_BACKUPS};
-use wish_ui::format;
-use wish_ui::{
-    ButtonExt as _, PageFrame, PickerEvent, PickerItem, PickerState, button, card, picker,
-};
+use wish_ui::{PageFrame, PickerEvent, PickerItem, PickerState, card, picker};
 
 /// A column of settings, in rems.
 const COLUMN_REMS: f32 = 48.;
@@ -110,237 +108,10 @@ impl SettingsPage {
         report(task, t!("settings-save-failed"), cx);
     }
 
-    /// Puts the interface in `language`, or the system's (`None`).
-    fn set_language(&mut self, language: Option<Language>, cx: &mut Context<Self>) {
-        let preferences = self.library.read(cx).preferences().clone();
-        let task = preferences.update(cx, |preferences, cx| preferences.set_language(language, cx));
-        report(task, t!("settings-save-failed"), cx);
-    }
-}
-
-impl Render for SettingsPage {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.render_settings(window, cx)
-    }
-}
-
-impl SettingsPage {
-    fn render_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let library = self.library.read(cx);
-        let theme = cx.theme();
-        let busy = library.is_busy();
-        let root = library.paths().root().to_path_buf();
-        let backups = library.backups();
-        let mirror_folder = library.settings(cx).mirror_folder.clone();
-        let manual_counting = library.settings(cx).manual_counting;
-        let imports = library.imports().to_vec();
-
-        let backup_line = match backups.newest {
-            Some(newest) => t!(
-                "settings-backups-summary",
-                count = backups.count,
-                latest = format::date_at_time(&newest),
-                kept = KEEP_BACKUPS,
-                kept_hourly = KEEP_HOURLY_BACKUPS,
-            ),
-            None => t!("settings-backups-none"),
-        };
-        let mirror_status = match (&mirror_folder, library.mirror()) {
-            (None, _) => None,
-            (Some(_), Some(MirrorStatus::Written(at))) => Some((
-                t!("settings-mirror-written", time = format::time(at)),
-                false,
-            )),
-            (Some(_), Some(MirrorStatus::Failed(error))) => Some((
-                t!("settings-mirror-failed", error = error.to_string()),
-                true,
-            )),
-            (Some(_), None) => Some((t!("settings-mirror-pending"), false)),
-        };
-        let game_data_warning = library.game_data_warning().cloned();
-        let settings_warning = library.settings_warning(cx).cloned();
-        let source = library.data().map(|data| {
-            data.banners
-                .source
-                .commit
-                .chars()
-                .take(8)
-                .collect::<String>()
-        });
-
-        let muted = theme.muted_foreground;
-        let danger = theme.danger;
-        let mono = theme.mono_font_family.clone();
-        let path_text = |path: String| {
-            div()
-                .text_sm()
-                .font_family(mono.clone())
-                .truncate()
-                .child(path)
-        };
-
-        let data =
-            group(
-                t!("settings-group-data"),
-                vec![
-                    row(
-                        t!("settings-data-folder"),
-                        div()
-                            .v_flex()
-                            .gap_0p5()
-                            .child(path_text(root.display().to_string()))
-                            .child(help(t!("settings-data-folder-help"), cx))
-                            .when_some(settings_warning, |this, warning| {
-                                this.child(
-                                    div()
-                                        .text_sm()
-                                        .text_color(cx.theme().warning)
-                                        .child(format!("{warning}.")),
-                                )
-                            }),
-                        button("reveal-data-folder")
-                            .label(t!("settings-reveal"))
-                            .on_click(move |_, _, cx| cx.reveal_path(&root)),
-                    ),
-                    row(
-                        t!("settings-backups"),
-                        help(backup_line, cx),
-                        div()
-                            .h_flex()
-                            .gap_2()
-                            .child(
-                                button("back-up-now")
-                                    .label(t!("settings-back-up-now"))
-                                    .loading(busy)
-                                    .on_click(cx.listener(|this, _, _, cx| this.back_up(cx))),
-                            )
-                            .child(
-                                button("restore-backup")
-                                    .label(t!("settings-restore"))
-                                    .unavailable(busy)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_backups(window, cx)
-                                    })),
-                            ),
-                    ),
-                    row(
-                        t!("settings-mirror-folder"),
-                        div()
-                            .v_flex()
-                            .gap_0p5()
-                            .when_some(mirror_folder.clone(), |this, folder| {
-                                this.child(path_text(folder.display().to_string()))
-                            })
-                            .child(help(t!("settings-mirror-help"), cx))
-                            .when_some(mirror_status, |this, (line, failed)| {
-                                this.child(
-                                    div()
-                                        .text_sm()
-                                        .text_color(if failed { danger } else { muted })
-                                        .child(line),
-                                )
-                            }),
-                        div()
-                            .h_flex()
-                            .gap_2()
-                            .when(mirror_folder.is_some(), |this| {
-                                this.child(
-                                    button("stop-mirroring")
-                                        .ghost()
-                                        .label(t!("settings-mirror-stop"))
-                                        .unavailable(busy)
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.set_mirror_folder(None, cx)
-                                        })),
-                                )
-                            })
-                            .child(
-                                button("choose-mirror-folder")
-                                    .label(t!("settings-mirror-choose"))
-                                    .unavailable(busy)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.choose_mirror_folder(window, cx)
-                                    })),
-                            ),
-                    ),
-                ],
-                cx,
-            );
-
-        let recent_rows: Vec<AnyElement> = if imports.is_empty() {
-            vec![row(t!("settings-imports-none"), div(), div())]
-        } else {
-            imports
-                .into_iter()
-                .map(|record| {
-                    let undoable = record.undone_at.is_none() && record.added > 0;
-                    let status = if record.undone_at.is_some() {
-                        t!("settings-import-undone")
-                    } else {
-                        t!("settings-import-added", count = record.added)
-                    };
-                    let id = SharedString::from(format!("undo-import-{}", record.id));
-                    row(
-                        format!("{} · {}", import_origin(&record), record.account_label),
-                        help(
-                            format!("{} · {status}", local_time(&record.imported_at)),
-                            cx,
-                        ),
-                        div().when(undoable, |this| {
-                            this.child(
-                                button(id)
-                                    .label(t!("settings-undo"))
-                                    .unavailable(busy)
-                                    .on_click(cx.listener(move |this, _, window, cx| {
-                                        this.confirm_undo(record.clone(), window, cx)
-                                    })),
-                            )
-                        }),
-                    )
-                })
-                .collect()
-        };
-        let recent = group(t!("settings-group-imports"), recent_rows, cx);
-
-        let has_account = self.session.read(cx).account().is_some();
-        let export_row = |kind: ExportKind, title: String, description: String, enabled: bool| {
-            row(
-                title,
-                help(description, cx),
-                button(SharedString::from(format!("export-{kind:?}")))
-                    .label(t!("settings-export"))
-                    .unavailable(!enabled)
-                    .on_click(
-                        cx.listener(move |this, _, window, cx| this.export(kind, window, cx)),
-                    ),
-            )
-        };
-        let export = group(
-            t!("settings-group-export"),
-            vec![
-                export_row(
-                    ExportKind::Snapshot,
-                    t!("settings-export-snapshot"),
-                    t!("settings-export-snapshot-help"),
-                    true,
-                ),
-                export_row(
-                    ExportKind::Uigf,
-                    t!("settings-export-uigf"),
-                    t!("settings-export-uigf-help"),
-                    true,
-                ),
-                export_row(
-                    ExportKind::Spreadsheet,
-                    t!("settings-export-spreadsheet"),
-                    t!("settings-export-spreadsheet-help"),
-                    has_account,
-                ),
-            ],
-            cx,
-        );
-
-        let counting = group(
+    /// Counting wishes by hand, like paimon.moe's manual mode: on or off.
+    fn counting_group(&self, cx: &mut Context<Self>) -> gpui_kit::Div {
+        let manual_counting = self.library.read(cx).settings(cx).manual_counting;
+        group(
             t!("settings-group-counting"),
             vec![row(
                 t!("settings-manual-counting"),
@@ -354,9 +125,23 @@ impl SettingsPage {
                     ),
             )],
             cx,
-        );
+        )
+    }
 
-        let game_data = group(
+    /// The game data the wish history reads: where it comes from, and what
+    /// was wrong with a newer copy in the game-data folder.
+    fn game_data_group(&self, cx: &App) -> gpui_kit::Div {
+        let library = self.library.read(cx);
+        let game_data_warning = library.game_data_warning().cloned();
+        let source = library.data().map(|data| {
+            data.banners
+                .source
+                .commit
+                .chars()
+                .take(8)
+                .collect::<String>()
+        });
+        group(
             t!("settings-group-game-data"),
             vec![row(
                 t!("settings-banners-items"),
@@ -382,8 +167,30 @@ impl SettingsPage {
             }))
             .collect(),
             cx,
-        );
+        )
+    }
 
+    /// Puts the interface in `language`, or the system's (`None`).
+    fn set_language(&mut self, language: Option<Language>, cx: &mut Context<Self>) {
+        let preferences = self.library.read(cx).preferences().clone();
+        let task = preferences.update(cx, |preferences, cx| preferences.set_language(language, cx));
+        report(task, t!("settings-save-failed"), cx);
+    }
+}
+
+impl Render for SettingsPage {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.render_settings(window, cx)
+    }
+}
+
+impl SettingsPage {
+    fn render_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let data = self.data_group(cx);
+        let recent = self.imports_group(cx);
+        let export = self.export_group(cx);
+        let counting = self.counting_group(cx);
+        let game_data = self.game_data_group(cx);
         let images = self.images_group(cx);
         let language = self.language_group(cx);
         let accounts = self.accounts_group(cx);

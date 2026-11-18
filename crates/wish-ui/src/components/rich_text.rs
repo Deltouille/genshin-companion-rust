@@ -1,3 +1,5 @@
+//! Game text with the terms it highlights in semibold.
+
 use gpui_kit::{FontWeight, HighlightStyle, SharedString, StyledText};
 
 /// Game text where `**…**` marks a term the game highlights: the markers go,

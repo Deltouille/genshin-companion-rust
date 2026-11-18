@@ -11,6 +11,7 @@ use serde::Deserialize;
 
 use super::{Language, language};
 
+/// One language's `data/<code>.json`.
 #[derive(Debug, Default, Deserialize)]
 pub(crate) struct GameTexts {
     #[serde(default)]
@@ -87,6 +88,7 @@ static TRANSLATIONS: LazyLock<Vec<(Language, GameTexts)>> = LazyLock::new(|| {
         .collect()
 });
 
+/// Every language's texts but English's, read from the embedded files once.
 pub(crate) fn translations() -> &'static [(Language, GameTexts)] {
     &TRANSLATIONS
 }

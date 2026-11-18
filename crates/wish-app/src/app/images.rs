@@ -25,6 +25,9 @@ use wish_core::images::{self, Remote};
 use wish_core::model::Wish;
 use wish_core::planner::{Character, Material, Weapon};
 
+/// The game's images by what they show, as file paths in the cache: what is
+/// there, what is being downloaded, what the sites lack. Cheap to clone; the
+/// pages read it through `Library::images`.
 #[derive(Clone, Debug, Default)]
 pub struct Images {
     cache: PathBuf,

@@ -1,3 +1,6 @@
+//! The pity of each 5★ in time order, as a line of dots with the average
+//! dashed; the Overview and the wish history share it.
+
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::chart::LineChart;
 use gpui_kit::{App, Div, ParentElement as _, SharedString, Styled as _, div};

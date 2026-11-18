@@ -44,6 +44,8 @@ impl From<(MaterialId, u32)> for Cost {
     }
 }
 
+/// A material of the game: what the planner counts in costs and inventories, by
+/// its game id.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Material {
     pub id: MaterialId,
@@ -71,6 +73,7 @@ impl Material {
     }
 }
 
+/// A character the planner can plan, with its ascension and talent costs.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Character {
     /// genshin-db's key (`kamisatoayaka`); one per element for the Traveler
@@ -89,6 +92,7 @@ pub struct Character {
     pub talents: Vec<Vec<Cost>>,
 }
 
+/// A weapon the planner can plan, with its ascension costs.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Weapon {
     pub key: String,
@@ -149,6 +153,8 @@ impl PlannerData {
         }
     }
 
+    /// Reads a `planner.json`; refuses one whose costs name a material it
+    /// lacks.
     pub fn from_json(json: &str) -> Result<Self> {
         #[derive(Deserialize)]
         struct File {

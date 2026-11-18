@@ -24,9 +24,12 @@ use crate::planner::{
 };
 use crate::store::Store;
 
-// Named after the app's former name (Genshin Wishes), kept so that every
-// snapshot written so far still reads, and the mirror file stays the same.
+/// The `format` field every snapshot carries. Named after the app's former
+/// name (Genshin Wishes), kept so that every snapshot written so far still
+/// reads, and the mirror file stays the same.
 pub const FORMAT: &str = "genshin-wishes-snapshot";
+/// The version this app writes. Version 1 (wishes only) still reads; a newer
+/// one is refused ([`Error::SnapshotTooNew`]).
 pub const VERSION: u32 = 2;
 
 /// Name of the snapshot kept in the mirror folder. One fixed name, so a
@@ -40,6 +43,8 @@ pub fn write_mirror(store: &Store, folder: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
+/// The app's own lossless export, and the mirror's file: every account with its
+/// wishes, manual counters, game ids, collection, plan and inventory.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot {
     pub format: String,
@@ -50,6 +55,8 @@ pub struct Snapshot {
     pub accounts: Vec<SnapshotAccount>,
 }
 
+/// One account of a snapshot. The collection, plan and inventory are records of
+/// the format's own, so a change of the app's types never changes the file.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotAccount {
     pub label: String,
@@ -106,6 +113,8 @@ impl Snapshot {
         })
     }
 
+    /// Reads a snapshot: its header first (another format, or a newer version,
+    /// is refused with a clear message), then the whole file.
     pub fn from_json(json: &[u8]) -> Result<Self> {
         #[derive(Deserialize)]
         struct Header {
@@ -133,6 +142,7 @@ impl Snapshot {
         Ok(serde_json::from_slice(json)?)
     }
 
+    /// The snapshot as pretty-printed JSON.
     pub fn to_json(&self) -> Vec<u8> {
         let mut json = serde_json::to_vec_pretty(self).expect("snapshot types always serialize");
         json.push(b'\n');
@@ -187,6 +197,7 @@ impl From<SnapshotLevel> for Level {
     }
 }
 
+/// A character the account owns, as the snapshot writes it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotCharacter {
     pub key: String,
@@ -198,6 +209,8 @@ pub struct SnapshotCharacter {
     pub favourite: bool,
 }
 
+/// One weapon copy the account owns, as the snapshot writes it; `holder` is the
+/// key of the character holding it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotWeapon {
     pub key: String,

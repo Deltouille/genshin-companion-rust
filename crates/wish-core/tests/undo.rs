@@ -154,7 +154,7 @@ fn a_database_from_the_first_version_is_upgraded_after_a_backup() {
     let dir = tempfile::tempdir().unwrap();
     let paths = AppPaths::at(dir.path());
     {
-        // Schema version 1, as M1 wrote it, with one account.
+        // Schema version 1, as the first versions wrote it, with one account.
         let conn = rusqlite::Connection::open(paths.database()).unwrap();
         conn.execute_batch(include_str!("../src/store/schema/001_initial.sql"))
             .unwrap();

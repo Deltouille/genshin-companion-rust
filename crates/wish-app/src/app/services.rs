@@ -15,6 +15,8 @@ pub enum ImageDownloads {
     Off,
 }
 
+/// Everything the library reaches outside the computer: [`Services::network`]
+/// in the app, [`Services::offline`] in tests.
 #[derive(Clone)]
 pub struct Services {
     /// The game's wish history API.

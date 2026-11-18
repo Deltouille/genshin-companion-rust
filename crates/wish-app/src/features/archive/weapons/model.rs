@@ -40,6 +40,8 @@ impl Filters<'_> {
     }
 }
 
+/// The weapon list as the page draws it: the owned ones first, then the others,
+/// filtered and sorted.
 pub(super) struct WeaponList {
     /// What the account owns, its favourites first, each part in the chosen
     /// order.
@@ -51,6 +53,7 @@ pub(super) struct WeaponList {
     pub total: usize,
 }
 
+/// One weapon's card in the list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct WeaponCard {
     pub key: String,
@@ -186,6 +189,7 @@ pub(super) struct WeaponPage {
     pub passive: Option<Passive>,
 }
 
+/// A weapon's passive at the refinement shown.
 pub(super) struct Passive {
     pub name: String,
     /// The refinement shown, 1 to `refinements`.

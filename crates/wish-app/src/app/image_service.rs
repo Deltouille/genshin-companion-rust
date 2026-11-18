@@ -51,6 +51,7 @@ pub struct ImageDownload {
     cancel: Arc<AtomicBool>,
 }
 
+/// Where a download of every image (Settings → Images) stands.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DownloadState {
     Running,
@@ -68,6 +69,9 @@ impl ImageDownload {
     }
 }
 
+/// The game's images: the cache the pages draw from, the downloader's queue,
+/// and the download of every image for offline use. One per library, observed
+/// by the shell, which redraws when an image arrives.
 pub struct ImageService {
     cache: PathBuf,
     /// Where the pages' requests go, when downloads are on.

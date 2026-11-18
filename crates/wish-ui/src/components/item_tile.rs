@@ -1,3 +1,5 @@
+//! An item's icon on its rarity tile, as the game's item cards draw it.
+
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{App, Div, ImageSource, ParentElement as _, Rems, Styled as _, div, img, rems};
 use wish_core::model::Rarity;

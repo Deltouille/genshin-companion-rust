@@ -33,6 +33,7 @@ const STAMP_FORMAT: &str = "%Y%m%d-%H%M%S-%3fZ";
 const STAMP_LEN: usize = "20261109-115400-123".len();
 
 text_enum! {
+    /// Why a backup was taken; part of its file name.
     pub enum BackupReason {
         Daily => "daily",
         BeforeImport => "before-import",
@@ -64,6 +65,7 @@ impl BackupReason {
     }
 }
 
+/// A backup in the `backups/` folder.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BackupFile {
     pub path: PathBuf,

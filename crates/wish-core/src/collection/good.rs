@@ -66,6 +66,8 @@ pub struct GoodCharacter {
     pub talent: GoodTalents,
 }
 
+/// A character's talent levels in a GOOD file, without the constellations'
+/// bonus.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize)]
 pub struct GoodTalents {
     pub auto: u8,

@@ -26,6 +26,9 @@ use crate::import::{AccountExtras, ExtrasReport};
 use crate::model::AccountId;
 use crate::planner::{CustomItem, PlanTarget};
 
+/// Merges a snapshot account's characters, weapons, plan and inventory into
+/// `account`, inside the import's transaction: only adds or raises, never
+/// lowers or removes.
 pub(super) fn merge_extras(
     tx: &Transaction,
     account: AccountId,

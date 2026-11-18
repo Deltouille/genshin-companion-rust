@@ -1,9 +1,10 @@
-//! The custom character dialog, after genshin-center's: a character the game
-//! data does not have yet (a leak), given a name, its stars and the material
-//! of each of the six roles. Clicking a role shows the series the game data
+//! The custom character or weapon dialog, after genshin-center's: one the
+//! game data does not have yet (a leak), given a name, its stars and the
+//! material of each of its roles (six for a character, three for a weapon). Clicking a role shows the series the game data
 //! has for it, its placeholder "?" first (a material not known yet); one the
-//! data does not have yet can also be typed by name. The character then costs
-//! what any character costs (`PlannerData::custom_character_cost`).
+//! data does not have yet can also be typed by name. It then costs what any
+//! character, or any weapon of its rarity, costs
+//! (`PlannerData::custom_character_cost`, `custom_weapon_cost`).
 
 use std::sync::Arc;
 
@@ -55,6 +56,8 @@ impl CustomKind {
     }
 }
 
+/// The custom entry dialog's form: its kind, name, stars and the material
+/// chosen for each role, or the series picker of one role.
 pub(super) struct CustomForm {
     planner: Arc<PlannerData>,
     images: Arc<Images>,

@@ -26,6 +26,7 @@ pub struct DataSource {
     pub commit: String,
 }
 
+/// A character or weapon a wish can give.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Item {
     /// paimon.moe's key, such as `kaedehara_kazuha`.
@@ -182,6 +183,8 @@ impl Banner {
     }
 }
 
+/// Every banner of the game, per banner type, oldest first, as paimon.moe lists
+/// them.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Banners {
     pub source: DataSource,
@@ -229,6 +232,9 @@ impl Banners {
     }
 }
 
+/// What the wish history needs of the game: the items a wish can give and the
+/// banners. The embedded copy, or a newer one from the game-data folder
+/// ([`GameData::load`]).
 #[derive(Clone, Debug)]
 pub struct GameData {
     pub items: Items,
@@ -246,6 +252,8 @@ impl GameData {
         &EMBEDDED
     }
 
+    /// Reads `items.json` and `banners.json`, and checks that every banner's
+    /// featured items are known.
     pub fn from_json(items: &str, banners: &str) -> Result<Self> {
         let data = Self {
             items: Items::from_json(items)?,

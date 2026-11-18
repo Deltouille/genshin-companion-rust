@@ -112,6 +112,10 @@ import-conflicts = { $account }, { $pool }: { $count ->
        *[other] { $count } wishes differ
     } from the stored wish with the same id; the stored version was kept
 import-counters-kept = { $account }, { $pool }: kept the stored manual counters (total { $stored_total }, 5★ pity { $stored_five }, 4★ pity { $stored_four }) instead of the imported ones (total { $total }, 5★ pity { $five }, 4★ pity { $four })
+import-links-kept = { $account }: { $count ->
+        [one] { $count } game id disagrees
+       *[other] { $count } game ids disagree
+    } with the ones already recorded; the recorded ids were kept
 
 ## HoYoLAB sync: what the player should know
 

@@ -119,6 +119,8 @@ pub struct FetchedHistory {
     pub rows: Vec<ApiRow>,
 }
 
+/// How far a fetch has gone, for a progress line: the banner type and page
+/// being asked for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FetchProgress {
     pub gacha_type: GachaType,

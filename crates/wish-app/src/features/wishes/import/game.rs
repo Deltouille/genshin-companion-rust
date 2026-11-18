@@ -25,6 +25,8 @@ use crate::app::library::{FetchControl, Library, is_cancelled};
 use crate::app::notices::report;
 use wish_ui::{ButtonExt as _, button, format, input};
 
+/// What the game import tells its owner: an import was applied, with what it
+/// did.
 pub enum GameImportEvent {
     Imported(ImportReport),
 }
@@ -42,6 +44,9 @@ struct Note {
     is_error: bool,
 }
 
+/// The "Import from the game" dialog: the link (found on this computer or
+/// pasted), the fetch with its progress, then where the wishes go and what they
+/// add.
 pub struct GameImport {
     library: Entity<Library>,
     input: Entity<InputState>,

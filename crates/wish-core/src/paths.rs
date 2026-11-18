@@ -1,3 +1,8 @@
+//! The data folder: where each file lives ([`AppPaths`]), the lock that keeps
+//! a second process out of it, the first start's copy of the former
+//! `genshin-wishes` folder, and [`write_atomic`], which every file written
+//! outside the database goes through (temporary file, fsync, rename).
+
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};

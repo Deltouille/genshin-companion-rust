@@ -7,9 +7,10 @@
 //!   the embedded assets, the notices
 //!   (messages about work done in the background, [`app::notify`]);
 //! - [`shell`]: the window, its sidebar and the routing between pages;
-//! - `features`: the overview (the app's home), one folder per feature (`wishes`:
-//!   history, import; `archive`, `planner`)
-//!   and the app's own pages (settings, credits).
+//! - `features`: one folder per feature (`overview`, the app's home;
+//!   `wishes`: the history and its imports; `archive`: characters, weapons
+//!   and resources; `planner`), and the app's own pages (`imports`, the
+//!   Import page with the HoYoLAB and GOOD dialogs; `settings`; `credits`).
 //!
 //! A library so that examples (such as the offscreen `screenshot` tool) can
 //! open the same window as the `genshin-companion` binary.
@@ -39,8 +40,8 @@
 //!   [`Library`]'s queue the writes. The compiler enforces it: the fields are
 //!   private.
 //! - **One flow for the whole window** ([`Session::start_flow`]): starting
-//!   one cancels the previous before it can open a stale dialog, as before
-//!   pages had state of their own. Writes are not at risk: [`Library`] runs
+//!   one cancels the previous before it can open a stale dialog. Writes are
+//!   not at risk: [`Library`] runs
 //!   them one at a time, in the order they were made, and they always
 //!   finish; a cancelled flow only loses its next step.
 //! - **Routing stays in the shell**: a page doesn't know the others, so it
@@ -55,10 +56,16 @@
 //!   props: the overview, the credits. Its data comes from the shell, which
 //!   reads the library and the session.
 //! - A page **with state that must survive a render** (a table, a running
-//!   task, dialogs that call back) is an entity the shell creates once:
-//!   `HistoryView`, `SettingsPage`, and
-//!   the import flow (a service with no view, owned by the shell because
-//!   several pages and the menu start it).
+//!   task, sliders, filters, dialogs that call back) is an entity the shell
+//!   creates once: `HistoryView`, `PlannerView`, `CharactersView`,
+//!   `WeaponsView`, `ResourcesView`, `SettingsPage`, and the import flow (a
+//!   service with no view, owned by the shell because several pages and the
+//!   menu start it).
+//! - A big page splits as the planner does: the entity (its state and
+//!   actions), a `model.rs` of pure functions building plain data from the
+//!   library (tested without GPUI, worked out again when the data changes,
+//!   never in `render`), and `sections/` that draw it as `RenderOnce`
+//!   components, passing clicks back through callbacks.
 //! - A piece used by two pages or more goes to `wish-ui`; one used by a
 //!   single page stays in its feature folder.
 //!
@@ -69,7 +76,7 @@
 //! literal in the code: the tests fail on a key missing in a language, or
 //! one the code names that no file has. The language is one for the
 //! process: `main` sets it before the first window, the Settings page
-//! changes it ([`apply_language`]). Text worked out ahead of a render
+//! changes it (`apply_language`). Text worked out ahead of a render
 //! (the planner's model, the history's columns, a picker's options) is
 //! worked out again when the library notifies, which a change of language
 //! does.
@@ -108,7 +115,9 @@ pub use startup_error::{
     already_open_message, folder_failed_message, record_error, record_panics, show_startup_error,
 };
 
+/// The app's id: the binary's name, the data folder's and the window's app id.
 pub const APP_ID: &str = "genshin-companion";
+/// The app's name, as the window and the menu show it.
 pub const APP_TITLE: &str = "Genshin Companion";
 
 // GPUI's `secondary-` modifier only parses when an OS is supplied, which
@@ -161,6 +170,7 @@ pub(crate) fn apply_language(language: wish_core::i18n::Language, cx: &mut App) 
     cx.refresh_windows();
 }
 
+/// The main window: 1280 × 820, centred, at least 880 × 560.
 pub fn window_options(cx: &App) -> WindowOptions {
     WindowOptions {
         window_bounds: Some(WindowBounds::Windowed(Bounds::centered(

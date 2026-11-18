@@ -48,6 +48,8 @@ enum Step {
     Failed(SharedString),
 }
 
+/// The HoYoLAB sync's dialog, one step at a time: the cookie, the fetch, the
+/// preview with the account to sync into, then the sync.
 pub struct HoyolabSync {
     library: Entity<Library>,
     session: Entity<Session>,

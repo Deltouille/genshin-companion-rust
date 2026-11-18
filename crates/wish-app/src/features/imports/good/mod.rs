@@ -28,6 +28,8 @@ enum Step {
     Failed(SharedString),
 }
 
+/// The GOOD import's dialog, one step at a time: the file or the clipboard,
+/// reading it, then what it would change, then applying it.
 pub struct GoodImport {
     library: Entity<Library>,
     session: Entity<Session>,

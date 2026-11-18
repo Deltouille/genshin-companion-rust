@@ -1,3 +1,5 @@
+//! One sidebar entry, at the app's proportions.
+
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::Icon;
@@ -10,8 +12,8 @@ use gpui_kit::{
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
-/// A sidebar destination, as in Material 3's navigation drawer: a 56 px pill
-/// with a 24 px icon, the current one on the secondary container. A page
+/// A sidebar destination: a 56 px pill with a 24 px icon, the current one on
+/// a lighter panel (`sidebar.primary`). A page
 /// inside a [`super::NavGroup`] is [`NavItem::nested`]: no icon, nor any
 /// ornament (the user's choice on 2026-11-17), its label indented under the
 /// group's, a 48 px row.

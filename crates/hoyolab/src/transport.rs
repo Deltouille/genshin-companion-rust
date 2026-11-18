@@ -93,7 +93,7 @@ impl Transport for HttpTransport {
         }
         // ureq's errors name the address and the status, never the headers.
         let network = |e: ureq::Error| Error::Network(e.to_string());
-        let response = match request.method {
+        let mut response = match request.method {
             Method::Get => {
                 let mut builder = self.agent.get(&request.url);
                 for (name, value) in &request.headers {
@@ -116,7 +116,6 @@ impl Transport for HttpTransport {
                     .map_err(network)?
             }
         };
-        let mut response = response;
         response
             .body_mut()
             .with_config()

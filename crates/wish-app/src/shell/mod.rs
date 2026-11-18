@@ -1,10 +1,48 @@
 //! The main window: the sidebar beside the current page.
 //!
-//! `Shell` assembles the window and routes between pages; it holds no page
+//! [`Shell`] assembles the window and routes between pages; it holds no page
 //! logic. See the crate docs for how data flows between the shell, the
-//! [`Session`], the [`Library`] and the pages.
+//! [`Session`], the [`Library`] and the pages. Its parts:
+//!
+//! - `page`: the destinations ([`Page`], [`Feature`] and each feature's page
+//!   enum);
+//! - `navigation`: moving between pages, and the account picker;
+//! - `dialogs`: the dialogs opened from outside their page (the menu's
+//!   commands, the screenshot tool, one page asking another);
+//! - `sidebar`: the sidebar.
 
+mod dialogs;
+mod navigation;
+mod page;
 mod sidebar;
+
+pub use page::{ArchivePage, Feature, OverviewTab, Page, WishPage};
+
+use std::collections::HashSet;
+use std::rc::Rc;
+
+use gpui_kit::base::StyledExt as _;
+use gpui_kit::component::ActiveTheme as _;
+use gpui_kit::component::spinner::Spinner;
+use gpui_kit::{
+    AnyElement, AppContext as _, Context, Entity, FocusHandle, FontWeight, InteractiveElement as _,
+    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Subscription, Window,
+    actions, deferred, div,
+};
+use wish_core::model::AccountId;
+
+use crate::app::library::{Library, LoadState};
+use crate::app::{Notices, Session};
+use crate::features::archive::{CharactersView, EditMaterial, ResourcesView, WeaponsView};
+use crate::features::credits::Credits;
+use crate::features::imports::Imports;
+use crate::features::overview::Overview;
+use crate::features::planner::PlannerView;
+use crate::features::settings::SettingsPage;
+use crate::features::wishes::history::HistoryView;
+use crate::features::wishes::import::ImportFlow;
+use wish_ui::button;
+use wish_ui::{PickerEvent, PickerState};
 
 /// The sidebar's width, in rems.
 pub(crate) const SIDEBAR_REMS: f32 = 16.;
@@ -22,38 +60,6 @@ pub(crate) fn content_width(window: &gpui_kit::Window) -> gpui_kit::Pixels {
     window.viewport_size().width - window.rem_size() * (SIDEBAR_REMS + PAGE_PADDING_REMS)
 }
 
-use std::collections::HashSet;
-use std::rc::Rc;
-
-use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::WindowExt as _;
-
-use gpui_kit::component::spinner::Spinner;
-use gpui_kit::{
-    AnyElement, App, AppContext as _, Context, Entity, FocusHandle, Focusable as _, FontWeight,
-    InteractiveElement as _, IntoElement, ParentElement as _, Render, SharedString, Styled as _,
-    Subscription, Window, actions, deferred, div,
-};
-use wish_core::model::{AccountId, Pool};
-use wish_core::planner::MaterialId;
-
-use crate::app::library::{Library, LoadState};
-use crate::app::{Notices, Session};
-use crate::features::archive::{CharactersView, EditMaterial, ResourcesView, WeaponsView};
-use crate::features::credits::Credits;
-use crate::features::imports::Imports;
-use crate::features::imports::good::GoodImport;
-use crate::features::imports::hoyolab::HoyolabSync;
-use crate::features::overview::Overview;
-use crate::features::planner::PlannerView;
-use crate::features::settings::SettingsPage;
-use crate::features::wishes::history::HistoryView;
-use crate::features::wishes::import::ImportFlow;
-use sidebar::account_option;
-use wish_ui::button;
-use wish_ui::{PickerEvent, PickerItem, PickerState};
-
 actions!(
     genshin_companion,
     [
@@ -65,102 +71,13 @@ actions!(
     ]
 );
 
-/// A destination in the sidebar: a page of a feature, or one of the app's own
-/// pages at the foot of the sidebar.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Page {
-    /// The app's home: the selected account in figures, one tab each.
-    Overview(OverviewTab),
-    Wishes(WishPage),
-    Archive(ArchivePage),
-    /// The ascension planner.
-    Planner,
-    /// Every way to bring data in.
-    Imports,
-    Settings,
-    Credits,
-}
-
-/// The overview's tabs.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum OverviewTab {
-    /// Key figures, a card per banner type, wishes and pity over time.
-    #[default]
-    Wishes,
-    /// The characters owned, against the game's.
-    Characters,
-    /// The weapons owned, against the game's.
-    Weapons,
-}
-
-impl OverviewTab {
-    pub const ALL: [OverviewTab; 3] = [Self::Wishes, Self::Characters, Self::Weapons];
-
-    pub fn label(self) -> String {
-        match self {
-            Self::Wishes => t!("app-nav-wishes"),
-            Self::Characters => t!("app-nav-characters"),
-            Self::Weapons => t!("app-nav-weapons"),
-        }
-    }
-}
-
-/// The wish counter's pages: one per banner type.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WishPage {
-    History(Pool),
-}
-
-/// The archive's pages: the game's characters and weapons.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ArchivePage {
-    /// Every character, and one character's page when one is open.
-    Characters,
-    /// Every weapon, and one weapon's page when one is open.
-    Weapons,
-    /// Every material, by type, with how many the account has.
-    Resources,
-}
-
-/// A feature: a group in the sidebar, holding its pages. A new one (an
-/// ascension planner…) adds a variant here and one to [`Page`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum Feature {
-    Wishes,
-    Archive,
-    Planner,
-}
-
-impl Page {
-    /// The feature the page belongs to; `None` for the app's own pages.
-    pub fn feature(self) -> Option<Feature> {
-        match self {
-            Page::Wishes(_) => Some(Feature::Wishes),
-            Page::Archive(_) => Some(Feature::Archive),
-            Page::Planner => Some(Feature::Planner),
-            Page::Overview(_) | Page::Imports | Page::Settings | Page::Credits => None,
-        }
-    }
-}
-
-impl Feature {
-    /// The page the feature opens on. The wish counter opens on its first
-    /// banner type; without wishes, the shell shows the overview instead.
-    pub fn home(self) -> Page {
-        match self {
-            Feature::Wishes => Page::Wishes(WishPage::History(Pool::CharacterEvent)),
-            Feature::Archive => Page::Archive(ArchivePage::Characters),
-            Feature::Planner => Page::Planner,
-        }
-    }
-}
-
 /// The window: sidebar, routing, and the pages it switches between.
 ///
-/// The pages with state of their own (history, settings) and the import
-/// flow are entities created once here and kept, so their state survives
-/// switching pages. The stateless ones (overview, credits) are built on
-/// each render from the library and the session.
+/// The pages with state of their own (the wish history, the planner, the
+/// archive's three lists, settings) and the import flow are entities created
+/// once here and kept, so their state survives switching pages. The stateless
+/// ones (the overview, the Import page, credits) are built on each render from
+/// the library and the session.
 pub struct Shell {
     library: Entity<Library>,
     session: Entity<Session>,
@@ -254,31 +171,6 @@ impl Shell {
         shell
     }
 
-    /// Lists the accounts in the picker, selects the session's account, and
-    /// leaves a history page the account has no wishes for.
-    fn sync_account_picker(&mut self, _: &mut Window, cx: &mut Context<Self>) {
-        let options: Vec<PickerItem<AccountId>> = self
-            .library
-            .read(cx)
-            .accounts()
-            .iter()
-            .map(account_option)
-            .collect();
-        let account = self.session.read(cx).account();
-        self.account_select.update(cx, |select, cx| {
-            select.set_items(options, cx);
-            if let Some(id) = account {
-                select.set_selected_value(&id, cx);
-            }
-        });
-        if let Page::Wishes(WishPage::History(pool)) = self.page
-            && !self.pools(cx).contains(&pool)
-        {
-            self.page = self.first_wish_page(cx);
-        }
-        cx.notify();
-    }
-
     /// The page currently shown.
     pub fn page(&self) -> Page {
         self.page
@@ -289,297 +181,14 @@ impl Shell {
         self.collapsed.contains(&feature)
     }
 
-    /// The account whose wishes are shown.
-    pub fn account(&self, cx: &App) -> Option<AccountId> {
-        self.session.read(cx).account()
-    }
-
-    /// Opens `page`; for a banner type the selected account has no wishes
-    /// in, its first one with wishes, or the overview.
-    pub fn navigate(&mut self, page: Page, cx: &mut Context<Self>) {
-        self.page = match page {
-            Page::Wishes(WishPage::History(pool)) if !self.pools(cx).contains(&pool) => {
-                self.first_wish_page(cx)
-            }
-            page => page,
-        };
-        if let Page::Overview(tab) = self.page {
-            self.overview_tab = tab;
-        }
-        // The group of the page shown stays open.
-        if let Some(feature) = self.page.feature() {
-            self.collapsed.remove(&feature);
-        }
-        if let Page::Wishes(WishPage::History(pool)) = self.page {
-            self.history
-                .update(cx, |history, cx| history.set_pool(pool, cx));
-        }
-        // The sidebar entry opens the list, even from a character's page.
-        if self.page == Page::Archive(ArchivePage::Weapons) {
-            self.weapons.update(cx, |weapons, cx| weapons.show_list(cx));
-        }
-        if self.page == Page::Archive(ArchivePage::Characters) {
-            self.archive.update(cx, |archive, cx| archive.show_list(cx));
-        }
-        cx.notify();
-    }
-
-    /// Opens the overview on the tab it showed last (the sidebar's entry).
-    pub fn open_overview(&mut self, cx: &mut Context<Self>) {
-        self.navigate(Page::Overview(self.overview_tab), cx);
-    }
-
-    /// A feature group's header was clicked: away from the feature, it opens
-    /// the feature; on one of its pages, it folds or unfolds the group.
-    pub fn open_or_fold(&mut self, feature: Feature, cx: &mut Context<Self>) {
-        if self.page.feature() == Some(feature) {
-            if !self.collapsed.remove(&feature) {
-                self.collapsed.insert(feature);
-            }
-            cx.notify();
-        } else {
-            self.navigate(feature.home(), cx);
-        }
-    }
-
-    /// Opens the page of the character `key` (a genshin-db key).
-    pub fn open_character(&mut self, key: &str, cx: &mut Context<Self>) {
-        self.navigate(Page::Archive(ArchivePage::Characters), cx);
-        self.archive
-            .update(cx, |archive, cx| archive.show_character(key, cx));
-    }
-
-    /// Opens the character list's filter sheet (the screenshot tool uses it).
-    pub fn open_character_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.navigate(Page::Archive(ArchivePage::Characters), cx);
-        self.archive
-            .update(cx, |archive, cx| archive.open_filters(window, cx));
-    }
-
-    /// Opens the planner's "custom entry" dialog.
-    /// Opens the custom character dialog: for a new one, or plan entry `id`.
-    pub fn open_custom_entry(
-        &mut self,
-        id: Option<i64>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.navigate(Page::Planner, cx);
-        self.planner
-            .update(cx, |planner, cx| planner.open_custom_entry(id, window, cx));
-    }
-
-    /// Opens a new custom character's dialog on the choice of its `role`'s
-    /// material (the screenshot tool uses it).
-    pub fn open_custom_picker(
-        &mut self,
-        role: wish_core::planner::Role,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.navigate(Page::Planner, cx);
-        self.planner.update(cx, |planner, cx| {
-            planner.open_custom_picker(role, window, cx)
-        });
-    }
-
-    /// Opens the planner's "Add a character" (or, with `weapons`, "Add a
-    /// weapon") dialog (the screenshot tool uses it).
-    pub fn open_planner_add(&mut self, weapons: bool, window: &mut Window, cx: &mut Context<Self>) {
-        use crate::features::planner::AddKind;
-        self.navigate(Page::Planner, cx);
-        let kind = if weapons {
-            AddKind::Weapon
-        } else {
-            AddKind::Character
-        };
-        self.planner
-            .update(cx, |planner, cx| planner.open_add(kind, window, cx));
-    }
-
-    /// Asks how many of material `id` the player has.
-    pub fn open_inventory(&mut self, id: MaterialId, window: &mut Window, cx: &mut Context<Self>) {
-        self.navigate(Page::Planner, cx);
-        self.planner
-            .update(cx, |planner, cx| planner.open_inventory_of(id, window, cx));
-    }
-
-    /// Opens the options of the planner's resin estimate (the screenshot tool
-    /// uses it).
-    pub fn open_resin_options(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.navigate(Page::Planner, cx);
-        self.planner
-            .update(cx, |planner, cx| planner.open_resin_options(window, cx));
-    }
-
-    /// The window's messages (snackbars), for the screenshot tool and tests.
     /// The selected account and the flow in progress.
     pub fn session(&self) -> &Entity<Session> {
         &self.session
     }
 
+    /// The window's messages (snackbars), for the screenshot tool and tests.
     pub fn notices(&self) -> &Entity<Notices> {
         &self.notices
-    }
-
-    /// Shows the open-source licences, over the Credits page.
-    pub fn open_licenses(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.navigate(Page::Credits, cx);
-        crate::features::credits::open_licenses(window, cx);
-    }
-
-    /// Opens Settings and the account form: for a new account, or to edit
-    /// `account` (the screenshot tool uses it).
-    pub fn open_account(
-        &mut self,
-        account: Option<AccountId>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.navigate(Page::Settings, cx);
-        let account = account
-            .and_then(|id| self.library.read(cx).account(id))
-            .map(|summary| summary.account.clone());
-        self.settings.update(cx, |settings, cx| {
-            settings.open_account(account, window, cx)
-        });
-    }
-
-    /// Opens weapon `key`'s page in the archive.
-    pub fn open_weapon(&mut self, key: &str, cx: &mut Context<Self>) {
-        self.navigate(Page::Archive(ArchivePage::Weapons), cx);
-        self.weapons
-            .update(cx, |weapons, cx| weapons.show_weapon(key, cx));
-    }
-
-    /// On a history page, shows the banner view (`true`) or the wish list.
-    pub fn show_banners(&mut self, banners: bool, cx: &mut Context<Self>) {
-        self.history
-            .update(cx, |history, cx| history.show_banners(banners, cx));
-    }
-
-    /// Opens "Add a 4★ or 5★" for `pool` (counting by hand).
-    pub fn open_add_item(&mut self, pool: Pool, window: &mut Window, cx: &mut Context<Self>) {
-        self.history
-            .update(cx, |history, cx| history.open_add_item(pool, window, cx));
-    }
-
-    fn pools(&self, cx: &App) -> Vec<Pool> {
-        self.session.read(cx).pools(cx)
-    }
-
-    /// The wish counter's first banner type with wishes, or the overview's
-    /// Wishes tab when there is none.
-    fn first_wish_page(&self, cx: &App) -> Page {
-        self.pools(cx)
-            .first()
-            .map_or(Page::Overview(OverviewTab::Wishes), |pool| {
-                Page::Wishes(WishPage::History(*pool))
-            })
-    }
-
-    fn import_file(&mut self, _: &ImportFile, window: &mut Window, cx: &mut Context<Self>) {
-        self.import
-            .update(cx, |import, cx| import.import_file(window, cx));
-    }
-
-    fn import_from_game(
-        &mut self,
-        _: &ImportFromGame,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.import
-            .update(cx, |import, cx| import.import_from_game(window, cx));
-    }
-
-    fn sync_from_hoyolab(
-        &mut self,
-        _: &SyncFromHoyolab,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.open_hoyolab_sync(window, cx);
-    }
-
-    fn import_good(&mut self, _: &ImportGood, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_good_import(window, cx);
-    }
-
-    /// Opens the GOOD import: the file (or the clipboard), then what it
-    /// changes.
-    pub fn open_good_import(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Entity<GoodImport>> {
-        if !matches!(self.library.read(cx).state(), LoadState::Ready) {
-            return None;
-        }
-        let (library, session) = (self.library.clone(), self.session.clone());
-        let view = cx.new(|_| GoodImport::new(library, session));
-        let shown = view.clone();
-        window.open_dialog(cx, move |dialog, window, _| {
-            dialog
-                .title(t!("app-import-good-title"))
-                .w(window.rem_size() * 44.)
-                .child(shown.clone())
-        });
-        Some(view)
-    }
-
-    /// Opens the GOOD import on `text` at once, for the screenshot tool's
-    /// preview (it gives a sample file).
-    pub fn open_good_preview(&mut self, text: String, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(view) = self.open_good_import(window, cx) {
-            view.update(cx, |view, cx| {
-                view.read(crate::app::library::GoodSource::Text(text), window, cx);
-            });
-        }
-    }
-
-    /// Opens the HoYoLAB sync: the cookie, the fetch, then what it changes
-    /// (the screenshot tool opens it this way).
-    pub fn open_hoyolab_sync(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_hoyolab_dialog(window, cx);
-    }
-
-    /// Opens the HoYoLAB dialog and fetches with `cookie` at once, for the
-    /// screenshot tool's preview (it gives a fake HoYoLAB).
-    pub fn open_hoyolab_preview(
-        &mut self,
-        cookie: wish_core::hoyolab::Cookie,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        if let Some(view) = self.open_hoyolab_dialog(window, cx) {
-            view.update(cx, |view, cx| view.start_fetch(cookie, window, cx));
-        }
-    }
-
-    fn open_hoyolab_dialog(
-        &mut self,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Option<Entity<HoyolabSync>> {
-        if !matches!(self.library.read(cx).state(), LoadState::Ready) {
-            return None;
-        }
-        let (library, session) = (self.library.clone(), self.session.clone());
-        let view = cx.new(|cx| HoyolabSync::new(library, session, window, cx));
-        let first = view.read(cx).first_field().clone();
-        let focus_once = std::cell::Cell::new(true);
-        let shown = view.clone();
-        window.open_dialog(cx, move |dialog, window, cx| {
-            if focus_once.replace(false) {
-                first.focus_handle(cx).focus(window, cx);
-            }
-            dialog
-                .title(t!("app-sync-hoyolab-title"))
-                .w(window.rem_size() * 44.)
-                .child(shown.clone())
-        });
-        Some(view)
     }
 
     fn render_page(&mut self, cx: &mut Context<Self>) -> AnyElement {

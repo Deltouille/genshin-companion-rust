@@ -1,3 +1,5 @@
+//! The snackbar the app's notices are drawn as.
+
 use std::time::Duration;
 
 use gpui_kit::base::StyledExt as _;

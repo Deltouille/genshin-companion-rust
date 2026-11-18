@@ -28,6 +28,9 @@ const EMBEDDED_ARCHIVE: &str = include_str!("../data/archive.json");
 /// constellations, plus 2 from rare buffs).
 pub const MAX_TALENT_LEVEL: u8 = 15;
 
+/// A character's page in the archive: its profile, base stats and their growth,
+/// talents and constellations, in every language the data has ([`Text`]). Keyed
+/// like the planner's characters.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct CharacterPage {
     /// The planner's key for the same character.
@@ -48,6 +51,9 @@ pub struct CharacterPage {
     pub constellations: Vec<Constellation>,
 }
 
+/// A character's HP, ATK and DEF at level 1, the growth curve of each, its
+/// crits, and what each ascension phase adds; [`ArchiveData::stats`] works out
+/// the stats at a level.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct BaseStats {
     base: Triple,
@@ -85,6 +91,9 @@ pub struct Stats {
     pub special: f64,
 }
 
+/// A talent (attack, skill, sprint, burst) or a passive, with the rows of
+/// values the game lists for it; [`Talent::values`] formats them at a talent
+/// level.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct Talent {
     /// "Normal Attack", "Elemental Skill", "Alternate Sprint",
@@ -100,6 +109,7 @@ pub struct Talent {
     params: BTreeMap<String, Vec<f64>>,
 }
 
+/// One of a character's six constellations.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
 pub struct Constellation {
     pub name: Text,
@@ -120,6 +130,9 @@ pub struct WeaponPage {
     pub passive: Option<Passive>,
 }
 
+/// A weapon's ATK and secondary stat at level 1, their growth curves, and the
+/// ATK each ascension phase adds; [`ArchiveData::weapon_stats`] works them out
+/// at a level.
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub struct WeaponStats {
     /// ATK at level 1, and its growth curve.
@@ -151,6 +164,8 @@ pub struct WeaponStatsAt {
     pub special: Option<f64>,
 }
 
+/// The archive's data: the embedded `archive.json`, or a newer copy from the
+/// game-data folder, and the growth curves its stats use.
 #[derive(Clone, Debug)]
 pub struct ArchiveData {
     pub source: DataSource,
@@ -183,6 +198,7 @@ impl ArchiveData {
         }
     }
 
+    /// Reads an `archive.json`, and indexes its characters and weapons by key.
     pub fn from_json(json: &str) -> Result<Self> {
         #[derive(Deserialize)]
         struct File {

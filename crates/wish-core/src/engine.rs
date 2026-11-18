@@ -70,6 +70,9 @@ impl Analysis {
     }
 }
 
+/// What [`analyze`] derives for one pool (banner type): its pulls with their
+/// pity and 50/50, the banners they fall on, its counters and guarantees, and
+/// its summary numbers.
 #[derive(Clone, Debug)]
 pub struct PoolAnalysis {
     pub pool: Pool,
@@ -131,6 +134,8 @@ pub struct RateUp {
     pub featured: bool,
 }
 
+/// How a 4★ or 5★ on an event banner went: a 50/50 won or lost, or a rate-up
+/// item that was guaranteed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RateUpOutcome {
     Won,
@@ -168,12 +173,16 @@ pub struct Counters {
     pub pity4: u32,
 }
 
+/// Whether the next 5★ and the next 4★ are guaranteed to be rate-up items (the
+/// previous one of that rarity was not).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Guarantee {
     pub five: bool,
     pub four: bool,
 }
 
+/// A banner that received wishes, and the slice of its pool's `pulls` made on
+/// it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BannerPulls {
     /// Index into `GameData::banners.for_pool(pool)`.

@@ -14,6 +14,7 @@ use wish_ui::format;
 /// The page sizes offered under the table.
 pub(super) const PAGE_SIZES: [usize; 3] = [25, 50, 100];
 
+/// A column of the wish table.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Col {
     Item,
@@ -73,6 +74,7 @@ impl Col {
     }
 }
 
+/// Which way a column sorts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Order {
     Ascending,

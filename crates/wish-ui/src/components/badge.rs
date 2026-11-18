@@ -1,3 +1,5 @@
+//! Small labels: a soft-coloured badge, and a wish's rate-up result.
+
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{App, Div, FontWeight, Hsla, ParentElement as _, SharedString, Styled as _, div};
 

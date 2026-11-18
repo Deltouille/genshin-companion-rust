@@ -1,3 +1,5 @@
+//! The surface every section sits on, and its title row.
+
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::prelude::FluentBuilder as _;

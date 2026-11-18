@@ -11,8 +11,20 @@
 //! [`PlannerModel`](model::PlannerModel) (`model.rs`, plain data, tested
 //! alone), worked out again when the plan, the inventory, the account or a
 //! slider changes; the render only reads it, and `sections/` draw it.
+//!
+//! - this file: the view, its actions, and the page's layout;
+//! - `controls`: each entry's sliders, and saving them;
+//! - `day`: the game's day, for "Farm today";
+//! - `model`: what the page shows, as plain data;
+//! - `sections/`: the cards that draw it (`today`, `still_needed`, `card`,
+//!   `materials`, `drag`);
+//! - the dialogs: `add` (characters and weapons as cards), `custom` (a
+//!   custom character or weapon), `inventory` (how many of a material the
+//!   player has), `resin` (the estimate's options).
 
 mod add;
+mod controls;
+mod day;
 pub(crate) use add::Kind as AddKind;
 mod custom;
 mod inventory;
@@ -23,9 +35,6 @@ mod sections;
 
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::time::Duration;
-
-use chrono::{FixedOffset, Local, Utc};
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
@@ -33,24 +42,22 @@ use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
-use gpui_kit::component::slider::{SliderEvent, SliderState, SliderValue};
 use gpui_kit::{
-    AnyElement, App, AppContext as _, Context, Entity, FontWeight, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, SharedString, Styled as _, Subscription, Task, Window,
-    div,
+    AnyElement, App, Context, Entity, FontWeight, InteractiveElement as _, IntoElement,
+    ParentElement as _, Render, SharedString, Styled as _, Subscription, Task, Window, div,
 };
-use wish_core::model::Server;
-use wish_core::planner::{
-    CharacterGoal, CustomItem, Level, MaterialId, PlanEntry, PlanTarget, Role, WeaponGoal,
-    exp_series, game_day, next_game_day,
-};
+use wish_core::planner::{CustomItem, MaterialId, PlanTarget, Role, exp_series, game_day};
 
 use crate::app::{Library, Session};
+use controls::Controls;
+use day::now_on;
 use model::{GameDay, PlannerModel};
 use sections::{Actions, CardControls, EntryCard, FarmToday, Look, StillNeeded};
 use wish_core::model::AccountId;
 use wish_ui::{PageFrame, button, card, dialog_footer};
 
+/// The planner page: its entries' sliders, the card being dragged, and the
+/// model the page draws.
 pub struct PlannerView {
     session: Entity<Session>,
     library: Entity<Library>,
@@ -66,17 +73,6 @@ pub struct PlannerView {
     day: GameDay,
     /// Wakes when the game's day changes, for its domains.
     _day_watch: Task<()>,
-    _subscriptions: Vec<Subscription>,
-}
-
-/// An entry's sliders: its level, from and to (as indexes into `steps`), and
-/// a character's three talents.
-struct Controls {
-    level: Entity<SliderState>,
-    /// The levels the slider goes through: a character's, or those of a
-    /// weapon of its rarity.
-    steps: Vec<Level>,
-    talents: Vec<Entity<SliderState>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -120,40 +116,6 @@ impl PlannerView {
         self.session.read(cx).account()
     }
 
-    /// The game's day for the account shown: in its server's time, else in
-    /// the player's.
-    fn game_day(&self, cx: &App) -> GameDay {
-        let server = (self.account(cx))
-            .and_then(|id| self.library.read(cx).account(id))
-            .and_then(|summary| summary.account.server);
-        GameDay {
-            day: game_day(now_on(server)),
-            server,
-        }
-    }
-
-    /// Shows the new game day's domains when it starts. It looks again every
-    /// ten minutes at most: a computer put to sleep doesn't count the time
-    /// asleep in its timers.
-    fn watch_the_day(cx: &mut Context<Self>) -> Task<()> {
-        cx.spawn(async move |this, cx| {
-            loop {
-                let Ok(wait) = this.update(cx, |this, cx| {
-                    if this.game_day(cx) != this.day {
-                        this.rebuild(cx);
-                        cx.notify();
-                    }
-                    let now = now_on(this.day.server);
-                    (next_game_day(now) - now).to_std().unwrap_or_default()
-                }) else {
-                    break;
-                };
-                let wait = (wait + Duration::from_secs(1)).min(Duration::from_secs(600));
-                cx.background_executor().timer(wait).await;
-            }
-        })
-    }
-
     /// Adds a character: from the levels and talents the account has (as the
     /// archive's "Add to the planner" does), to 90/90 with its talents to 10.
     fn add_character(&mut self, key: String, cx: &mut Context<Self>) {
@@ -180,7 +142,8 @@ impl PlannerView {
         report_plan(task, cx);
     }
 
-    /// Opens the custom character dialog: for a new one, or entry `id`.
+    /// Opens the custom character or weapon dialog: for a new one, or entry
+    /// `id`.
     pub(crate) fn open_custom_entry(
         &mut self,
         id: Option<i64>,
@@ -259,170 +222,6 @@ impl PlannerView {
                 })
         });
     }
-
-    /// Makes sliders for new character and weapon entries and drops those of
-    /// removed ones. Existing sliders keep their values: the plan they would
-    /// be set from is what they saved.
-    fn sync_controls(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let account = self.account(cx);
-        let library = self.library.read(cx);
-        let (plan, planner) = (library.plan(account).to_vec(), library.planner().clone());
-        self.controls
-            .retain(|id, _| plan.iter().any(|entry| entry.id == *id));
-        for entry in plan {
-            if self.controls.contains_key(&entry.id) {
-                continue;
-            }
-            let controls = match &entry.target {
-                PlanTarget::CustomWeapon { stars, goal, .. } => {
-                    let steps = Level::weapon_steps(*stars);
-                    self.make_controls(entry.id, steps, (goal.from, goal.to), None, window, cx)
-                }
-                PlanTarget::Weapon { key, goal } => {
-                    let rarity = planner.weapon(key).map_or(5, |weapon| weapon.rarity);
-                    let steps = Level::weapon_steps(rarity);
-                    self.make_controls(entry.id, steps, (goal.from, goal.to), None, window, cx)
-                }
-                target => match target.goal() {
-                    Some(goal) => self.make_controls(
-                        entry.id,
-                        Level::steps(),
-                        (goal.from, goal.to),
-                        Some(goal.talents),
-                        window,
-                        cx,
-                    ),
-                    None => continue,
-                },
-            };
-            self.controls.insert(entry.id, controls);
-        }
-    }
-
-    fn make_controls(
-        &mut self,
-        id: i64,
-        steps: Vec<Level>,
-        (from, to): (Level, Level),
-        talents: Option<[(u8, u8); 3]>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Controls {
-        let step = |level: Level| steps.iter().position(|s| *s == level).unwrap_or(0) as f32;
-        let last = (steps.len() - 1) as f32;
-        let (from, to) = (step(from), step(to).min(last));
-        let level = cx.new(|_| {
-            SliderState::new()
-                .min(0.0)
-                .max(last)
-                .step(1.0)
-                .default_value((from, to))
-        });
-        let talents: Vec<_> = talents
-            .into_iter()
-            .flatten()
-            .map(|(from, to)| {
-                cx.new(|_| {
-                    SliderState::new()
-                        .min(1.0)
-                        .max(10.0)
-                        .step(1.0)
-                        .default_value((f32::from(from), f32::from(to)))
-                })
-            })
-            .collect();
-        // The costs follow a slider while it is dragged; released, it saves.
-        let on_slide = move |this: &mut Self, event: &SliderEvent, cx: &mut Context<Self>| {
-            if let SliderEvent::Release(_) = event {
-                this.save(id, cx);
-            }
-            this.rebuild(cx);
-            cx.notify();
-        };
-        let mut subscriptions =
-            vec![
-                cx.subscribe_in(&level, window, move |this, _, event, _, cx| {
-                    on_slide(this, event, cx)
-                }),
-            ];
-        for talent in &talents {
-            subscriptions.push(
-                cx.subscribe_in(talent, window, move |this, _, event, _, cx| {
-                    on_slide(this, event, cx)
-                }),
-            );
-        }
-        Controls {
-            level,
-            steps,
-            talents,
-            _subscriptions: subscriptions,
-        }
-    }
-
-    /// The level range an entry's slider shows now.
-    fn levels(&self, id: i64, cx: &App) -> Option<(Level, Level)> {
-        let controls = self.controls.get(&id)?;
-        let (from, to) = slider_range(&controls.level, cx);
-        let last = controls.steps.len() - 1;
-        Some((controls.steps[from.min(last)], controls.steps[to.min(last)]))
-    }
-
-    /// The goal a character entry's sliders show now.
-    fn goal(&self, id: i64, cx: &App) -> Option<CharacterGoal> {
-        let (from, to) = self.levels(id, cx)?;
-        let controls = self.controls.get(&id)?;
-        let talents: Vec<(u8, u8)> = (controls.talents.iter())
-            .map(|talent| {
-                let (from, to) = slider_range(talent, cx);
-                (from as u8, to as u8)
-            })
-            .collect();
-        Some(CharacterGoal {
-            from,
-            to,
-            talents: talents.try_into().ok()?,
-        })
-    }
-
-    /// The goal a weapon entry's slider shows now.
-    fn weapon_goal(&self, id: i64, cx: &App) -> Option<WeaponGoal> {
-        let (from, to) = self.levels(id, cx)?;
-        Some(WeaponGoal { from, to })
-    }
-
-    /// Saves an entry's goal from its sliders.
-    fn save(&mut self, id: i64, cx: &mut Context<Self>) {
-        let account = self.account(cx);
-        let Some(mut entry) = self
-            .library
-            .read(cx)
-            .plan(account)
-            .iter()
-            .find(|entry| entry.id == id)
-            .cloned()
-        else {
-            return;
-        };
-        let changed = match (self.goal(id, cx), self.weapon_goal(id, cx)) {
-            (Some(goal), _) if entry.target.goal().is_some() => {
-                let saved = entry.target.goal_mut().expect("a character's goal");
-                std::mem::replace(saved, goal) != goal
-            }
-            (_, Some(goal)) => match entry.target.weapon_goal_mut() {
-                Some(saved) => std::mem::replace(saved, goal) != goal,
-                None => false,
-            },
-            _ => false,
-        };
-        if changed {
-            let task = (self.library).update(cx, |library, cx| {
-                library.update_plan_entry(account, entry, cx)
-            });
-            report_plan(task, cx);
-        }
-    }
-
     /// Works the page out again: the plan as the sliders show it, shared out
     /// over the inventory, and the resin.
     fn rebuild(&mut self, cx: &App) {
@@ -484,34 +283,7 @@ impl PlannerView {
             }),
         }
     }
-
-    /// The plan with each entry's goal as its sliders show it.
-    fn live_plan(&self, cx: &App) -> Vec<PlanEntry> {
-        let mut plan = self.library.read(cx).plan(self.account(cx)).to_vec();
-        for entry in &mut plan {
-            if let Some(goal) = entry.target.goal_mut()
-                && let Some(live) = self.goal(entry.id, cx)
-            {
-                *goal = live;
-            }
-            if let Some(goal) = entry.target.weapon_goal_mut()
-                && let Some(live) = self.weapon_goal(entry.id, cx)
-            {
-                *goal = live;
-            }
-        }
-        plan
-    }
 }
-
-/// A range slider's ends, as whole steps.
-fn slider_range(state: &Entity<SliderState>, cx: &App) -> (usize, usize) {
-    match state.read(cx).value() {
-        SliderValue::Range(from, to) => (from.round() as usize, to.round() as usize),
-        SliderValue::Single(to) => (0, to.round() as usize),
-    }
-}
-
 /// A character card is never narrower: room for its sliders and four tiles a
 /// row.
 const CARD_REMS: f32 = 19.;
@@ -701,12 +473,4 @@ impl PlannerView {
 /// Shows a notice if a plan write fails.
 fn report_plan<T: 'static>(task: gpui_kit::Task<anyhow::Result<T>>, cx: &mut App) {
     crate::app::notices::report(task, t!("planner-not-saved"), cx);
-}
-
-/// Now, in the server's time, else in the player's.
-fn now_on(server: Option<Server>) -> chrono::DateTime<FixedOffset> {
-    match server.and_then(|server| FixedOffset::east_opt(server.utc_offset_hours() * 3600)) {
-        Some(offset) => Utc::now().with_timezone(&offset),
-        None => Local::now().fixed_offset(),
-    }
 }

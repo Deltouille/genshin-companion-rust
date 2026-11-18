@@ -7,8 +7,9 @@ use std::path::PathBuf;
 use chrono::{Local, SecondsFormat};
 use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 
+use super::accounts::account_label;
 use super::inventory::{read_inventory, set_owned};
-use super::{Store, account_from_row, account_label};
+use super::{Store, account_from_row};
 use crate::archive::ArchiveData;
 use crate::collection::{
     Change, Collection, GoodFile, GoodPlan, OwnedCharacter, OwnedWeapon, SyncPlan, plan_good,
@@ -348,6 +349,7 @@ pub(super) fn now() -> String {
     Local::now().to_rfc3339_opts(SecondsFormat::Secs, false)
 }
 
+/// Adds an owned character, or replaces the stored one of the same key.
 pub(super) fn save_character(
     tx: &Transaction,
     account: AccountId,
@@ -380,6 +382,8 @@ pub(super) fn save_character(
     Ok(())
 }
 
+/// Rewrites the stored copy `id`. A copy given a holder takes it from any other
+/// copy: a character holds one weapon.
 pub(super) fn write_weapon(
     tx: &Transaction,
     account: AccountId,

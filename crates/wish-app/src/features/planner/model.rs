@@ -28,6 +28,9 @@ pub(crate) fn talent_names() -> [String; 3] {
     ]
 }
 
+/// Everything the planner page shows, as plain data: built by
+/// [`PlannerModel::build`] from the plan, the inventory and the settings, never
+/// in `render`.
 #[derive(Default)]
 pub(super) struct PlannerModel {
     /// The plan's entries, in its order: the first take from the inventory
@@ -73,6 +76,8 @@ pub(super) struct FarmModel {
     pub entries: Vec<(Portrait, String)>,
 }
 
+/// One card of the plan: its entry, its name and picture, and what it still
+/// lacks once the entries before it took their share.
 pub(super) struct EntryModel {
     pub entry: PlanEntry,
     pub name: String,
@@ -160,6 +165,8 @@ impl MaterialsModel {
     }
 }
 
+/// A material of the game data on a tile: what is needed, what is still
+/// lacking, how many are crafted from below, and its tooltip.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct KnownMaterial {
     pub id: MaterialId,
@@ -170,6 +177,8 @@ pub(super) struct KnownMaterial {
     pub tip: String,
 }
 
+/// A material only known by the name the player typed (a custom entry's), on a
+/// tile.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct NamedMaterial {
     pub name: String,

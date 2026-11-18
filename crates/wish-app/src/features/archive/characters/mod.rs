@@ -21,6 +21,8 @@ use super::{Sort, filters, level_options};
 use crate::app::{Library, Session};
 use wish_ui::{PickerEvent, PickerState};
 
+/// Archive → Characters: the list with its filters and sort, and one
+/// character's page when one is open, with its level sliders.
 pub struct CharactersView {
     session: Entity<Session>,
     library: Entity<Library>,

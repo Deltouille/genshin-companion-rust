@@ -1,4 +1,4 @@
-//! End-to-end checks of the M1 data path: paimon.moe save → store → snapshot.
+//! End-to-end checks of the data path: paimon.moe save → store → snapshot.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -151,7 +151,7 @@ fn snapshot_round_trip_is_lossless() {
 }
 
 /// Since version 2 a snapshot also keeps each account's characters, weapons,
-/// plan and inventory, so the mirror gives them back (review BUG-15).
+/// plan and inventory, so the mirror gives them back: version 1 lost them.
 #[test]
 fn a_snapshot_keeps_the_collection_the_plan_and_the_inventory() {
     use wish_core::collection::{OwnedCharacter, OwnedWeapon};

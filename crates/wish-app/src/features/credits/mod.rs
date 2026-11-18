@@ -1,5 +1,7 @@
-//! Credits: paimon.moe, which the wish counter remakes, and genshin-db, the
-//! planner's data (each with its MIT notice); HoYoverse, who own the game's art
+//! Credits: paimon.moe, which the wish counter remakes, genshin-db, the
+//! planner's and the archive's data, and genshin.py, which the HoYoLAB sync
+//! follows (each with its MIT notice); Project Amber, the images' source;
+//! HoYoverse, who own the game's art
 //! and names; the other parts used; then the licences of every open-source
 //! component the app is built with.
 

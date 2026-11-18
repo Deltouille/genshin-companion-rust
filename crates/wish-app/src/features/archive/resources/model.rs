@@ -119,6 +119,7 @@ pub(super) struct Group {
     pub tiles: Vec<Tile>,
 }
 
+/// One section of the page: a kind of material, as the game's bag groups them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Section {
     pub kind: Kind,
@@ -128,6 +129,7 @@ pub(super) struct Section {
     pub groups: Vec<Group>,
 }
 
+/// The Resources page as plain data: its sections, searched and filtered.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Resources {
     /// The sections with something to show, in order.

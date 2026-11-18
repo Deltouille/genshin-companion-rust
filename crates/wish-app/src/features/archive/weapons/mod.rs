@@ -35,6 +35,8 @@ use wish_ui::{PickerEvent, PickerState};
 
 const TYPES: [&str; 5] = ["Sword", "Claymore", "Polearm", "Bow", "Catalyst"];
 
+/// Archive → Weapons: the list with its filters, and one weapon's page when one
+/// is open, with its level and refinement and the account's copies.
 pub struct WeaponsView {
     pub(super) session: Entity<Session>,
     pub(super) library: Entity<Library>,

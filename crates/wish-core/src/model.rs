@@ -1,4 +1,8 @@
-//! Data types shared by storage, importers and the engine.
+//! The domain's data types, shared by storage, importers and the engine:
+//! pools and gacha types, servers, rarities, wish times and ids, accounts,
+//! wishes and manual counters. Text-stored enums are declared with
+//! `text_enum!`. Their `ToSql`/`FromSql` impls are the one database
+//! crossing `tests/layers.rs` still lists.
 
 use std::fmt;
 use std::str::FromStr;
@@ -195,6 +199,7 @@ impl GachaType {
 }
 
 text_enum! {
+    /// What a wish gave.
     pub enum ItemType {
         Character => "Character",
         Weapon => "Weapon",

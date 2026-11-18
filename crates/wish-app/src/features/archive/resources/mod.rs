@@ -33,6 +33,8 @@ use crate::app::{Library, Session};
 /// Opens the inventory dialog on a material.
 pub type EditMaterial = Rc<dyn Fn(MaterialId, &mut Window, &mut App)>;
 
+/// Archive → Resources: every material by type, with how many the account has,
+/// a search and "Owned only".
 pub struct ResourcesView {
     session: Entity<Session>,
     library: Entity<Library>,

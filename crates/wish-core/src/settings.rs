@@ -14,6 +14,8 @@ use crate::i18n::{self, Language};
 use crate::paths::{AppPaths, write_atomic};
 use crate::planner::ResinOptions;
 
+/// Everything in `settings.json`. A field added later gets `#[serde(default)]`,
+/// so the files of earlier versions still read (`tests/fixtures/witness/`).
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct Settings {

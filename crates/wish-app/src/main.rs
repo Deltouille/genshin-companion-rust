@@ -1,3 +1,8 @@
+//! The `genshin-companion` binary: finds the data folder (or the one
+//! `GENSHIN_COMPANION_DATA_DIR` names), reads the language, takes the folder's
+//! lock, then opens the library and the window. A failure before the window
+//! goes to the error file and a small window of its own (`startup_error.rs`).
+
 // Release builds open no console window on Windows; debug builds keep it for
 // their output.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]

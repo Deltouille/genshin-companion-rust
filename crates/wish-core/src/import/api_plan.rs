@@ -40,12 +40,16 @@ impl ApiPlan {
     }
 }
 
+/// An account a fetched history can go to: one stored, or a new one.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Target {
     Existing(Account),
     New,
 }
 
+/// What importing the fetched history into one target would do: its batch, the
+/// wishes new per pool, the game ids recorded for migrated wishes (`linked`),
+/// and the wishes held back per pool (see the module's rules).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TargetPlan {
     pub target: Target,
@@ -65,6 +69,9 @@ impl TargetPlan {
     }
 }
 
+/// Plans the import of a fetched history: where it can go (the account with its
+/// UID, else a new one or an account without a UID) and what each choice would
+/// add. Reads the store, writes nothing.
 pub fn plan(fetched: FetchedHistory, store: &Store, data: &GameData) -> Result<ApiPlan> {
     let server = fetched.region.as_deref().and_then(Server::from_api_region);
     let Some(uid) = fetched.uid.clone() else {
@@ -415,7 +422,7 @@ mod tests {
     /// A history without a UID (a paimon.moe save of the manual counter),
     /// then a HoYoLAB sync into its account: that account takes the UID, and
     /// the next import from the game goes there, its wishes recognised,
-    /// rather than to a second account (review BUG-16).
+    /// rather than to a second account.
     #[test]
     fn a_sync_into_an_account_without_uid_keeps_the_game_import_there() {
         use crate::archive::ArchiveData;

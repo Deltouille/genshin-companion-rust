@@ -3,9 +3,25 @@
 //! presentational components every page uses.
 //!
 //! Components take plain data and render it; they know nothing of the
-//! app's state, which stays in `wish-app`. They follow paimon.moe's layout
-//! in Material 3's look (Expressive's typeface): tonal surfaces, pill
-//! controls, the secondary container for what is current (see `theme.json`).
+//! app's state, which stays in `wish-app`. The look is the game's menus,
+//! without any of the game's assets or its font ([`theme`]): ink-blue slate
+//! cards on a plain page, parchment text and pill controls, gold for focus and
+//! sliders, item cards on their rarity tiles; one rule for corners (every
+//! control a pill, surfaces `radius.lg`, item tiles `radius`).
+//!
+//! The app never uses GPUI Kit's `Button`, `Select`, `Input`, `Pagination`,
+//! `ButtonGroup` or `Toggle` directly: they come at the kit's 32 px and 14 px,
+//! which look like another app here. It uses the controls of [`components`]
+//! instead (`button`, `picker`, `input`, `Segmented`, `Pager`…), which
+//! also give everything clickable the pointing hand.
+//!
+//! - [`theme`]: the themes (`theme.json`), the typeface, the app's own
+//!   colour roles ([`theme::palette`]), rarity tiles and colours.
+//! - [`components`]: the controls and presentational pieces.
+//! - [`format`](mod@format): numbers, dates, servers and the game's fixed terms in the
+//!   current language.
+//! - [`axis`]: chart ticks that stay on whole numbers.
+//! - `assets`: the icons ([`UiAssets`]).
 
 /// A text of the design system in the current language (see
 /// `wish_core::i18n`).

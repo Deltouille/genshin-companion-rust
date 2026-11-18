@@ -64,6 +64,8 @@ struct Figures {
     missing: u64,
 }
 
+/// The inventory dialog's form: one field per material of the series, and what
+/// the plan needs, crafts and still lacks of each as the player types.
 pub(super) struct InventoryForm {
     rows: Vec<Row>,
     plan: Plan,

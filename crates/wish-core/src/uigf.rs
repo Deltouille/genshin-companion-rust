@@ -21,6 +21,7 @@ use crate::import::api::ApiRow;
 use crate::model::{GachaType, ItemType, Server, Wish, WishId};
 use crate::store::Store;
 
+/// The UIGF version this app writes and reads.
 pub const VERSION: &str = "v4.0";
 
 /// Whether a UIGF id was made up (by this app) rather than given by the game.
@@ -28,6 +29,7 @@ pub fn is_made_up_id(id: &str) -> bool {
     id.len() == 19 && id.starts_with('9') && id.bytes().all(|b| b.is_ascii_digit())
 }
 
+/// A UIGF file written, with what it holds and what it left out.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UigfExport {
     pub json: Vec<u8>,

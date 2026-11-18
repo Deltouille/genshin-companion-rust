@@ -1,4 +1,5 @@
-//! The app's buttons and selects: pills, as in the game's menus, at the app's size.
+//! The app's buttons, fields, chips and dialog footers: pills, as in the game's
+//! menus, at the app's size.
 //!
 //! GPUI Kit's controls are desktop-dense (32 px buttons, 14 px text); next
 //! to the 56 px sidebar entries and large figures they look like another
@@ -20,8 +21,8 @@ use gpui_kit::{
 
 use gpui_kit::assets::IconName;
 
-/// A button: 44 px high, base-size semibold text, the theme's corner radius
-/// (paimon.moe's buttons). Chain the kit's builders on it: `.primary()`,
+/// A button: a 44 px pill with base-size semibold text, filled parchment with
+/// ink text in both themes (the `button.*` tokens). Chain the kit's builders on it: `.primary()`,
 /// `.ghost()`, `.danger()`, `.label()`, `.icon()`, `.on_click()`.
 ///
 /// Give it a label: an icon-only button wants its own square size.

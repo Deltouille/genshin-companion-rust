@@ -2,12 +2,55 @@
 
 use crate::app::notices::report_outcome;
 
-use gpui_kit::{Context, Window};
+use gpui_kit::{Context, Div, SharedString, Window};
+use wish_ui::{ButtonExt as _, button};
 
-use super::SettingsPage;
+use super::{SettingsPage, group, help, row};
 use crate::app::library::ExportKind;
 
 impl SettingsPage {
+    /// One row per file format: a snapshot, UIGF, and the selected account's
+    /// spreadsheet.
+    pub(super) fn export_group(&self, cx: &mut Context<Self>) -> Div {
+        let has_account = self.session.read(cx).account().is_some();
+        let export_row = |kind: ExportKind, title: String, description: String, enabled: bool| {
+            row(
+                title,
+                help(description, cx),
+                button(SharedString::from(format!("export-{kind:?}")))
+                    .label(t!("settings-export"))
+                    .unavailable(!enabled)
+                    .on_click(
+                        cx.listener(move |this, _, window, cx| this.export(kind, window, cx)),
+                    ),
+            )
+        };
+        group(
+            t!("settings-group-export"),
+            vec![
+                export_row(
+                    ExportKind::Snapshot,
+                    t!("settings-export-snapshot"),
+                    t!("settings-export-snapshot-help"),
+                    true,
+                ),
+                export_row(
+                    ExportKind::Uigf,
+                    t!("settings-export-uigf"),
+                    t!("settings-export-uigf-help"),
+                    true,
+                ),
+                export_row(
+                    ExportKind::Spreadsheet,
+                    t!("settings-export-spreadsheet"),
+                    t!("settings-export-spreadsheet-help"),
+                    has_account,
+                ),
+            ],
+            cx,
+        )
+    }
+
     pub(super) fn export(&mut self, kind: ExportKind, window: &mut Window, cx: &mut Context<Self>) {
         let account = self.session.read(cx).account();
         let library = self.library.read(cx);

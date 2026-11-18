@@ -1,3 +1,5 @@
+//! A feature's group in the sidebar: its header, folding, and its pages.
+
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
@@ -15,8 +17,7 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
 /// A feature in the sidebar (the wish counter, a planner…): a header as large
 /// as a [`NavItem`], with a chevron, and when unfolded the feature's pages
-/// ([`NavItem::nested`]) under it, each led by a diamond, as the game lists
-/// a menu's sections.
+/// ([`NavItem::nested`]) under it, indented, without icon or ornament.
 ///
 /// The header is not filled when one of its pages is shown (the page is);
 /// its icon turns gold and its text to full contrast.
@@ -133,7 +134,7 @@ impl RenderOnce for NavGroup {
             .gap_1()
             .child(header)
             .when(expanded && !self.items.is_empty(), |this| {
-                // Its pages, indented under the header, each led by a diamond.
+                // Its pages, indented under the header.
                 this.child(div().v_flex().gap_1().ml_4().children(self.items))
             })
     }

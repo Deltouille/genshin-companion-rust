@@ -627,7 +627,7 @@ mod hoyolab_sync {
     }
 
     /// Two characters swapped weapons in the game: the next sync moves the
-    /// copies rather than adding two more (review BUG-17).
+    /// copies rather than adding two more, as it once did.
     #[test]
     fn a_weapon_swap_moves_the_copies() {
         const FAVONIUS: u32 = 11401;

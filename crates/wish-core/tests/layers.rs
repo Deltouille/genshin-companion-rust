@@ -39,7 +39,7 @@ const KNOWN: [(&str, &str, &str); 3] = [
     (
         "model.rs",
         "rusqlite",
-        "the enums store themselves as text; ToSql/FromSql belong in store/ (ARCH-11)",
+        "the enums store themselves as text: their ToSql/FromSql impls belong in store/",
     ),
     (
         "planner/data.rs",

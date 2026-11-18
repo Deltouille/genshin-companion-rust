@@ -1,3 +1,5 @@
+//! A segmented control: a few views or values, one always on.
+
 use std::rc::Rc;
 
 use gpui_kit::base::{Selectable as _, StyledExt as _};

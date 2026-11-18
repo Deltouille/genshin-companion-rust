@@ -1,3 +1,5 @@
+//! A chart's legend.
+
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::{App, Div, Hsla, ParentElement as _, SharedString, Styled as _, div};

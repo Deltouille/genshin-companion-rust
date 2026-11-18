@@ -18,6 +18,8 @@ use wish_core::i18n::Language;
 use wish_core::planner::ResinOptions;
 use wish_core::settings::Settings;
 
+/// The settings, changed through its methods only: at once in memory, saved in
+/// the background in the order they were made.
 pub struct Preferences {
     paths: AppPaths,
     settings: Settings,

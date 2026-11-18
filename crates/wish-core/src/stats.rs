@@ -8,6 +8,8 @@ use chrono::Datelike;
 use crate::engine::{Pull, RateUp};
 use crate::model::{ItemType, Rarity, Wish};
 
+/// Summary numbers over a pool's or a banner's pulls: counts, shares and
+/// average pity per rarity, and the rate-up record on event banners.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Stats {
     /// Denominator of the shares: the counter total for a pool (which manual
@@ -24,6 +26,8 @@ pub struct Stats {
 }
 
 impl Stats {
+    /// The numbers over `pulls`, their shares out of `total`; the rate-up
+    /// records only when `has_rate_up`.
     pub fn of(pulls: &[Pull], total: u32, has_rate_up: bool) -> Self {
         let mut stats = Stats {
             total,
@@ -63,6 +67,7 @@ impl Stats {
     }
 }
 
+/// How many pulls of one rarity, and their pity added up (for the average).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct RarityStats {
     pub count: u32,
