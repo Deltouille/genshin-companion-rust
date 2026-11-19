@@ -6671,7 +6671,7 @@ Used by:
 - hashbrown 0.14.5 (https://github.com/rust-lang/hashbrown)
 - hashbrown 0.16.1 (https://github.com/rust-lang/hashbrown)
 - hashbrown 0.17.1 (https://github.com/rust-lang/hashbrown)
-- heapless 0.9.3 (https://github.com/rust-embedded/heapless)
+- heapless 0.9.4 (https://github.com/rust-embedded/heapless)
 - heck 0.5.0 (https://github.com/withoutboats/heck)
 - html5ever 0.27.0 (https://github.com/servo/html5ever)
 - httparse 1.10.1 (https://github.com/seanmonstar/httparse)
