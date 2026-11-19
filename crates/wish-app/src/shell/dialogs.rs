@@ -8,6 +8,7 @@ use gpui_kit::component::WindowExt as _;
 use gpui_kit::{AppContext as _, Context, Entity, Focusable as _, ParentElement as _, Window};
 use wish_core::model::{AccountId, Pool};
 use wish_core::planner::MaterialId;
+use wish_ui::form_dialog;
 
 use super::{ArchivePage, ImportFile, ImportFromGame, ImportGood, Page, Shell, SyncFromHoyolab};
 use crate::app::library::LoadState;
@@ -76,6 +77,24 @@ impl Shell {
         self.navigate(Page::Planner, cx);
         self.planner
             .update(cx, |planner, cx| planner.open_resin_options(window, cx));
+    }
+
+    /// Opens or closes the move menu of the plan's entry `at` (from 0), as
+    /// its grip does (the screenshot tool uses it).
+    pub fn show_plan_moves(
+        &mut self,
+        at: usize,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate(Page::Planner, cx);
+        let account = self.session.read(cx).account();
+        let entry = (self.library.read(cx).plan(account).get(at)).map(|entry| entry.id);
+        if let Some(id) = entry {
+            self.planner
+                .update(cx, |planner, cx| planner.show_moves(id, open, window, cx));
+        }
     }
 
     /// Shows the open-source licences, over the Credits page.
@@ -213,7 +232,7 @@ impl Shell {
             if focus_once.replace(false) {
                 first.focus_handle(cx).focus(window, cx);
             }
-            dialog
+            form_dialog(dialog)
                 .title(t!("app-sync-hoyolab-title"))
                 .w(window.rem_size() * 44.)
                 .child(shown.clone())

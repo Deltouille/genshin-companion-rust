@@ -6,11 +6,10 @@
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::{
-    AnyElement, App, Context, Div, FontWeight, IntoElement, ParentElement as _, SharedString,
-    Styled as _, Window, div, rems,
+    AnyElement, App, Context, Div, FontWeight, IntoElement, ParentElement as _, Styled as _,
+    Window, div, rems,
 };
 use wish_core::collection::{MAX_CONSTELLATION, MAX_TALENT, OwnedCharacter};
 use wish_core::model::AccountId;
@@ -20,7 +19,7 @@ use super::CharactersView;
 use crate::app::notices::{report, report_outcome};
 use gpui_kit::prelude::FluentBuilder as _;
 use wish_ui::{
-    ButtonExt as _, Segmented, button, card, card_title, dialog_footer, icon_button, picker,
+    ButtonExt as _, Segmented, button, card, card_title, confirm_destructive, icon_button, picker,
 };
 
 impl CharactersView {
@@ -90,26 +89,22 @@ impl CharactersView {
             return;
         };
         let library = self.library.downgrade();
-        let title = SharedString::from(t!("archive-remove-character-title", name = name.as_str()));
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let (library, key) = (library.clone(), key.clone());
-            alert
-                .title(title.clone())
-                .description(t!("archive-remove-character-help"))
-                .footer(dialog_footer(
-                    button("confirm").danger().label(t!("archive-remove")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    let key = key.clone();
-                    let task = library.update(cx, |library, cx| {
-                        library.remove_owned_character(account, key, cx)
-                    });
-                    if let Ok(task) = task {
-                        report_characters(task, cx);
-                    }
-                    true
-                })
-        });
+        confirm_destructive(
+            window,
+            cx,
+            t!("archive-remove-character-title", name = name.as_str()),
+            t!("archive-remove-character-help"),
+            t!("archive-remove"),
+            move |_, cx| {
+                let key = key.clone();
+                let task = library.update(cx, |library, cx| {
+                    library.remove_owned_character(account, key, cx)
+                });
+                if let Ok(task) = task {
+                    report_characters(task, cx);
+                }
+            },
+        );
     }
 
     /// Sets the page's controls from what the account owns when the page

@@ -4,16 +4,16 @@
 
 use crate::app::notices::report;
 use gpui_kit::base::StyledExt as _;
+use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::progress::Progress;
-use gpui_kit::component::{ActiveTheme as _, WindowExt as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{Context, Div, ParentElement as _, Styled as _, Window, div};
 use wish_core::images::Collection;
 
 use super::{SettingsPage, group, help, row};
 use crate::app::library::DownloadState;
-use wish_ui::{ButtonExt as _, button, dialog_footer, format};
+use wish_ui::{ButtonExt as _, button, confirm_destructive, format};
 
 impl SettingsPage {
     pub(super) fn images_group(&mut self, cx: &mut Context<Self>) -> Div {
@@ -155,21 +155,16 @@ impl SettingsPage {
 
     fn confirm_empty_cache(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let page = cx.entity().downgrade();
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let page = page.clone();
-            alert
-                .title(t!("settings-images-empty-title"))
-                .description(t!("settings-images-empty-help"))
-                .footer(dialog_footer(
-                    button("confirm")
-                        .danger()
-                        .label(t!("settings-images-empty-button")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    page.update(cx, |page, cx| page.empty_cache(cx)).ok();
-                    true
-                })
-        });
+        confirm_destructive(
+            window,
+            cx,
+            t!("settings-images-empty-title"),
+            t!("settings-images-empty-help"),
+            t!("settings-images-empty-button"),
+            move |_, cx| {
+                page.update(cx, |page, cx| page.empty_cache(cx)).ok();
+            },
+        );
     }
 
     fn empty_cache(&mut self, cx: &mut Context<Self>) {

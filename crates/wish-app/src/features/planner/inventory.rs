@@ -24,7 +24,7 @@ use gpui_kit::{
 use wish_core::planner::{Allocation, CustomItem, Inventory, MORA, PlanEntry, PlannerData};
 
 use super::{PlannerView, report_plan};
-use wish_ui::{MaterialTile, button, dialog_footer, format, input};
+use wish_ui::{MaterialTile, button, dialog_footer, form_dialog, format, input};
 
 /// What a ley line outcrop of wealth gives at world level 8.
 const LEY_LINE_MORA: i64 = 60_000;
@@ -450,7 +450,7 @@ impl PlannerView {
         let view = cx.entity().downgrade();
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, view) = (form.clone(), view.clone());
-            dialog
+            form_dialog(dialog)
                 .title(t!("planner-inventory"))
                 .w(window.rem_size() * width)
                 .child(form.clone())

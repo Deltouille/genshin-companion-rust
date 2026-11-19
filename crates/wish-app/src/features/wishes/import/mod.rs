@@ -23,7 +23,7 @@ use crate::app::library::{LoadState, file_name};
 use crate::app::{Library, Session};
 use crate::shell::{ImportFile, ImportFromGame};
 use game::{GameImport, GameImportEvent};
-use wish_ui::{button, dialog_close_footer, dialog_footer, format};
+use wish_ui::{button, dialog_close_footer, dialog_footer, form_dialog, format};
 
 /// The import flow, started by the Import buttons, the menu and Ctrl/Cmd+O
 /// (the [`ImportFile`] and [`ImportFromGame`] actions, which the shell
@@ -153,7 +153,9 @@ impl ImportFlow {
             if focus_once.replace(false) {
                 input.focus_handle(cx).focus(window, cx);
             }
-            dialog.title(t!("import-game-title")).child(view.clone())
+            form_dialog(dialog)
+                .title(t!("import-game-title"))
+                .child(view.clone())
         });
     }
 

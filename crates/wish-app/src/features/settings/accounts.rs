@@ -19,7 +19,8 @@ use gpui_kit::{
 };
 use wish_core::model::{Account, AccountId, Server};
 use wish_ui::{
-    ButtonExt as _, PickerItem, PickerState, button, dialog_footer, format, input, picker,
+    ButtonExt as _, PickerItem, PickerState, button, confirm_destructive, dialog_footer,
+    form_dialog, format, input, picker,
 };
 
 use super::{SettingsPage, group, help, row};
@@ -58,7 +59,7 @@ impl SettingsPage {
                 let edited = account.clone();
                 let removed = account.clone();
                 row(
-                    account.label.clone(),
+                    account.label,
                     help(detail, cx),
                     div()
                         .h_flex()
@@ -120,7 +121,7 @@ impl SettingsPage {
         let page = cx.entity().downgrade();
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, page) = (form.clone(), page.clone());
-            dialog
+            form_dialog(dialog)
                 .title(title.clone())
                 .w(window.rem_size() * FORM_REMS)
                 .child(form.clone())
@@ -196,35 +197,28 @@ impl SettingsPage {
     ) {
         let page = cx.entity().downgrade();
         let name = format::quoted(&account.label);
-        let title =
-            SharedString::from(t!("settings-account-remove-title", account = name.as_str()));
-        let description = SharedString::from(t!("settings-account-remove-help"));
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let (page, name) = (page.clone(), name.clone());
-            alert
-                .title(title.clone())
-                .description(description.clone())
-                .footer(dialog_footer(
-                    button("confirm-remove-account")
-                        .danger()
-                        .label(t!("settings-account-remove-button")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    let name = name.clone();
-                    page.update(cx, |page, cx| {
-                        let task = (page.library)
-                            .update(cx, |library, cx| library.remove_account(account.id, cx));
-                        report_outcome(
-                            task,
-                            t!("settings-account-remove-failed"),
-                            move |()| t!("settings-account-removed", account = name.as_str()),
-                            cx,
-                        );
-                    })
-                    .ok();
-                    true
+        let title = t!("settings-account-remove-title", account = name.as_str());
+        confirm_destructive(
+            window,
+            cx,
+            title,
+            t!("settings-account-remove-help"),
+            t!("settings-account-remove-button"),
+            move |_, cx| {
+                let name = name.clone();
+                page.update(cx, |page, cx| {
+                    let task = (page.library)
+                        .update(cx, |library, cx| library.remove_account(account.id, cx));
+                    report_outcome(
+                        task,
+                        t!("settings-account-remove-failed"),
+                        move |()| t!("settings-account-removed", account = name.as_str()),
+                        cx,
+                    );
                 })
-        });
+                .ok();
+            },
+        );
     }
 }
 

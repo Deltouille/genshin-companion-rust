@@ -7,7 +7,6 @@
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
@@ -23,7 +22,7 @@ use super::WeaponsView;
 use super::model::copy_groups;
 use crate::app::notices::{report, report_outcome};
 use wish_ui::{
-    PickerEvent, PickerItem, PickerState, Segmented, button, card, card_title, dialog_footer,
+    PickerEvent, PickerItem, PickerState, Segmented, button, card, card_title, confirm_destructive,
     icon_button, picker,
 };
 
@@ -93,26 +92,22 @@ impl WeaponsView {
             return;
         };
         let library = self.library.downgrade();
-        let title = SharedString::from(t!("archive-remove-copy-title", name = name.as_str()));
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let library = library.clone();
-            alert
-                .title(title.clone())
-                .description(t!("archive-remove-copy-help"))
-                .footer(dialog_footer(
-                    button("confirm").danger().label(t!("archive-remove")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    let task = library.update(cx, |library, cx| {
-                        library.remove_owned_weapon(account, id, cx)
-                    });
-                    if let Ok(task) = task {
-                        // A failed removal brings the copy back: say why.
-                        report(task, t!("archive-copy-not-removed"), cx);
-                    }
-                    true
-                })
-        });
+        confirm_destructive(
+            window,
+            cx,
+            t!("archive-remove-copy-title", name = name.as_str()),
+            t!("archive-remove-copy-help"),
+            t!("archive-remove"),
+            move |_, cx| {
+                let task = library.update(cx, |library, cx| {
+                    library.remove_owned_weapon(account, id, cx)
+                });
+                if let Ok(task) = task {
+                    // A failed removal brings the copy back: say why.
+                    report(task, t!("archive-copy-not-removed"), cx);
+                }
+            },
+        );
     }
 
     /// Makes the pickers of the open weapon's copies follow what is stored:

@@ -117,13 +117,13 @@ opens them all). A placeholder has no days, so it is never one.
 | File | What it does |
 | --- | --- |
 | `mod.rs` | `PlannerView`: the entity, its actions (add, move, remove, open a dialog), the layout (cards in up to four columns, each at least `CARD_REMS` wide) |
-| `controls.rs` | each entry's sliders: a level range, and a character's three talent ranges; while one is dragged the costs follow it, released it saves |
+| `controls.rs` | each entry's sliders (a level range, and a character's three talent ranges; while one is dragged the costs follow it, released it saves) and its move menu (the grip: to the start, one place earlier or later, to the end), the keyboard's way to reorder the plan |
 | `day.rs` | the game's day for the account's server (else the computer's clock); `watch_the_day` rebuilds when it changes, looking every ten minutes at most since timers don't count a computer's sleep |
 | `model.rs` | `PlannerModel::build`: the plan as the sliders show it, allocated, with each card's name, picture, tiles and tooltips, the resin and "Farm today" |
 | `sections/today.rs` | "Farm today": the domains open today with the tiers lacking and who needs them, or the next day one is open |
 | `sections/still_needed.rs` | what the whole plan lacks, its resin by source, "Resin options…" |
 | `sections/card.rs`, `materials.rs` | an entry's card (header, sliders, tiles); a grid of material tiles |
-| `sections/drag.rs` | dragging a card by its header onto another, which it replaces: a copy follows the pointer, the card dims |
+| `sections/drag.rs` | dragging a card by its picture and name onto another, whose place it takes: a copy follows the pointer, the card dims |
 | `add.rs` | "Add a character…" and "Add a weapon…": a dialog of cards (the user's choice over pickers), what the account owns first with its level and constellation or refinement, a character already planned faded, a click adds and closes |
 | `custom.rs` | the custom character or weapon dialog: kind, name, stars, a material per role (a searchable grid of the role's series, its "?" first, or a typed name) |
 | `inventory.rs` | clicking a material: how many the player has, a crafted series side by side, or the EXP books under Hero's Wit; what the plan needs, crafts and lacks of each, worked out again as they type; saved in one write |

@@ -21,7 +21,9 @@ use wish_core::data::{GameData, Item};
 use wish_core::engine::DEFAULT_SERVER;
 use wish_core::import::{ImportBatch, manual};
 use wish_core::model::{Account, AccountId, ItemType, Pool, Rarity, Wish, WishId, WishTime};
-use wish_ui::{PickerItem, PickerState, button, dialog_footer, input, picker};
+use wish_ui::{
+    PickerItem, PickerState, button, confirm_destructive, dialog_footer, form_dialog, input, picker,
+};
 
 use super::{HistoryView, ManualAction, Mode};
 use gpui_kit::component::IconName;
@@ -79,7 +81,7 @@ impl HistoryView {
                 item.focus_handle(cx).focus(window, cx);
             }
             let (form, view) = (form.clone(), view.clone());
-            dialog
+            form_dialog(dialog)
                 .title(title.clone())
                 .child(form.clone())
                 .footer(dialog_footer(
@@ -124,23 +126,19 @@ impl HistoryView {
             what = what,
             time = format::date_time(&wish.time.naive())
         ));
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let (view, id) = (view.clone(), wish.id.clone());
-            alert
-                .title(title.clone())
-                .description(t!("history-delete-help"))
-                .footer(dialog_footer(
-                    button("confirm")
-                        .danger()
-                        .label(t!("history-delete-button")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    let id = id.clone();
-                    view.update(cx, |view, cx| view.delete_manual(account, id, cx))
-                        .ok();
-                    true
-                })
-        });
+        let id = wish.id;
+        confirm_destructive(
+            window,
+            cx,
+            title,
+            t!("history-delete-help"),
+            t!("history-delete-button"),
+            move |_, cx| {
+                let id = id.clone();
+                view.update(cx, |view, cx| view.delete_manual(account, id, cx))
+                    .ok();
+            },
+        );
     }
 
     fn delete_manual(&mut self, account: AccountId, id: WishId, cx: &mut Context<Self>) {

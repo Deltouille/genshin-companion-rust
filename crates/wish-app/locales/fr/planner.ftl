@@ -17,6 +17,11 @@ planner-remove = Retirer
 planner-remove-tooltip = Retirer { $name } du plan
 planner-edit = Modifier { $name }
 planner-drag = Glissez pour changer l’ordre : les premiers personnages se servent d’abord dans votre inventaire
+planner-move-menu = Déplacer { $name } dans le plan
+planner-move-start = Placer en premier
+planner-move-earlier = Avancer d’une place
+planner-move-later = Reculer d’une place
+planner-move-end = Placer en dernier
 
 ## Une carte
 

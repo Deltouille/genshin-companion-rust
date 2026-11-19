@@ -39,22 +39,21 @@ use std::rc::Rc;
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::WindowExt as _;
 use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::{
     AnyElement, App, Context, Entity, FontWeight, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, SharedString, Styled as _, Subscription, Task, Window, div,
+    ParentElement as _, Render, Styled as _, Subscription, Task, Window, div,
 };
 use wish_core::planner::{CustomItem, MaterialId, PlanTarget, Role, exp_series, game_day};
 
 use crate::app::{Library, Session};
-use controls::Controls;
+use controls::{Controls, Move};
 use day::now_on;
 use model::{GameDay, PlannerModel};
 use sections::{Actions, CardControls, EntryCard, FarmToday, Look, StillNeeded};
 use wish_core::model::AccountId;
-use wish_ui::{PageFrame, button, card, dialog_footer};
+use wish_ui::{PageFrame, PickerState, button, card, confirm_destructive};
 
 /// The planner page: its entries' sliders, the card being dragged, and the
 /// model the page draws.
@@ -63,6 +62,8 @@ pub struct PlannerView {
     library: Entity<Library>,
     /// The sliders of each character and weapon entry, by entry id.
     controls: HashMap<i64, Controls>,
+    /// Each entry's move menu, by entry id: its moves follow its place.
+    moves: HashMap<i64, (Entity<PickerState<Move>>, Subscription)>,
     /// The entry whose card is being dragged, dimmed meanwhile.
     dragging: Option<i64>,
     /// What the page shows, worked out again when the plan, the inventory,
@@ -100,6 +101,7 @@ impl PlannerView {
             session,
             library,
             controls: HashMap::new(),
+            moves: HashMap::new(),
             dragging: None,
             model: Rc::default(),
             day,
@@ -194,6 +196,40 @@ impl PlannerView {
         report_plan(task, cx);
     }
 
+    /// Moves entry `id` as its move menu asks: to either end of the plan, or
+    /// one place along, taking that entry's place.
+    fn move_by(&mut self, id: i64, to: Move, cx: &mut Context<Self>) {
+        let account = self.account(cx);
+        let ids: Vec<i64> = (self.library.read(cx).plan(account).iter())
+            .map(|entry| entry.id)
+            .collect();
+        let Some(at) = ids.iter().position(|entry| *entry == id) else {
+            return;
+        };
+        let onto = match to {
+            Move::Start => ids.first(),
+            Move::Earlier => at.checked_sub(1).and_then(|before| ids.get(before)),
+            Move::Later => ids.get(at + 1),
+            Move::End => ids.last(),
+        };
+        if let Some(&onto) = onto {
+            self.move_entry(id, onto, cx);
+        }
+    }
+
+    /// Opens or closes entry `id`'s move menu (the screenshot tool uses it).
+    pub(crate) fn show_moves(
+        &mut self,
+        id: i64,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some((menu, _)) = self.moves.get(&id) {
+            menu.update(cx, |menu, cx| menu.show(open, window, cx));
+        }
+    }
+
     /// Opens the confirmation to remove an entry.
     fn confirm_remove(
         &mut self,
@@ -203,25 +239,21 @@ impl PlannerView {
         cx: &mut Context<Self>,
     ) {
         let library = self.library.downgrade();
-        let title = SharedString::from(t!("planner-remove-title", name = name.as_str()));
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let library = library.clone();
-            alert
-                .title(title.clone())
-                .description(t!("planner-remove-help"))
-                .footer(dialog_footer(
-                    button("confirm").danger().label(t!("planner-remove")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    let task =
-                        library.update(cx, |library, cx| library.remove_plan_entry(entry, cx));
-                    if let Ok(task) = task {
-                        report_plan(task, cx);
-                    }
-                    true
-                })
-        });
+        confirm_destructive(
+            window,
+            cx,
+            t!("planner-remove-title", name = name.as_str()),
+            t!("planner-remove-help"),
+            t!("planner-remove"),
+            move |_, cx| {
+                let task = library.update(cx, |library, cx| library.remove_plan_entry(entry, cx));
+                if let Ok(task) = task {
+                    report_plan(task, cx);
+                }
+            },
+        );
     }
+
     /// Works the page out again: the plan as the sliders show it, shared out
     /// over the inventory, and the resin.
     fn rebuild(&mut self, cx: &App) {
@@ -317,6 +349,7 @@ impl Render for PlannerView {
                         level: controls.level.clone(),
                         talents: controls.talents.clone(),
                     }),
+                    moves: self.moves.get(&id).map(|(menu, _)| menu.clone()),
                     dragged: self.dragging == Some(id),
                     look: look.clone(),
                     actions: actions.clone(),

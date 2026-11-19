@@ -16,8 +16,9 @@ use gpui_kit::{
     InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _, RenderOnce, SharedString,
     StatefulInteractiveElement as _, Styled as _, StyledImage as _, Window, div, img,
 };
-use wish_ui::{card, icon_button, theme};
+use wish_ui::{PickerState, card, icon_button, menu_button, theme};
 
+use super::super::controls::Move;
 use super::super::model::{EntryModel, PlannerModel, Portrait, talent_names};
 use super::super::resin;
 use super::drag::{CardPreview, DraggedEntry, droppable};
@@ -38,6 +39,9 @@ pub(in super::super) struct EntryCard {
     pub index: usize,
     /// None until the view has made them (a moment after the entry appears).
     pub controls: Option<CardControls>,
+    /// Its move menu; none while it is the plan's only entry, or until the
+    /// view has made it.
+    pub moves: Option<Entity<PickerState<Move>>>,
     /// This card is the one being moved.
     pub dragged: bool,
     pub look: Look,
@@ -78,7 +82,7 @@ impl RenderOnce for EntryCard {
             .on_click(move |_, window, cx| edit(id, window, cx))
             .into_any_element()
         });
-        let header = entry_header(entry, edit, &self.look, &self.actions, cx);
+        let header = entry_header(entry, edit, self.moves, &self.look, &self.actions, cx);
         let theme = cx.theme();
         let card = match (&entry.ranges, &self.controls) {
             // The free-form entries of earlier versions: no sliders.
@@ -130,10 +134,13 @@ impl RenderOnce for EntryCard {
     }
 }
 
-/// An entry's picture, name and detail, with its edit and remove buttons.
+/// An entry's picture, name and detail, with its edit and remove buttons. Its
+/// grip opens the move menu, the keyboard's way to reorder the plan; the
+/// picture and the name are the handle that drags the card.
 fn entry_header(
     entry: &EntryModel,
     edit: Option<AnyElement>,
+    moves: Option<Entity<PickerState<Move>>>,
     look: &Look,
     actions: &Actions,
     cx: &App,
@@ -145,7 +152,22 @@ fn entry_header(
     let picture = preview.picture().render(cx);
     let dragged = DraggedEntry { id, card: preview };
     let start_drag = actions.start_drag.clone();
-    // The picture and the name are the handle that moves the card.
+    let grip = Icon::new(IconName::GripVertical)
+        .size_4()
+        .flex_shrink_0()
+        .text_color(theme.muted_foreground);
+    // With somewhere to go, the grip is the move menu's button.
+    let grip = match moves.filter(|menu| !menu.read(cx).is_empty()) {
+        Some(menu) => menu_button(
+            SharedString::from(format!("plan-moves-{id}")),
+            &menu,
+            grip,
+            t!("planner-move-menu", name = name.as_ref()),
+        )
+        .into_any_element(),
+        None => grip.into_any_element(),
+    };
+    // The picture and the name are the handle that drags the card.
     let handle = div()
         .id(SharedString::from(format!("plan-handle-{id}")))
         .h_flex()
@@ -160,12 +182,6 @@ fn entry_header(
         .tooltip(|window, cx| {
             gpui_kit::component::tooltip::Tooltip::new(t!("planner-drag")).build(window, cx)
         })
-        .child(
-            Icon::new(IconName::GripVertical)
-                .size_4()
-                .flex_shrink_0()
-                .text_color(theme.muted_foreground),
-        )
         .child(picture)
         .child(
             div()
@@ -189,15 +205,21 @@ fn entry_header(
         );
     let remove = actions.remove.clone();
     let remove_name = name.to_string();
-    div().h_flex().gap_1().child(handle).children(edit).child(
-        icon_button(
-            SharedString::from(format!("remove-plan-{id}")),
-            IconName::Close,
-            t!("planner-remove-tooltip", name = name.as_ref()),
+    div()
+        .h_flex()
+        .gap_1()
+        .child(grip)
+        .child(handle)
+        .children(edit)
+        .child(
+            icon_button(
+                SharedString::from(format!("remove-plan-{id}")),
+                IconName::Close,
+                t!("planner-remove-tooltip", name = name.as_ref()),
+            )
+            .ghost()
+            .on_click(move |_, window, cx| remove(id, remove_name.clone(), window, cx)),
         )
-        .ghost()
-        .on_click(move |_, window, cx| remove(id, remove_name.clone(), window, cx)),
-    )
 }
 
 /// A slider with its label and the range it shows.

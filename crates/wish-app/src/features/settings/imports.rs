@@ -2,15 +2,13 @@
 //! confirming.
 
 use crate::app::notices::report_outcome;
-use gpui_kit::component::WindowExt as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{AnyElement, Context, Div, ParentElement as _, SharedString, Window, div};
 
 use wish_core::import::{ImportRecord, ImportSource};
 
 use super::{SettingsPage, group, help, row};
-use wish_ui::{ButtonExt as _, button, dialog_footer, format};
+use wish_ui::{ButtonExt as _, button, confirm_destructive, format};
 
 impl SettingsPage {
     /// The latest imports, newest first, each with Undo while it has
@@ -82,21 +80,18 @@ impl SettingsPage {
             account = record.account_label.as_str(),
         ));
         let import_id = record.id;
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let shell = shell.clone();
-            alert
-                .title(title.clone())
-                .description(description.clone())
-                .footer(dialog_footer(
-                    button("confirm").danger().label(t!("settings-undo-button")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    shell
-                        .update(cx, |shell, cx| shell.undo_import(import_id, cx))
-                        .ok();
-                    true
-                })
-        });
+        confirm_destructive(
+            window,
+            cx,
+            title,
+            description,
+            t!("settings-undo-button"),
+            move |_, cx| {
+                shell
+                    .update(cx, |shell, cx| shell.undo_import(import_id, cx))
+                    .ok();
+            },
+        );
     }
 
     pub(super) fn undo_import(&mut self, import_id: i64, cx: &mut Context<Self>) {

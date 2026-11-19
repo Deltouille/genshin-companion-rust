@@ -2,12 +2,11 @@
 
 use crate::app::notices::report_outcome;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::{ActiveTheme as _, WindowExt as _};
 use gpui_kit::{
     Context, ParentElement as _, PathPromptOptions, SharedString, Styled as _, Window, div,
 };
-use wish_ui::{button, dialog_footer, format};
+use wish_ui::{button, confirm_destructive, format};
 
 use std::path::PathBuf;
 
@@ -140,24 +139,18 @@ impl SettingsPage {
         cx: &mut Context<Self>,
     ) {
         let shell = cx.entity().downgrade();
-        let title = SharedString::from(t!("settings-restore-confirm-title", what = what));
-        window.open_alert_dialog(cx, move |alert, _, _| {
-            let (shell, file) = (shell.clone(), file.clone());
-            alert
-                .title(title.clone())
-                .description(t!("settings-restore-confirm-help"))
-                .footer(dialog_footer(
-                    button("confirm")
-                        .danger()
-                        .label(t!("settings-restore-button")),
-                ))
-                .on_ok(move |_, _, cx| {
-                    shell
-                        .update(cx, |shell, cx| shell.restore_backup(file.clone(), cx))
-                        .ok();
-                    true
-                })
-        });
+        confirm_destructive(
+            window,
+            cx,
+            t!("settings-restore-confirm-title", what = what),
+            t!("settings-restore-confirm-help"),
+            t!("settings-restore-button"),
+            move |_, cx| {
+                shell
+                    .update(cx, |shell, cx| shell.restore_backup(file.clone(), cx))
+                    .ok();
+            },
+        );
     }
 
     fn restore_backup(&mut self, file: PathBuf, cx: &mut Context<Self>) {

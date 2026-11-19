@@ -48,6 +48,14 @@
   caller's style on a kit `Button`, `Select` or `Input` (`.h_11()`, `.px_4()`, `.bg()`) applies after the kit's own
   size, so it wins; their inner text size comes from `Size` (`.large()` gives 16 px).
 - GPUI Kit's `SidebarMenuItem` is fixed at 28 px, hence `wish_ui::NavItem`.
+- GPUI Kit binds Enter to a dialog's `Confirm`, which runs `on_ok`: an alert whose action is in `on_ok` runs it
+  on Enter, whatever has the focus. `wish_ui::confirm_destructive` puts the action in its button's `on_click`
+  instead, and focuses Cancel.
+- GPUI Kit's dialogs close on a click outside them by default (`overlay_closable`), which loses a half-filled form:
+  `wish_ui::form_dialog` turns it off. Alert dialogs never close from the backdrop. Every dialog gives the focus
+  back to what opened it.
+- `cx.reduce_motion()` says whether the system asks for less motion (GPUI Kit reads it at `init`); the kit's
+  transitions follow it, a raw `with_animation` doesn't.
 - A centred window is clamped to the display; the screenshot tool opens tall windows at the origin instead.
 - In grids, `row_span` overrides `row_start`: place items with `col_start`/`col_end`/`row_start`/`row_end` (lines
   from 1). Grid items stretch by default. A div without listeners, hover style or cursor inserts no hitbox, so

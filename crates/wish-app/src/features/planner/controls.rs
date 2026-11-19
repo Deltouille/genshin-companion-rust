@@ -1,13 +1,40 @@
-//! Each entry's sliders: a level range (a character's levels, or those of a
-//! weapon of its rarity) and a character's three talent ranges. They are the
-//! view's own state: while one is dragged the costs follow it ([`PlannerView::live_plan`]),
-//! and released it saves its entry.
+//! Each entry's controls, the view's own state: its sliders (a level range,
+//! a character's levels or those of a weapon of its rarity, and a character's
+//! three talent ranges), which the costs follow while dragged
+//! ([`PlannerView::live_plan`]) and which save their entry when released; and
+//! its move menu, which moves it in the plan without the mouse (the drag
+//! handle's alternative: the order decides who gets the inventory first).
 
 use gpui_kit::component::slider::{SliderEvent, SliderState, SliderValue};
 use gpui_kit::{App, AppContext as _, Context, Entity, Subscription, Window};
 use wish_core::planner::{CharacterGoal, Level, PlanEntry, PlanTarget, WeaponGoal};
+use wish_ui::{PickerEvent, PickerItem, PickerState};
 
 use super::{PlannerView, report_plan};
+
+/// Where an entry's move menu sends it in the plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Move {
+    Start,
+    Earlier,
+    Later,
+    End,
+}
+
+/// The moves an entry at `at` of a plan whose last place is `last` can make:
+/// none toward an end it is already at.
+fn move_items(at: usize, last: usize) -> Vec<PickerItem<Move>> {
+    let mut items = Vec::new();
+    if at > 0 {
+        items.push(PickerItem::new(t!("planner-move-start"), Move::Start));
+        items.push(PickerItem::new(t!("planner-move-earlier"), Move::Earlier));
+    }
+    if at < last {
+        items.push(PickerItem::new(t!("planner-move-later"), Move::Later));
+        items.push(PickerItem::new(t!("planner-move-end"), Move::End));
+    }
+    items
+}
 
 /// An entry's sliders: its level, from and to (as indexes into `steps`), and
 /// a character's three talents.
@@ -25,6 +52,7 @@ impl PlannerView {
     /// removed ones. Existing sliders keep their values: the plan they would
     /// be set from is what they saved.
     pub(super) fn sync_controls(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.sync_moves(cx);
         let account = self.account(cx);
         let library = self.library.read(cx);
         let (plan, planner) = (library.plan(account).to_vec(), library.planner().clone());
@@ -57,6 +85,30 @@ impl PlannerView {
                 },
             };
             self.controls.insert(entry.id, controls);
+        }
+    }
+
+    /// Gives every entry its move menu, its moves following its place (and
+    /// the language: they are worked out again whenever the library notifies).
+    fn sync_moves(&mut self, cx: &mut Context<Self>) {
+        let account = self.account(cx);
+        let ids: Vec<i64> = (self.library.read(cx).plan(account).iter())
+            .map(|entry| entry.id)
+            .collect();
+        self.moves.retain(|id, _| ids.contains(id));
+        let last = ids.len().saturating_sub(1);
+        for (at, &id) in ids.iter().enumerate() {
+            let items = move_items(at, last);
+            if let Some((menu, _)) = self.moves.get(&id) {
+                menu.update(cx, |menu, cx| menu.set_items(items, cx));
+                continue;
+            }
+            let menu = cx.new(|cx| PickerState::actions(items, cx));
+            let picked = cx.subscribe(&menu, move |this, _, event: &PickerEvent<Move>, cx| {
+                let PickerEvent::Confirm(to) = event;
+                this.move_by(id, *to, cx);
+            });
+            self.moves.insert(id, (menu, picked));
         }
     }
 
@@ -208,5 +260,29 @@ fn slider_range(state: &Entity<SliderState>, cx: &App) -> (usize, usize) {
     match state.read(cx).value() {
         SliderValue::Range(from, to) => (from.round() as usize, to.round() as usize),
         SliderValue::Single(to) => (0, to.round() as usize),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn moves(at: usize, last: usize) -> Vec<Move> {
+        wish_core::i18n::with_language(wish_core::i18n::Language::English, || {
+            move_items(at, last)
+                .into_iter()
+                .map(|item| item.value)
+                .collect()
+        })
+    }
+
+    #[test]
+    fn an_entry_moves_toward_the_ends_it_isnt_at() {
+        use Move::*;
+        assert_eq!(moves(0, 3), [Later, End]);
+        assert_eq!(moves(1, 3), [Start, Earlier, Later, End]);
+        assert_eq!(moves(3, 3), [Start, Earlier]);
+        // Alone in the plan: nowhere to go, so the grip opens no menu.
+        assert!(moves(0, 0).is_empty());
     }
 }

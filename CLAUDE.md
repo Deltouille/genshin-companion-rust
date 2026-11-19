@@ -164,6 +164,9 @@ edit them.** In `reference/`, the wish logic is `src/functions/wish.js` and `src
 - **Never use `Button::new`, `Select::new`, `Input::new`, or the kit's `Pagination`, `ButtonGroup` and `Toggle`
   directly in the app**: use `wish_ui`'s `button`, `picker`, `input`, `Pager`, `Segmented`, `filter_chip`.
 - **Everything clickable shows the pointing hand**; a disabled button takes `.unavailable(bool)`.
+- **Everything a click does, the keyboard does too** (build it on a kit `Button`, not a `div` with `on_click`). A
+  dialog the player types in is a `form_dialog`; asking before removing or replacing data is `confirm_destructive`
+  (Enter keeps the data). The rules: `docs/architecture/ui.md`, "Interaction and accessibility".
 - Raw colours live only in `crates/wish-ui/src/theme.json`. Keep text contrast at 4.5:1.
 - As few bar charts as possible: areas, lines with dots, donuts.
 - Never the kit's `window.push_notification`: notices go through `notify`.

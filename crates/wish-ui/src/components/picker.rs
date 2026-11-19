@@ -9,10 +9,14 @@
 //! `Popover` (which places it and closes it on Escape or a click outside).
 //!
 //! Keyboard: Up and Down move through the options, Enter picks one.
+//!
+//! The same list makes a menu of actions on one thing ([`menu_button`]): an
+//! icon button opens it, and its options are commands ("Move earlier"), so
+//! none stays chosen or ticked.
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::Button;
+use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::popover::Popover;
 use gpui_kit::component::{Icon, Sizable as _};
@@ -56,6 +60,9 @@ pub struct PickerState<V: Clone + PartialEq + 'static> {
     /// The option the keyboard is on, as a position in the options shown.
     highlighted: usize,
     open: bool,
+    /// A menu of actions ([`PickerState::actions`]): an option picked runs and
+    /// isn't kept as the choice.
+    actions: bool,
     search: Option<Entity<InputState>>,
     focus: FocusHandle,
     scroll: ScrollHandle,
@@ -78,10 +85,19 @@ impl<V: Clone + PartialEq + 'static> PickerState<V> {
             selected,
             highlighted: 0,
             open: false,
+            actions: false,
             search: None,
             focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
             _search_changes: None,
+        }
+    }
+
+    /// The options of a [`menu_button`]: actions, of which none is the choice.
+    pub fn actions(items: Vec<PickerItem<V>>, cx: &mut Context<Self>) -> Self {
+        Self {
+            actions: true,
+            ..Self::new(items, None, cx)
         }
     }
 
@@ -115,6 +131,11 @@ impl<V: Clone + PartialEq + 'static> PickerState<V> {
         cx.notify();
     }
 
+    /// Whether it has no option.
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+
     pub fn selected_value(&self) -> Option<&V> {
         self.selected
             .and_then(|ix| self.items.get(ix))
@@ -132,6 +153,12 @@ impl<V: Clone + PartialEq + 'static> PickerState<V> {
     pub fn set_selected_index(&mut self, ix: Option<usize>, cx: &mut Context<Self>) {
         self.selected = ix.filter(|ix| *ix < self.items.len());
         cx.notify();
+    }
+
+    /// Opens or closes the list, as a click on the picker does (the
+    /// screenshot tool uses it).
+    pub fn show(&mut self, open: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_open(open, window, cx);
     }
 
     /// The options shown: those matching the search, in order (indexes into
@@ -184,7 +211,9 @@ impl<V: Clone + PartialEq + 'static> PickerState<V> {
             return;
         };
         let value = item.value.clone();
-        self.selected = Some(ix);
+        if !self.actions {
+            self.selected = Some(ix);
+        }
         self.open = false;
         cx.emit(PickerEvent::Confirm(value));
         cx.notify();
@@ -214,6 +243,7 @@ pub fn picker<V: Clone + PartialEq + 'static>(
 
 /// See [`picker`].
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct Picker<V: Clone + PartialEq + 'static> {
     id: ElementId,
     state: Entity<PickerState<V>>,
@@ -316,6 +346,74 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
     }
 }
 
+/// A button showing `icon` that opens a menu of actions on one thing:
+/// `state`'s options ([`PickerState::actions`]), in the picker's parchment
+/// list, with the same keyboard. Picking one emits [`PickerEvent::Confirm`].
+/// `label` names the menu for a tooltip and assistive technology.
+pub fn menu_button<V: Clone + PartialEq + 'static>(
+    id: impl Into<ElementId>,
+    state: &Entity<PickerState<V>>,
+    icon: impl Into<Icon>,
+    label: impl Into<SharedString>,
+) -> MenuButton<V> {
+    MenuButton {
+        id: id.into(),
+        state: state.clone(),
+        icon: icon.into(),
+        label: label.into(),
+        menu_width: rems(14.),
+    }
+}
+
+/// See [`menu_button`].
+#[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
+pub struct MenuButton<V: Clone + PartialEq + 'static> {
+    id: ElementId,
+    state: Entity<PickerState<V>>,
+    icon: Icon,
+    label: SharedString,
+    menu_width: Rems,
+}
+
+impl<V: Clone + PartialEq + 'static> MenuButton<V> {
+    /// The list's width (14 rem by default).
+    pub fn menu_width(mut self, width: Rems) -> Self {
+        self.menu_width = width;
+        self
+    }
+}
+
+impl<V: Clone + PartialEq + 'static> RenderOnce for MenuButton<V> {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let palette = theme::palette(cx);
+        let state = self.state.read(cx);
+        let (open, focus) = (state.open, state.focus.clone());
+        let trigger = Button::new(self.id.clone())
+            .ghost()
+            .size_8()
+            .rounded_full()
+            .icon(self.icon)
+            .accessibility_label(self.label.clone())
+            .tooltip(self.label)
+            .cursor_pointer();
+        let (on_change, for_menu) = (self.state.clone(), self.state.clone());
+        Popover::new(self.id)
+            .trigger(trigger)
+            .open(open)
+            .on_open_change(move |open, window, cx| {
+                on_change.update(cx, |state, cx| state.set_open(*open, window, cx));
+            })
+            .track_focus(&focus)
+            .bg(palette.parchment)
+            .rounded(rems(1.5))
+            .text_color(palette.ink)
+            .p_1()
+            .w(self.menu_width)
+            .content(move |_, window, cx| menu(&for_menu, window, cx))
+    }
+}
+
 /// The open list: the search field (if any), then the options.
 fn menu<V: Clone + PartialEq + 'static>(
     state: &Entity<PickerState<V>>,
@@ -329,7 +427,7 @@ fn menu<V: Clone + PartialEq + 'static>(
     let rows = shown.iter().enumerate().map(|(position, ix)| {
         let ix = *ix;
         let item = &picker.items[ix];
-        let chosen = selected == Some(ix);
+        let chosen = !picker.actions && selected == Some(ix);
         let state = state.clone();
         div()
             .id(("picker-option", ix))

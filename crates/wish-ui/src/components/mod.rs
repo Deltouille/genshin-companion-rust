@@ -21,8 +21,8 @@ mod stat;
 pub use badge::{badge, outcome_badge};
 pub use card::{card, card_title};
 pub use controls::{
-    ButtonExt, button, button_style, dialog_close_footer, dialog_footer, filter_chip, icon_button,
-    input,
+    ButtonExt, button, button_style, confirm_destructive, dialog_close_footer, dialog_footer,
+    filter_chip, form_dialog, icon_button, input,
 };
 pub use item_tile::item_tile;
 pub use legend::legend;
@@ -31,7 +31,7 @@ pub use nav_group::NavGroup;
 pub use nav_item::NavItem;
 pub use page_frame::PageFrame;
 pub use pager::Pager;
-pub use picker::{Picker, PickerEvent, PickerItem, PickerState, picker};
+pub use picker::{MenuButton, Picker, PickerEvent, PickerItem, PickerState, menu_button, picker};
 pub use pity_chart::{PityPoint, pity_chart};
 pub use rich_text::rich_text;
 pub use segmented::Segmented;

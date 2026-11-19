@@ -62,11 +62,14 @@ to these proportions: **never use `Button::new`, `Select::new`, `Input::new`, or
 | a button the kit builds itself (a dialog's close) | `button_style(…)` | |
 | a disabled button | `.unavailable(bool)` (`ButtonExt`): it also gives the arrow back | the kit's `.disabled(…)` |
 | a choice in a list | `picker` with a `PickerState` (search for long lists, Up/Down/Enter) | the kit's `Select` |
+| actions on one thing ("Move earlier") | `menu_button` with a `PickerState::actions`: the picker's list behind an icon button | the kit's `DropdownMenu` |
 | a text field | `input(&state, cx)` | `Input::new` |
 | a few views or values, one on | `Segmented` | `TabBar`, `ButtonGroup`, `Toggle` |
 | an on/off filter | `filter_chip` | `Toggle` |
 | pages of a table | `Pager` | `Pagination` |
-| a dialog's buttons | `dialog_footer(button(…).primary() / .danger())`, `dialog_close_footer` | the kit's built-in OK/Cancel |
+| a dialog's buttons | `dialog_footer(button(…).primary())`, `dialog_close_footer` | the kit's built-in OK/Cancel |
+| a dialog the player types in | `form_dialog(dialog)`: a click outside doesn't close it | a dialog that loses a form on a stray click |
+| asking before removing or replacing data | `confirm_destructive(…)`: Cancel focused, Enter keeps the data | an alert with the action in `on_ok` (Enter would run it) |
 | a page's frame | `PageFrame` (`.max_width` centres it in a column) | |
 | a surface and its title | `card`, `card_title` | |
 | a sidebar entry, a feature's group | `NavItem` (`nested` for a feature's pages), `NavGroup` | the kit's `SidebarMenuItem` (28 px) |
@@ -80,6 +83,33 @@ to these proportions: **never use `Button::new`, `Select::new`, `Input::new`, or
 **Everything clickable shows the pointing hand.** These helpers do it, since the kit gives every button but a link
 the arrow. Anything else clickable (a `div` with `on_click`, a kit `Slider` or `Switch`) takes `.cursor_pointer()`
 itself; a button that does nothing (the current tab) takes `.cursor_default()`.
+
+## Interaction and accessibility
+
+GPUI here has a screen reader bridge (AccessKit) and GPUI Kit's controls carry roles, labels and keyboard handling;
+what the app builds itself must keep up. These rules come from the web's own (the `modern-web-guidance` guides on
+dialogs, sortable tables, drag and drop, toasts, motion, tooltips), which carry over to a GPUI window.
+
+- **Everything a click does, the keyboard does too.** A kit `Button` is focusable and answers Enter and Space; a
+  `div` with `on_click` is mouse-only and invisible to a screen reader. Build clickable things on `Button` (as
+  `item_card` does) and give an icon-only one an `accessibility_label`. A pointer gesture gets a keyboard way: the
+  planner's cards are dragged by their picture and name, and moved by their grip's menu (`menu_button`).
+- **What a tooltip says is not only in the tooltip.** A tooltip shows on hover; put the same words in the control's
+  accessible label, or on the page. Truncated text needs a way to read it whole (a tooltip at least).
+- **Dialogs.** Every dialog has a title. One the player types in is a `form_dialog`: Escape and Cancel close it,
+  a click beside it doesn't. One that removes or replaces data goes through
+  `confirm_destructive`: Cancel has the focus, and Enter only closes it, since GPUI Kit binds Enter to a dialog's
+  Confirm. Previews and lists keep the kit's default (a click outside closes them). The kit returns the focus to
+  what opened the dialog.
+- **Notices** never hold the only copy of a piece of information (the page shows what a write did, or undid), take
+  no focus, and a failure stays until closed.
+- **Motion.** GPUI Kit's transitions follow the system's "reduce motion" setting (`cx.reduce_motion()`); an
+  animation the app makes with `with_animation` must check it too, and end in the same final state without it.
+- **Sorting** sorts the values, not the text shown (a pity, a time); a column keeps its name, and the arrow says the
+  direction.
+- **Targets** are at least 24 px, and colour is never the only cue (a rarity is written "5★" beside its colour).
+- **Times** are the game's wall clock with the server's fixed offset (the servers keep no daylight saving time): a
+  deliberate difference from the web's advice to name IANA time zones.
 
 ## Charts
 

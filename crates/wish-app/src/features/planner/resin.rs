@@ -23,7 +23,7 @@ use super::PlannerView;
 use super::sections::OnOpen;
 use crate::app::images::Images;
 use crate::app::notices::report;
-use wish_ui::{Segmented, button, dialog_footer, filter_chip, format, input};
+use wish_ui::{Segmented, button, dialog_footer, filter_chip, form_dialog, format, input};
 
 /// The most resin a day the options take: the game's hard cap on what can
 /// be held.
@@ -236,13 +236,9 @@ fn field(label: String, control: impl IntoElement, help: String, cx: &App) -> Di
     div()
         .v_flex()
         .gap_2()
-        .child(
-            div()
-                .font_weight(FontWeight::SEMIBOLD)
-                .child(label.to_owned()),
-        )
+        .child(div().font_weight(FontWeight::SEMIBOLD).child(label))
         .child(control)
-        .child(div().text_sm().text_color(muted).child(help.to_owned()))
+        .child(div().text_sm().text_color(muted).child(help))
 }
 
 impl Render for ResinForm {
@@ -312,7 +308,7 @@ impl PlannerView {
         let library = self.library.downgrade();
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, library) = (form.clone(), library.clone());
-            dialog
+            form_dialog(dialog)
                 .title(t!("planner-resin-title"))
                 .w(window.rem_size() * 36.)
                 .child(form.clone())

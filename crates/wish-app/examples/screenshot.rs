@@ -442,6 +442,22 @@ fn main() -> Result<()> {
         cx.update_window(window, |_, window, cx| window.close_dialog(cx))?;
         cx.advance_clock(Duration::from_secs(1));
         cx.run_until_parked();
+        // The second entry's move menu, which has every move (a tall window
+        // shows the cards).
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.show_plan_moves(1, true, window, cx))
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("planner-moves-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.show_plan_moves(1, false, window, cx))
+        })?;
+        cx.run_until_parked();
 
         // The open-source licences, over the Credits page.
         cx.update_window(window, |_, window, cx| {
@@ -749,9 +765,9 @@ impl wish_core::hoyolab::Transport for SampleHoyolab {
                 "game_uid": "712345678", "nickname": "Traveler", "level": 60 }] })
         } else if request.url.ends_with("character/list") {
             let list = [
-                (10000037, "Ganyu", "Cryo", 5, 80, 1, amos.clone()),
-                (10000032, "Bennett", "Pyro", 4, 90, 6, favonius.clone()),
-                (10000999, "Someone New", "Anemo", 5, 90, 0, sword.clone()),
+                (10000037, "Ganyu", "Cryo", 5, 80, 1, amos),
+                (10000032, "Bennett", "Pyro", 4, 90, 6, favonius),
+                (10000999, "Someone New", "Anemo", 5, 90, 0, sword),
             ]
             .map(
                 |(id, name, element, rarity, level, constellation, weapon)| {

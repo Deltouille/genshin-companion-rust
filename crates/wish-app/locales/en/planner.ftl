@@ -16,6 +16,11 @@ planner-remove = Remove
 planner-remove-tooltip = Remove { $name } from the plan
 planner-edit = Edit { $name }
 planner-drag = Drag to change the order: the first characters take from your inventory first
+planner-move-menu = Move { $name } in the plan
+planner-move-start = Move to the start
+planner-move-earlier = Move one place earlier
+planner-move-later = Move one place later
+planner-move-end = Move to the end
 
 ## A card
 

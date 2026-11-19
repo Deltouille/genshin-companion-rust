@@ -26,7 +26,7 @@ use wish_core::planner::{
 
 use super::{PlannerView, report_plan};
 use crate::app::images::Images;
-use wish_ui::{MaterialTile, Segmented, button, dialog_footer, icon_button, input};
+use wish_ui::{MaterialTile, Segmented, button, dialog_footer, form_dialog, icon_button, input};
 
 /// The roles side by side in the form.
 const SLOT_COLUMNS: usize = 3;
@@ -224,7 +224,7 @@ impl CustomForm {
                 match self.planner.material(top) {
                     // "?", by the role's name, without a tier.
                     Some(material) if material.is_placeholder() => {
-                        (None, material.rarity, role.placeholder_name().to_owned())
+                        (None, material.rarity, role.placeholder_name())
                     }
                     Some(material) => (
                         self.images.material(material),
@@ -521,7 +521,7 @@ impl PlannerView {
         let dialog_form = form.clone();
         window.open_dialog(cx, move |dialog, window, _| {
             let (form, view) = (dialog_form.clone(), view.clone());
-            dialog
+            form_dialog(dialog)
                 .title(title.clone())
                 .w(window.rem_size() * 38.)
                 .child(form.clone())

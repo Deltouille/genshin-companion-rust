@@ -12,12 +12,14 @@
 //! does: the kit gives every button but a link the arrow.
 
 use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
-use gpui_kit::component::dialog::{DialogAction, DialogClose, DialogFooter};
+use gpui_kit::component::dialog::{Dialog, DialogAction, DialogClose, DialogFooter};
 use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::component::{ActiveTheme as _, Disableable as _, Icon, Sizable as _};
+use gpui_kit::component::{ActiveTheme as _, Disableable as _, Icon, Sizable as _, WindowExt as _};
 use gpui_kit::{
-    App, ElementId, Entity, FontWeight, Hsla, ParentElement as _, SharedString, Styled as _,
+    App, ElementId, Entity, FontWeight, Hsla, ParentElement as _, SharedString, Styled as _, Window,
 };
+use std::cell::Cell;
+use std::rc::Rc;
 
 use gpui_kit::assets::IconName;
 
@@ -63,12 +65,68 @@ impl ButtonExt for Button {
 }
 
 /// A dialog's footer with the app's buttons: Cancel, which closes the dialog,
-/// then `action`, which runs the dialog's `on_ok` (`button(…).primary()`, or
-/// `.danger()` for what removes data).
+/// then `action`, which runs the dialog's `on_ok` (`button(…).primary()`).
+/// Enter runs `on_ok` too (the kit binds it to the dialog's Confirm), so a
+/// dialog that removes or replaces data uses [`confirm_destructive`] instead.
 pub fn dialog_footer(action: Button) -> DialogFooter {
     DialogFooter::new()
         .child(DialogClose::new().trigger(|close| button_style(close).label(t!("ui-cancel"))))
         .child(DialogAction::new().child(action))
+}
+
+/// Asks before something that removes or replaces data: `title`, what will
+/// happen (`description`), Cancel and a danger button labelled `action`,
+/// which runs `confirmed` and closes the dialog.
+///
+/// Cancel has the focus when the dialog opens, and Enter only closes it: a key
+/// pressed out of habit keeps the data. (The kit binds Enter to the dialog's
+/// Confirm, which an action in `on_ok` would run.) Escape closes it too, and a
+/// click outside doesn't: alert dialogs never close from the backdrop.
+pub fn confirm_destructive(
+    window: &mut Window,
+    cx: &mut App,
+    title: impl Into<SharedString>,
+    description: impl Into<SharedString>,
+    action: impl Into<SharedString>,
+    confirmed: impl Fn(&mut Window, &mut App) + 'static,
+) {
+    let (title, description, action) = (title.into(), description.into(), action.into());
+    let confirmed = Rc::new(confirmed);
+    let cancel = cx.focus_handle();
+    let focus_once = Cell::new(true);
+    window.open_alert_dialog(cx, move |alert, window, cx| {
+        if focus_once.replace(false) {
+            cancel.focus(window, cx);
+        }
+        let (cancel, confirmed) = (cancel.clone(), confirmed.clone());
+        alert
+            .title(title.clone())
+            .description(description.clone())
+            .footer(
+                DialogFooter::new()
+                    .child(DialogClose::new().trigger(move |close| {
+                        button_style(close)
+                            .label(t!("ui-cancel"))
+                            .track_focus(&cancel)
+                    }))
+                    .child(button("confirm").danger().label(action.clone()).on_click(
+                        move |_, window, cx| {
+                            confirmed(window, cx);
+                            window.close_dialog(cx);
+                        },
+                    )),
+            )
+            // Enter: close, keeping everything.
+            .on_ok(|_, _, _| true)
+    });
+}
+
+/// A dialog the player types or picks values in: a click outside it doesn't
+/// close it, since that would lose what was entered without a word. Escape and
+/// Cancel still do. The kit's dialogs close on a click outside by default,
+/// which suits a preview or a list, not a form.
+pub fn form_dialog(dialog: Dialog) -> Dialog {
+    dialog.overlay_closable(false)
 }
 
 /// A dialog's footer with one button, `label`, which closes it.
@@ -141,5 +199,80 @@ pub fn filter_chip(
         chip.outline()
             .border_color(theme.border)
             .text_color(theme.muted_foreground)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use std::rc::Rc;
+    use std::sync::Arc;
+
+    use gpui_kit::component::{Root, WindowExt as _};
+    use gpui_kit::{
+        AppContext as _, Context, IntoElement, NoopTextSystem, Render, Styled as _, TestAppContext,
+        TestDispatcher, VisualTestContext, Window, div,
+    };
+
+    use super::confirm_destructive;
+
+    struct Page;
+
+    impl Render for Page {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div().size_full()
+        }
+    }
+
+    /// A window with a destructive confirmation open, and how many times its
+    /// action ran.
+    fn confirmation(cx: &mut TestAppContext) -> (&mut VisualTestContext, Rc<Cell<u32>>) {
+        cx.update(|cx| {
+            gpui_kit::init(cx);
+            cx.set_reduce_motion(true);
+        });
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|_| Page);
+            Root::new(page, window, cx)
+        });
+        let ran = Rc::new(Cell::new(0));
+        let count = ran.clone();
+        cx.update(|window, cx| {
+            confirm_destructive(window, cx, "Remove?", "It goes.", "Remove", move |_, _| {
+                count.set(count.get() + 1)
+            })
+        });
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        (cx, ran)
+    }
+
+    fn app() -> TestAppContext {
+        TestAppContext::build_with_text_system(
+            TestDispatcher::new(0),
+            None,
+            Arc::new(NoopTextSystem::new()),
+        )
+    }
+
+    #[test]
+    fn enter_in_a_destructive_confirmation_keeps_the_data() {
+        let mut app = app();
+        let (cx, ran) = confirmation(&mut app);
+        assert!(cx.update(|window, cx| window.has_active_dialog(cx)));
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        assert_eq!(ran.get(), 0, "Enter ran the destructive action");
+        assert!(!cx.update(|window, cx| window.has_active_dialog(cx)));
+    }
+
+    #[test]
+    fn escape_closes_a_destructive_confirmation() {
+        let mut app = app();
+        let (cx, ran) = confirmation(&mut app);
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert_eq!(ran.get(), 0);
+        assert!(!cx.update(|window, cx| window.has_active_dialog(cx)));
     }
 }
