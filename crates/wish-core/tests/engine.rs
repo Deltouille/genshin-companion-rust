@@ -192,7 +192,7 @@ fn overview_totals_and_five_stars_in_order() {
 
     // Every 5★ over all banner types, oldest first.
     let pulls = analysis.pulls_of(Rarity::Five);
-    assert_eq!(pulls.len() as u32, fives);
+    assert_eq!(u32::try_from(pulls.len()).unwrap(), fives);
     assert!(
         pulls
             .windows(2)
@@ -213,7 +213,7 @@ fn banner_rolls_count_from_one_on_each_banner() {
         assert_eq!(rolls.len(), pool.pulls.len());
         for range in &pool.banners {
             let numbers: Vec<Option<u32>> = rolls[range.pulls.clone()].to_vec();
-            let expected: Vec<Option<u32>> = (1..=range.pulls.len() as u32).map(Some).collect();
+            let expected: Vec<Option<u32>> = (1_u32..).take(range.pulls.len()).map(Some).collect();
             assert_eq!(numbers, expected, "{:?}", pool.pool);
         }
     }

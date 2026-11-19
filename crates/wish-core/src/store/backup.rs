@@ -86,7 +86,7 @@ impl Store {
     /// database file written by this app. The current state is backed up
     /// first; an older schema is migrated. Returns that safety backup.
     pub fn restore(&mut self, file: &Path) -> Result<PathBuf> {
-        let latest = super::MIGRATIONS.len() as i64;
+        let latest = super::latest_version();
         {
             fs::metadata(file).map_err(Error::io(IoAction::Reading, file))?;
             let not_a_backup = |_| Error::NotABackup(file.to_path_buf());
@@ -112,7 +112,9 @@ impl Store {
                     |row| row.get(0),
                 )
                 .map_err(not_a_backup)?;
-            if version == 0 || !has_wishes || foreign > 0 {
+            // Below 1: no schema of ours (0 is an empty file; a negative
+            // version would skip every migration).
+            if version < 1 || !has_wishes || foreign > 0 {
                 return Err(Error::NotABackup(file.to_path_buf()));
             }
             if version > latest {
@@ -367,7 +369,7 @@ mod tests {
             let version: i64 = copy
                 .pragma_query_value(None, "user_version", |r| r.get(0))
                 .unwrap();
-            assert_eq!(version, super::super::MIGRATIONS.len() as i64);
+            assert_eq!(version, super::super::latest_version());
         }
 
         for _ in 0..KEEP_BACKUPS + 3 {

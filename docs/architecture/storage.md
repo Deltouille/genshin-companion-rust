@@ -129,7 +129,8 @@ What the tables hold:
 - **`manual_counters`**: counters paimon.moe's manual mode typed by hand, kept as they were.
 - **`plan_entries`**, **`plan_custom_costs`**, **`plan_custom_materials`**: each account's plan, in order. Costs are
   never stored: they come from the game data each time.
-- **`inventory`**: what each account has, by material id, or by name for a material the game data lacks.
+- **`inventory`**: what each account has, by material id, or by name for a material the game data lacks. An id
+  or a count out of range when read back (a file restored from elsewhere) is an error, never another material.
 - **`owned_characters`**, **`owned_weapons`**: the collection. A character holds at most one weapon copy (a unique
   partial index).
 
@@ -143,6 +144,7 @@ What the tables hold:
 | `crates/wish-core/src/store/collection.rs` | the collection, `sync_targets`, `apply_sync`, `apply_good` |
 | `crates/wish-core/src/store/merge.rs` | a snapshot's collection, plan and inventory merged in |
 | `crates/wish-core/src/store/backup.rs` | backups, pruning, restore |
+| `crates/wish-core/src/store/sql.rs` | how the domain's types are stored: `ToSql`/`FromSql` for the text enums (`sql_text!`), rarities, wish times and ids |
 
 ### What a write tells the app
 
@@ -165,7 +167,9 @@ that changes one of those calls `Store::changed`, or the app keeps a stale analy
 | `006_planner_custom_weapons.sql` | custom weapons |
 | `007_collection.sql` | the collection; plan and inventory per account |
 
-Never edit a migration that shipped: add the next one and append it. A database with a newer `user_version` is
+Never edit a migration that shipped: add the next one and append it. A negative `user_version` (no app writes one,
+and it would skip every migration) is refused untouched (`Error::SchemaDamaged`), and a restore takes nothing below
+1. A database with a newer `user_version` is
 refused untouched (`Error::SchemaTooNew`): it was written by a newer app.
 
 ## Backups

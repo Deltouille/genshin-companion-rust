@@ -47,9 +47,13 @@ pub(super) fn read_inventory(conn: &Connection, account: AccountId) -> Result<In
     let mut rows = stmt.query([account.0])?;
     let mut inventory = Inventory::default();
     while let Some(row) = rows.next()? {
-        let count = u64::try_from(row.get::<_, i64>(2)?).unwrap_or(0);
-        let item = match row.get::<_, Option<i64>>(0)? {
-            Some(id) => CustomItem::Material(id as u32),
+        // Out of range (a file restored from elsewhere, where `count > 0`
+        // may not hold): an error, never another material or a count of 0.
+        let count: i64 = row.get(2)?;
+        let count =
+            u64::try_from(count).map_err(|_| rusqlite::Error::IntegralValueOutOfRange(2, count))?;
+        let item = match row.get::<_, Option<u32>>(0)? {
+            Some(id) => CustomItem::Material(id),
             None => CustomItem::Named(row.get(1)?),
         };
         inventory.set(&item, count);

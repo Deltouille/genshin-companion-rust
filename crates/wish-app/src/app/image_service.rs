@@ -285,9 +285,12 @@ impl ImageService {
         cx.spawn(async move |this, cx| {
             cx.background_spawn(async move {
                 match std::fs::remove_dir_all(&cache) {
-                    Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
-                        Err(anyhow::Error::from(err)
-                            .context(format!("deleting {}", cache.display())))
+                    Err(source) if source.kind() != std::io::ErrorKind::NotFound => {
+                        Err(wish_core::Error::Io {
+                            action: wish_core::error::IoAction::Deleting,
+                            path: cache.clone(),
+                            source,
+                        })
                     }
                     _ => Ok(()),
                 }

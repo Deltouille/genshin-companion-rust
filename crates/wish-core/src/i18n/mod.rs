@@ -111,7 +111,7 @@ pub fn language() -> Language {
 
 /// Changes the language of the whole process.
 pub fn set_language(language: Language) {
-    LANGUAGE.store(language.index() as u8, Ordering::Relaxed);
+    LANGUAGE.store(language as u8, Ordering::Relaxed);
 }
 
 /// Runs `f` with texts in `language`, on this thread only: tests, which run

@@ -35,6 +35,12 @@ pub enum Error {
         known: i64,
     },
 
+    /// A schema version no app writes (a negative `user_version`): the file
+    /// is refused untouched, since no migration could bring it up to date.
+    SchemaDamaged {
+        found: i64,
+    },
+
     GameData(String),
 
     NotPaimonExport,
@@ -202,6 +208,7 @@ impl fmt::Display for Error {
             Error::SchemaTooNew { found, known } => {
                 t!("error-schema-too-new", found = *found, known = *known)
             }
+            Error::SchemaDamaged { found } => t!("error-schema-damaged", found = *found),
             Error::GameData(detail) => t!("error-game-data", detail = detail.as_str()),
             Error::NotPaimonExport => t!("error-not-paimon-export"),
             Error::UnrecognizedFile => t!("error-unrecognized-file"),

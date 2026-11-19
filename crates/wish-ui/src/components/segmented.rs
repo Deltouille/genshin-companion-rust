@@ -19,6 +19,7 @@ type SelectHandler = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
 /// segments, 40 px high, the current option filled with the primary colour
 /// (parchment in the dark theme, ink in the light one), as the game marks a tab.
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct Segmented {
     id: ElementId,
     options: Vec<SharedString>,

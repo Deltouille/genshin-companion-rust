@@ -149,6 +149,7 @@ impl ImportBatch {
     }
 
     /// Records where the batch came from, and keeps the raw file for archiving.
+    #[must_use = "the batch it returns carries the file; the original is unchanged"]
     pub fn with_original(mut self, file_name: impl Into<String>, bytes: Vec<u8>) -> Self {
         let name = file_name.into();
         self.detail = Some(name.clone());

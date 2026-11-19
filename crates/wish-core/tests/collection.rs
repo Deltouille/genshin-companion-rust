@@ -119,6 +119,31 @@ mod migration {
     }
 }
 
+/// A material id out of range in the database (a file restored from
+/// elsewhere, or edited by hand) fails the read rather than naming another
+/// material.
+#[test]
+fn a_material_id_out_of_range_is_an_error_not_another_material() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = AppPaths::at(dir.path());
+    let mut store = Store::open(paths.clone()).unwrap();
+    let main = store.add_account("Main", None, None).unwrap().id;
+    store
+        .set_owned(main, &CustomItem::Material(104_301), 3)
+        .unwrap();
+    assert_eq!(store.inventory(main).unwrap().materials[&104_301], 3);
+    {
+        // 2³² + 104,301 would read as 104,301 once cut to 32 bits.
+        let conn = Connection::open(paths.database()).unwrap();
+        conn.execute(
+            "UPDATE inventory SET material_id = ?1",
+            params![4_294_967_296_i64 + 104_301],
+        )
+        .unwrap();
+    }
+    assert!(matches!(store.inventory(main), Err(Error::Database(_))));
+}
+
 mod accounts {
     use super::*;
 
@@ -522,9 +547,9 @@ mod hoyolab_sync {
             constellations: Vec::new(),
             skills: talents
                 .iter()
-                .enumerate()
-                .map(|(i, (name, level))| Skill {
-                    id: i as u32,
+                .zip(0_u32..)
+                .map(|((name, level), id)| Skill {
+                    id,
                     skill_type: 1,
                     name: (*name).to_owned(),
                     level: *level,

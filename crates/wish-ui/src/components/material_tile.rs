@@ -18,6 +18,7 @@ use crate::{format, theme};
 /// How many are crafted from the tiers below shows in a badge over the
 /// picture, an alchemy flask and the count, as genshin-center does.
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct MaterialTile {
     icon: Option<ImageSource>,
     stars: u8,

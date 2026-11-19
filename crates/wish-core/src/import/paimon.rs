@@ -153,16 +153,15 @@ fn uid_from(value: &Value) -> Option<String> {
 }
 
 /// A non-negative whole number, written as a number or as text.
+// The float is checked whole and within `u32` first: the cast is exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn as_count(value: Option<&Value>) -> Option<u32> {
     match value? {
-        Value::Number(n) => n
-            .as_u64()
-            .or_else(|| {
-                n.as_f64()
-                    .filter(|f| f.fract() == 0.0 && *f >= 0.0)
-                    .map(|f| f as u64)
-            })
-            .and_then(|n| u32::try_from(n).ok()),
+        Value::Number(n) => n.as_u64().and_then(|n| u32::try_from(n).ok()).or_else(|| {
+            n.as_f64()
+                .filter(|f| f.fract() == 0.0 && (0.0..=f64::from(u32::MAX)).contains(f))
+                .map(|f| f as u32)
+        }),
         Value::String(s) => s.trim().parse().ok(),
         _ => None,
     }

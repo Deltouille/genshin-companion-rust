@@ -20,6 +20,31 @@ wish-ui = { path = "crates/wish-ui" }
 # Upgrade deliberately; GPUI's API breaks between releases.
 gpui-kit = "=0.9.1"
 
+# Used by several crates: one version each, which Dependabot raises in one
+# place. Each crate adds the features it needs (`features = [...]`); they add
+# up, so these declare the least (`default-features = false` where a crate
+# needs that).
+anyhow = { version = "1.0.104", default-features = false, features = ["std"] }
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tempfile = "3.27.0"
+thiserror = "2.0.21"
+ureq = "3.5.1"
+url = "2.5.8"
+
+# No `panic = "abort"` in any profile: `Library::write` turns a write that
+# panics into its error (`catch_unwind`) and reloads, which needs panics to
+# unwind; with abort the app would close at the first one.
+
+[profile.release]
+# Measured on Linux (2026-11-19): the binary goes from 86.0 to 67.9 MB and
+# its gzipped archive from 26.4 to 23.2 MB, for a release build a few minutes
+# longer. GPUI is most of it.
+lto = "thin"
+codegen-units = 1
+
 [profile.dev.package."*"]
 # Dependencies (GPUI especially) are much faster at runtime with optimizations,
 # and they are only rebuilt when versions change.

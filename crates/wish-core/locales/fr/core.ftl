@@ -22,6 +22,7 @@ error-io-replacing = impossible de remplacer { $path } : { $detail }
 error-json = JSON invalide : { $detail }
 error-no-data-dir = impossible de trouver un dossier de données pour cet utilisateur
 error-schema-too-new = une version plus récente de Genshin Companion a écrit cette base (schéma { $found } ; celle-ci lit jusqu’au { $known }). Elle n’est pas touchée : mettez l’app à jour pour l’ouvrir
+error-schema-damaged = cette base donne { $found } comme schéma, un numéro qu’aucune version de Genshin Companion n’écrit : elle est peut-être abîmée. Elle n’est pas touchée : mettez à sa place une des sauvegardes du dossier backups, à côté d’elle
 error-game-data = données du jeu invalides : { $detail }
 error-not-paimon-export = ce n’est pas une sauvegarde paimon.moe : elle ne contient aucun historique de vœux
 error-unrecognized-file = ce fichier n’est ni une sauvegarde paimon.moe (Settings → Export, ou le fichier Google Drive) ni un instantané Genshin Companion

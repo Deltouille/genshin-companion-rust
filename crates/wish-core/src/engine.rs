@@ -104,7 +104,7 @@ impl PoolAnalysis {
         for range in &self.banners {
             for (n, ix) in range.pulls.clone().enumerate() {
                 if let Some(roll) = rolls.get_mut(ix) {
-                    *roll = Some(n as u32 + 1);
+                    *roll = u32::try_from(n + 1).ok();
                 }
             }
         }

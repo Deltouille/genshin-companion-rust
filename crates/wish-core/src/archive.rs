@@ -446,10 +446,12 @@ impl Talent {
     }
 }
 
-/// The `{param3:F1}` placeholders of a template, as (`param3`, `F1`).
+/// The `{param3:F1}` placeholders of a template, as (`param3`, `F1`). Only
+/// whole ones: a `{` left open is text, so every placeholder this finds is in
+/// the template as `{param:format}` (which [`Talent::values`] relies on).
 fn placeholders(template: &str) -> impl Iterator<Item = (&str, &str)> {
     template.split('{').skip(1).filter_map(|part| {
-        let inner = part.split('}').next()?;
+        let (inner, _) = part.split_once('}')?;
         inner.split_once(':')
     })
 }
@@ -476,6 +478,31 @@ pub fn format_value(value: f64, format: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_placeholder_left_open_is_text() {
+        assert_eq!(
+            placeholders("{param1:F1P}+{param2:P").collect::<Vec<_>>(),
+            [("param1", "F1P")]
+        );
+        assert_eq!(placeholders("{param1:F1P").count(), 0);
+        // A talent whose row has one: its values read, nothing panics.
+        let talent = Talent {
+            kind: "Normal Attack".to_owned(),
+            name: Text::new("Test"),
+            description: Text::new(""),
+            icon: None,
+            rows: vec![(
+                Text::new("1-Hit DMG"),
+                Text::new("{param1:F1P} + {param1:P"),
+            )],
+            params: [("param1".to_owned(), vec![0.5; 15])].into(),
+        };
+        assert_eq!(
+            talent.values(1),
+            [("1-Hit DMG".to_owned(), "50.0% + {param1:P".to_owned())]
+        );
+    }
 
     #[test]
     fn the_pages_read_in_french_with_the_same_values() {

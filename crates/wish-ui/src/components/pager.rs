@@ -30,6 +30,7 @@ const MAX_HIDDEN_PAGES: usize = 50;
 /// Pages count from 1. GPUI Kit's `Pagination` only comes in its own
 /// sizes, so this builds the same control from its state and landmark.
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct Pager {
     id: ElementId,
     page: usize,

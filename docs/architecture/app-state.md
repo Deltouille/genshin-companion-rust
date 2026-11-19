@@ -102,7 +102,8 @@ order:
 - **A failure undoes the screen.** After a failed write the state is reloaded anyway, so what a page showed at once
   (a slider, a reorder, an inventory count) goes back. Every analysis is worked out again.
 - **A panic becomes an error.** The transaction rolled back as it unwound; the lock it poisoned is taken back
-  (`service::lock`); the state is reloaded.
+  (`service::lock`, the one way the app locks a mutex); the state is reloaded. This needs panics to unwind:
+  never set `panic = "abort"` in a profile.
 - **Quitting waits.** `on_app_quit` waits up to 5 s for the writes under way, then writes the mirror.
 
 The reload is cheap where it matters: `Store::take_changed` says which accounts' analyses a write may have changed

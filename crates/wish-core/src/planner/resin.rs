@@ -259,7 +259,7 @@ impl PlannerData {
                 .material(lowest)
                 .map_or(0, |m| usize::from(material.rarity.saturating_sub(m.rarity)));
             let series = series.entry(lowest).or_default();
-            series.lowest_tiers += count as f64 * 3f64.powi(tier as i32);
+            series.lowest_tiers += count as f64 * tier_weight(tier);
             series.highest = series.highest.max(tier);
         }
 
@@ -270,7 +270,7 @@ impl PlannerData {
                     // in the lowest: a run's higher tiers aren't needed.
                     let per_run: f64 = (drops.iter().enumerate())
                         .take(series.highest + 1)
-                        .map(|(tier, drops)| drops * 3f64.powi(tier as i32))
+                        .map(|(tier, drops)| drops * tier_weight(tier))
                         .sum();
                     runs(series.lowest_tiers, per_run)
                 })
@@ -299,8 +299,17 @@ impl PlannerData {
     }
 }
 
+/// What one material of `tier` tiers above its series' lowest is worth in
+/// the lowest: crafting takes 3 of a tier for 1 of the next.
+fn tier_weight(tier: usize) -> f64 {
+    (0..tier).fold(1.0, |weight, _| weight * 3.0)
+}
+
 /// The runs that give `needed` at `per_run` on average, rounded up. A hair is
 /// taken off first, so 20 needed at 2.5 a run is 8 runs, not 9 from rounding.
+// A positive whole number of runs, far below `u64::MAX` (and a float cast
+// saturates anyway): nothing is cut or loses its sign.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 fn runs(needed: f64, per_run: f64) -> u64 {
     if needed <= 0. || per_run <= 0. {
         return 0;
@@ -387,7 +396,7 @@ mod tests {
                     .is_some_and(|m| ResinSource::of(m) == Some(ResinSource::TalentBooks))
             })
             .unwrap()
-            .to_vec();
+            .clone();
         let options = ResinOptions::default();
         // 22 green books alone: 2.2 a run, 10 runs.
         let greens = BTreeMap::from([(family[0], 22)]);

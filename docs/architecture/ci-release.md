@@ -10,6 +10,9 @@
 
 - **Every action is pinned to a commit**, its tag in a comment (Dependabot proposes updates), and checkouts don't keep
   the token (`persist-credentials: false`). Keep it that way when adding a step.
+- **The release profile** (the workspace's `Cargo.toml`) uses thin LTO and one codegen unit: about a fifth
+  smaller a binary for a longer build. Never `panic = "abort"`: a write that panics becomes an error
+  (`Library::write`), which needs panics to unwind.
 - **Rust is pinned**: `rust-toolchain.toml` and each workflow's `toolchain:` (1.100.0), so two builds of a commit
   are the same. Dependabot doesn't raise it: raise both together. The Nix dev shell brings its own Rust.
 - **The audit**: an unmaintained crate fails it only when it is a direct dependency (those under GPUI Kit wait for

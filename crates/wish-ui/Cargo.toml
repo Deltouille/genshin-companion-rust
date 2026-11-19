@@ -9,13 +9,13 @@ publish.workspace = true
 [dependencies]
 wish-core.workspace = true
 # Dates, written by `format` in each language.
-chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+chrono.workspace = true
 gpui-kit.workspace = true
 # Reads the app's own colours in `theme.json` (its `app` sections).
-serde_json = "1.0.154"
+serde_json.workspace = true
 
 [dev-dependencies]
 # `test-support` enables headless rendering for the gallery example.
 gpui-kit = { workspace = true, features = ["test-support"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
-anyhow = { version = "1.0.104", default-features = false, features = ["std"] }
+image.workspace = true
+anyhow.workspace = true

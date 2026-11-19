@@ -345,7 +345,7 @@ impl CharactersView {
                 icon: planner.character(&key).and_then(|c| images.character(c)),
                 rarity: character.rarity,
                 owned: owned.is_some(),
-                name: name.clone(),
+                name,
                 label: character.label(),
                 top_left: element,
                 corner: Some(corner.into_any_element()),

@@ -25,6 +25,7 @@ mod import;
 mod inventory;
 mod merge;
 mod plan;
+mod sql;
 mod wishes;
 
 use std::collections::BTreeSet;
@@ -51,6 +52,12 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema/006_planner_custom_weapons.sql"),
     include_str!("schema/007_collection.sql"),
 ];
+
+/// The schema version this app writes: how many migrations it has.
+fn latest_version() -> i64 {
+    // A handful of migrations: the count always fits.
+    i64::try_from(MIGRATIONS.len()).unwrap_or(i64::MAX)
+}
 
 /// The `wishes` columns [`wish_from_row`] reads, in its order.
 const WISH_COLUMNS: &str =
@@ -100,12 +107,17 @@ impl Store {
         let conn = Connection::open(&db_path)?;
         // Check the version before anything else writes to the file.
         let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        let latest = MIGRATIONS.len() as i64;
+        let latest = latest_version();
         if version > latest {
             return Err(Error::SchemaTooNew {
                 found: version,
                 known: latest,
             });
+        }
+        // No app writes a negative version; migrating from one would skip
+        // every migration (it doesn't fit a `usize`).
+        if version < 0 {
+            return Err(Error::SchemaDamaged { found: version });
         }
 
         conn.pragma_update_and_check(None, "journal_mode", "WAL", |row| row.get::<_, String>(0))?;
@@ -138,11 +150,12 @@ impl Store {
     }
 
     fn migrate(&mut self, from: i64) -> Result<()> {
-        let pending = MIGRATIONS.iter().enumerate().skip(from as usize);
-        for (index, sql) in pending {
+        let skip = usize::try_from(from).map_err(|_| Error::SchemaDamaged { found: from })?;
+        // Each migration with the version it leads to.
+        for (version, sql) in (1_i64..).zip(MIGRATIONS).skip(skip) {
             let tx = self.conn.transaction()?;
             tx.execute_batch(sql)?;
-            tx.pragma_update(None, "user_version", index as i64 + 1)?;
+            tx.pragma_update(None, "user_version", version)?;
             tx.commit()?;
         }
         Ok(())

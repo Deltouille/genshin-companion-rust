@@ -22,6 +22,7 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 /// its `Button` instead, which keeps keyboard focus, activation and the
 /// hover and pressed states.
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct NavItem {
     id: ElementId,
     label: SharedString,

@@ -300,7 +300,7 @@ fn a_snapshot_merge_never_lowers_what_is_stored() {
         .set_owned(main, &CustomItem::Material(104003), 9)
         .unwrap();
     let entry = store.plan(main).unwrap().remove(0);
-    let mut raised = entry.clone();
+    let mut raised = entry;
     raised.target.goal_mut().unwrap().from = Level::new(80, 6).unwrap();
     store.update_plan_entry(&raised).unwrap();
 

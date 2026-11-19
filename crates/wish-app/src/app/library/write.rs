@@ -131,8 +131,5 @@ fn panic_text(panic: &(dyn std::any::Any + Send)) -> String {
 
 /// Drops every analysis kept, so the next reload works them all out again.
 fn forget(analyses: &Mutex<Analyses>) {
-    analyses
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clear();
+    lock(analyses).clear();
 }

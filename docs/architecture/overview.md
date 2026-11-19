@@ -85,7 +85,8 @@ crates/
       archive.rs          character and weapon pages
       planner/            costs, plan, inventory, allocation, custom entries, resin, farming
       collection/         owned characters and weapons, HoYoLAB syncs, GOOD files, the overview's figures
-      store/              SQLite: accounts, wishes, imports, plan, inventory, collection, backups; schema/ migrations
+      store/              SQLite: accounts, wishes, imports, plan, inventory, collection, backups; schema/
+                          migrations; sql.rs, how the domain's types are stored
       import/             paimon.moe saves, the game's API, the game's cache, counting by hand, the paimon check
       snapshot.rs uigf.rs excel.rs   the export formats (and their import)
       service/            use cases shared by the app and wishctl

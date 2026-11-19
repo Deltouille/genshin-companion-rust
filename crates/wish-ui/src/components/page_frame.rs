@@ -13,6 +13,7 @@ use gpui_kit::{
 /// Page layout shared by every page: a title row, then the content below it.
 /// The title stands alone, without an icon (the user's choice).
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct PageFrame {
     title: SharedString,
     subtitle: Option<SharedString>,

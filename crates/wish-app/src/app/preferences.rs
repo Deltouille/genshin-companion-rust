@@ -8,7 +8,7 @@
 //! (the library passes it on): a setting can change what the pages show,
 //! counting by hand adds every banner type to the history.
 
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use gpui_kit::{AppContext as _, Context, SharedString, Task};
@@ -80,7 +80,7 @@ impl Preferences {
         let (settings, paths) = (self.settings.clone(), self.paths.clone());
         let (this_change, saved) = (self.changes, self.saved.clone());
         cx.background_spawn(async move {
-            let mut latest = saved.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut latest = wish_core::service::lock(&saved);
             if *latest < this_change {
                 settings.save(&paths)?;
                 *latest = this_change;

@@ -251,10 +251,7 @@ pub(super) fn five_star_pity(pool: &PoolAnalysis, data: &GameData, cx: &App) -> 
                 format::date(&time),
             ];
             title.extend(pull.banner.and_then(|ix| banners.get(ix)).map(banner_title));
-            title.extend(
-                pull.rate_up
-                    .map(|r| format::outcome(r.outcome()).to_owned()),
-            );
+            title.extend(pull.rate_up.map(|r| format::outcome(r.outcome())));
             PityPoint {
                 tick: time.format("%Y-%m").to_string().into(),
                 title: title.join(" · ").into(),

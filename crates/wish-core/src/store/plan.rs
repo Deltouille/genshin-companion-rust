@@ -62,10 +62,10 @@ impl Store {
     pub fn reorder_plan(&mut self, account: AccountId, ids: &[i64]) -> Result<()> {
         self.backup_for_planning()?;
         let tx = self.conn.transaction()?;
-        for (position, id) in ids.iter().enumerate() {
+        for (position, id) in (0_i64..).zip(ids) {
             tx.execute(
                 "UPDATE plan_entries SET position = ?3 WHERE id = ?1 AND account_id = ?2",
-                params![id, account.0, position as i64],
+                params![id, account.0, position],
             )?;
         }
         tx.commit()?;
@@ -180,10 +180,12 @@ fn read_entry(row: &Row) -> rusqlite::Result<EntryRow> {
     })
 }
 
-/// A material by its id (column `id`) or its name (column `name`).
+/// A material by its id (column `id`) or its name (column `name`). An id out
+/// of a material's range (a file restored from elsewhere) is an error, never
+/// another material.
 fn read_item(row: &Row, id: usize, name: usize) -> rusqlite::Result<CustomItem> {
-    Ok(match row.get::<_, Option<i64>>(id)? {
-        Some(material) => CustomItem::Material(material as u32),
+    Ok(match row.get::<_, Option<u32>>(id)? {
+        Some(material) => CustomItem::Material(material),
         None => CustomItem::Named(row.get(name)?),
     })
 }
@@ -307,12 +309,12 @@ fn write_target(tx: &Transaction, id: i64, target: &PlanTarget) -> Result<()> {
                 params![id, name.trim()],
             )?;
             tx.execute("DELETE FROM plan_custom_costs WHERE entry_id = ?1", [id])?;
-            for (position, cost) in costs.iter().enumerate() {
+            for (position, cost) in (0_i64..).zip(costs) {
                 let (material, name) = item_columns(&cost.item);
                 tx.execute(
                     "INSERT INTO plan_custom_costs (entry_id, position, material_id, name, count) \
                      VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![id, position as i64, material, name, cost.count],
+                    params![id, position, material, name, cost.count],
                 )?;
             }
         }

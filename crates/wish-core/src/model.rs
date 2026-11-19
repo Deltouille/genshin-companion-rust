@@ -1,14 +1,13 @@
 //! The domain's data types, shared by storage, importers and the engine:
 //! pools and gacha types, servers, rarities, wish times and ids, accounts,
 //! wishes and manual counters. Text-stored enums are declared with
-//! `text_enum!`. Their `ToSql`/`FromSql` impls are the one database
-//! crossing `tests/layers.rs` still lists.
+//! `text_enum!` ([`TextEnum`]). Nothing here knows the database: how these
+//! types are stored is `store/sql.rs`'s business.
 
 use std::fmt;
 use std::str::FromStr;
 
 use chrono::{NaiveDateTime, Timelike as _};
-use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -33,7 +32,16 @@ impl UnknownVariant {
     }
 }
 
-/// Declares an enum stored as fixed text, in SQLite and in JSON alike.
+/// An enum written as fixed text, in JSON, SQLite and files alike: what
+/// `text_enum!` makes. The store implements SQLite's traits for each through
+/// this one (`store/sql.rs`), so the domain doesn't depend on the database.
+pub trait TextEnum: Copy + FromStr<Err = UnknownVariant> + 'static {
+    /// Its text.
+    fn as_str(self) -> &'static str;
+}
+
+/// Declares an enum stored as fixed text, in JSON and SQLite alike
+/// ([`TextEnum`]).
 macro_rules! text_enum {
     (
         $(#[$meta:meta])*
@@ -88,18 +96,9 @@ macro_rules! text_enum {
             }
         }
 
-        impl ::rusqlite::types::ToSql for $name {
-            fn to_sql(&self) -> ::rusqlite::Result<::rusqlite::types::ToSqlOutput<'_>> {
-                Ok(::rusqlite::types::ToSqlOutput::from(self.as_str()))
-            }
-        }
-
-        impl ::rusqlite::types::FromSql for $name {
-            fn column_result(value: ::rusqlite::types::ValueRef<'_>) -> ::rusqlite::types::FromSqlResult<Self> {
-                value
-                    .as_str()?
-                    .parse()
-                    .map_err(|e| ::rusqlite::types::FromSqlError::Other(Box::new(e)))
+        impl $crate::model::TextEnum for $name {
+            fn as_str(self) -> &'static str {
+                $name::as_str(self)
             }
         }
     };
@@ -320,22 +319,6 @@ impl<'de> Deserialize<'de> for Rarity {
     }
 }
 
-impl ToSql for Rarity {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::from(i64::from(self.stars())))
-    }
-}
-
-impl FromSql for Rarity {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        let stars = value.as_i64()?;
-        u8::try_from(stars)
-            .ok()
-            .and_then(Rarity::from_stars)
-            .ok_or(FromSqlError::OutOfRange(stars))
-    }
-}
-
 /// A wish time as the game reports it: server-local wall clock, no time zone.
 ///
 /// It is kept exactly as received (`YYYY-MM-DD HH:MM:SS`); converting it to an
@@ -406,21 +389,6 @@ impl<'de> Deserialize<'de> for WishTime {
     }
 }
 
-impl ToSql for WishTime {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        Ok(ToSqlOutput::from(self.to_string()))
-    }
-}
-
-impl FromSql for WishTime {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        value
-            .as_str()?
-            .parse()
-            .map_err(|e| FromSqlError::Other(Box::new(e)))
-    }
-}
-
 /// Identifies a wish within an account.
 ///
 /// Wishes fetched from the API keep the API's numeric id. Other sources get a
@@ -454,6 +422,11 @@ impl WishId {
         Self(format!("paimon:{pool}:{}:{seq}", time.compact()))
     }
 
+    /// An id as it was stored: whatever an earlier write wrote.
+    pub(crate) fn stored(id: String) -> Self {
+        Self(id)
+    }
+
     pub fn is_api(&self) -> bool {
         self.0.bytes().all(|b| b.is_ascii_digit())
     }
@@ -469,18 +442,6 @@ impl fmt::Display for WishId {
     }
 }
 
-impl ToSql for WishId {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-impl FromSql for WishId {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        String::column_result(value).map(Self)
-    }
-}
-
 /// Local database id of an account.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -489,18 +450,6 @@ pub struct AccountId(pub i64);
 impl fmt::Display for AccountId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl ToSql for AccountId {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-        self.0.to_sql()
-    }
-}
-
-impl FromSql for AccountId {
-    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        i64::column_result(value).map(Self)
     }
 }
 

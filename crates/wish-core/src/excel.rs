@@ -170,8 +170,7 @@ fn write_header(
     header: &Format,
     widths: &[f64],
 ) -> std::result::Result<(), XlsxError> {
-    for (col, (title, width)) in HEADERS.iter().zip(widths).enumerate() {
-        let col = col as u16;
+    for (col, (title, width)) in (0u16..).zip(HEADERS.iter().zip(widths)) {
         sheet.write_string_with_format(0, col, *title, header)?;
         sheet.set_column_width(col, *width)?;
     }

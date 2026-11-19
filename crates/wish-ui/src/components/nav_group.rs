@@ -22,6 +22,7 @@ type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 /// The header is not filled when one of its pages is shown (the page is);
 /// its icon turns gold and its text to full contrast.
 #[derive(IntoElement)]
+#[must_use = "a component draws only once it is a child of an element"]
 pub struct NavGroup {
     id: ElementId,
     label: SharedString,

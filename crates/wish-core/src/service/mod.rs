@@ -10,19 +10,21 @@
 
 use std::sync::{Mutex, MutexGuard};
 
-use crate::store::Store;
-
 pub mod export;
 pub mod game;
 pub mod good;
 pub mod hoyolab;
 
-/// The store, for one read or write. A write that panicked left it as it
-/// was (each write is one transaction, rolled back as the panic unwound), so
-/// the lock it poisoned is taken back.
-pub fn lock(store: &Mutex<Store>) -> MutexGuard<'_, Store> {
-    store.lock().unwrap_or_else(|poisoned| {
-        store.clear_poison();
+/// What `mutex` guards, for one read or write, even after a panic poisoned
+/// it: the lock is taken back. The one way the app and `wishctl` lock a
+/// mutex. It suits what they guard: the store, where a write that panicked
+/// left everything as it was (each write is one transaction, rolled back as
+/// the panic unwound); and sets, counters and progress, which a panic leaves
+/// whole. Treating a poisoned lock as "nothing" instead would hide, say,
+/// every image until the app restarts.
+pub fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|poisoned| {
+        mutex.clear_poison();
         poisoned.into_inner()
     })
 }

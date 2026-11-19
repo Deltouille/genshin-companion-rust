@@ -438,9 +438,9 @@ mod tests {
             skills: names
                 .iter()
                 .zip(skills)
-                .enumerate()
-                .map(|(i, (name, level))| Skill {
-                    id: 10371 + i as u32,
+                .zip(10371_u32..)
+                .map(|((name, level), id)| Skill {
+                    id,
                     skill_type: 1,
                     name: (*name).to_owned(),
                     level,

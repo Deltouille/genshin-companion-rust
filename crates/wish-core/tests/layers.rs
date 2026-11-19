@@ -35,12 +35,7 @@ const FORBIDDEN: [(&str, &str); 9] = [
 
 /// Crossings already there, each with what will remove it. One that is gone
 /// fails the test too, so this list doesn't outlive them.
-const KNOWN: [(&str, &str, &str); 3] = [
-    (
-        "model.rs",
-        "rusqlite",
-        "the enums store themselves as text: their ToSql/FromSql impls belong in store/",
-    ),
+const KNOWN: [(&str, &str, &str); 2] = [
     (
         "planner/data.rs",
         "std::fs",

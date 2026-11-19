@@ -191,7 +191,7 @@ impl WeaponsView {
                 icon: planner.weapon(&key).and_then(|w| images.weapon(w)),
                 rarity: weapon.rarity,
                 owned,
-                name: name.clone(),
+                name,
                 label: weapon.label(),
                 top_left: None,
                 corner: Some(corner.into_any_element()),

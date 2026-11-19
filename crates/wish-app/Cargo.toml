@@ -14,18 +14,18 @@ path = "src/main.rs"
 wish-core.workspace = true
 wish-ui.workspace = true
 gpui-kit.workspace = true
-anyhow = { version = "1.0.104", default-features = false, features = ["std"] }
-chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+anyhow.workspace = true
+chrono = { workspace = true, features = ["clock"] }
 # A oneshot channel, so a database write finishes even if its caller goes away.
 futures-channel = "0.3.34"
 # The image downloader's queue, worked a few at a time.
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 # Blurred backdrops of the wish art (GPUI already builds it).
-image = { version = "0.25.10", default-features = false, features = ["png"] }
+image.workspace = true
 
 [dev-dependencies]
 # `test-support` enables headless rendering for the screenshot example.
 gpui-kit = { workspace = true, features = ["test-support"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
-serde_json = "1.0.154"
-tempfile = "3.27.0"
+image.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true

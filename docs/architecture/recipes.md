@@ -24,12 +24,14 @@ pages or `CLAUDE.md` if a sentence there became wrong.
 
 1. A new `crates/wish-core/src/store/schema/NNN_<what>.sql`, appended to `MIGRATIONS`. Never edit one that shipped.
    `STRICT` tables, `CHECK`s for what must hold.
-2. The `Store` methods, in the file of their subject; a write that changes several rows is one transaction, after
+2. A new text enum to store gets its line in `sql_text!` (`crates/wish-core/src/store/sql.rs`); read numbers with
+   checked types (`Option<u32>`), never `as`.
+3. The `Store` methods, in the file of their subject; a write that changes several rows is one transaction, after
    a backup (or the hourly one for plan and collection edits). A write that changes an account's wishes, counters or
    server calls `Store::changed`.
-3. If the data must survive an export: the snapshot (`crates/wish-core/src/snapshot.rs`) gets it as a record of its
+4. If the data must survive an export: the snapshot (`crates/wish-core/src/snapshot.rs`) gets it as a record of its
    own, a new format version, a new witness written by the app that introduces it, and the merge on import.
-4. Tests in `crates/wish-core/tests/`, including opening a database of the previous version.
+5. Tests in `crates/wish-core/tests/`, including opening a database of the previous version.
 
 ## An import source
 
@@ -75,6 +77,9 @@ Only the kit's `default-icons.txt` icons are bundled. Add a Lucide icon to `icon
 `crates/wish-ui/src/assets.rs` and use it as `gpui_kit::assets::IconName::…`.
 
 ## A dependency
+
+One used by several crates goes in the workspace's `[workspace.dependencies]` (one version for all), each crate
+adding its features with `{ workspace = true, features = [...] }`.
 
 1. Its licence must be GPLv3-compatible ([ci-release.md](ci-release.md)).
 2. Never `gpui` itself: `gpui-kit` brings its own.

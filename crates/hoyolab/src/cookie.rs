@@ -79,14 +79,26 @@ impl Cookie {
             || (self.has("cookie_token") && self.has("account_id"))
     }
 
-    /// The `Cookie` header to send.
+    /// The `Cookie` header to send. Written into one string of the exact size,
+    /// so it never reallocates: the values are copied once, into the
+    /// [`Secret`] that wipes them, and nowhere else.
     pub fn header(&self) -> Secret {
-        let pairs: Vec<String> = self
-            .fields
-            .iter()
-            .map(|(name, value)| format!("{name}={}", value.expose()))
-            .collect();
-        Secret::new(pairs.join("; "))
+        let pairs = self.fields.iter();
+        let size = pairs
+            .map(|(name, value)| name.len() + 1 + value.len())
+            .sum::<usize>()
+            + 2 * self.fields.len().saturating_sub(1);
+        let mut header = String::with_capacity(size);
+        for (name, value) in &self.fields {
+            if !header.is_empty() {
+                header.push_str("; ");
+            }
+            header.push_str(name);
+            header.push('=');
+            header.push_str(value.expose());
+        }
+        debug_assert_eq!(header.len(), size, "the header was sized ahead");
+        Secret::new(header)
     }
 }
 

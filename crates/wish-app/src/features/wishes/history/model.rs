@@ -223,7 +223,7 @@ pub(super) fn cell(pull: &Pull, col: Col, banner_labels: &[String], roll: Option
         Col::Pity => pull.pity.map(|p| p.to_string()).unwrap_or_default(),
         Col::RateUp => pull
             .rate_up
-            .map(|r| format::outcome(r.outcome()).to_owned())
+            .map(|r| format::outcome(r.outcome()))
             .unwrap_or_default(),
         Col::Banner => (pull.banner)
             .and_then(|b| banner_labels.get(b))
@@ -349,7 +349,7 @@ mod tests {
             [true; 3],
             Some((Col::Kind, Order::Descending)),
         );
-        let mut up = by_kind.clone();
+        let mut up = by_kind;
         up.reverse();
         assert_eq!(down, up);
     }

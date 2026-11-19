@@ -15,7 +15,9 @@ you change before changing it, and fix any sentence of it your change makes wron
 - `PLAN.md` is the roadmap, kept local (git-ignored, like `documentation/`, and out of the history): read it before
   starting a milestone, and tick its checkboxes when a step is done. Code and docs never refer to it or to
   `documentation/`'s review tickets: say the reason itself, since other machines don't have them.
-- Text-stored enums use `text_enum!` (`crates/wish-core/src/model.rs`): one text in SQLite and JSON alike.
+- Text-stored enums use `text_enum!` (`crates/wish-core/src/model.rs`, the `TextEnum` trait): one text in JSON and
+  SQLite alike. The domain knows no database: one stored in SQLite gets its line in `sql_text!`
+  (`crates/wish-core/src/store/sql.rs`), with the other `ToSql`/`FromSql` impls.
 - Names: `APP_TITLE` / `APP_ID` (`crates/wish-app/src/lib.rs`), the binary and the data folder
   `genshin-companion`. The crates keep their `wish-*` names; the snapshot format (`genshin-wishes-snapshot`) and the
   mirror file keep the old name on purpose, so existing files still read.
@@ -103,7 +105,11 @@ edit them.** In `reference/`, the wish logic is `src/functions/wish.js` and `src
   only after the user confirms.
 - Never persist computed values (pity, banner, 50/50, guarantee, planner costs). Recompute them from raw rows.
 - Schema changes go through migrations only: add `store/schema/NNN_*.sql` and append it to `MIGRATIONS`. Never edit
-  a migration that has shipped. A database with a newer `user_version` must be refused untouched.
+  a migration that has shipped. A database with a newer `user_version`, or a negative one (no app writes it, and
+  it would skip every migration), must be refused untouched.
+- Read numbers from SQLite and files with checked types (`Option<u32>`, `try_from`): a value out of range is an
+  error, never another item or a 0. `wish-core` turns clippy's lossy-cast lints on (`[lints.clippy]` in its
+  `Cargo.toml`): convert with `try_from`, or allow a cast at its spot with the reason.
 - A write that changes an account's wishes, manual counters or server calls `Store::changed`, or the app keeps a
   stale analysis.
 - Exports and mirror files are written atomically: temp file, fsync, rename.
@@ -143,7 +149,11 @@ edit them.** In `reference/`, the wish logic is `src/functions/wish.js` and `src
   typography included; never a literal in a view, never `format!` of words; numbers passed as numbers. Tests use
   `with_language`, never `set_language`. Match what the game or a file says against `Text::english()`.
   `docs/architecture/i18n.md`.
-- `wish_core::Error` messages reach the player: what happened and what to do, never a developer's step.
+- `wish_core::Error` messages reach the player: what happened and what to do, never a developer's step. The app
+  never adds words of its own to an error (`.context(format!(…))`): a file's failure is a `wish_core::Error::Io`
+  (`crates/wish-app/tests/messages.rs` checks).
+- A mutex is locked with `wish_core::service::lock`, which takes a poisoned lock back. Never `panic = "abort"`:
+  `Library::write` turns a write that panics into its error.
 - Domain rules (`docs/architecture/wishes.md`): gacha types 100 Beginners, 200 Standard, 301 and 400 Character
   Event (**shared pity**), 302 Weapon, 500 Chronicled; 5★ pity 90 (80 for weapons), 4★ pity 10; pity counts this
   wish, and a 5★ doesn't reset the 4★ count; 50/50 on Character and Weapon Event only. API times are server-local

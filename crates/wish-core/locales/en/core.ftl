@@ -21,6 +21,7 @@ error-io-replacing = couldn’t replace { $path }: { $detail }
 error-json = invalid JSON: { $detail }
 error-no-data-dir = could not find a data directory for this user
 error-schema-too-new = a newer version of Genshin Companion wrote this database (schema { $found }; this one reads up to { $known }). It is left untouched: update the app to open it
+error-schema-damaged = this database gives its schema as { $found }, a number no version of Genshin Companion writes, so it may be damaged. It is left untouched: put one of the backups from the backups folder beside it in its place
 error-game-data = invalid game data: { $detail }
 error-not-paimon-export = this isn’t a paimon.moe save: it holds no wish history
 error-unrecognized-file = this file is neither a paimon.moe save (Settings → Export, or the Google Drive file) nor a Genshin Companion snapshot

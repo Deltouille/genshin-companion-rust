@@ -285,6 +285,50 @@ fn a_backup_with_a_trigger_is_refused() {
     );
 }
 
+/// A schema version no app writes: a negative `user_version` would skip every
+/// migration, so the file is refused, by a restore and at opening, and left
+/// as it was.
+#[test]
+fn a_database_with_a_negative_version_is_refused_untouched() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = open_store(dir.path());
+    store.apply_import(sample_batch()).unwrap();
+    let damaged = store.backup(BackupReason::Manual).unwrap();
+    let set_version = |path: &Path, version: i64| {
+        let conn = rusqlite::Connection::open(path).unwrap();
+        conn.pragma_update(None, "user_version", version).unwrap();
+    };
+    let version_of = |path: &Path| -> i64 {
+        let conn = rusqlite::Connection::open(path).unwrap();
+        conn.pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap()
+    };
+    set_version(&damaged, -1);
+
+    assert!(matches!(store.restore(&damaged), Err(Error::NotABackup(_))));
+    assert_eq!(
+        main_wish_count(&store),
+        14,
+        "a refused restore changes nothing"
+    );
+
+    // The same file as a data folder's database.
+    drop(store);
+    let other = tempfile::tempdir().unwrap();
+    let paths = AppPaths::at(other.path());
+    std::fs::copy(&damaged, paths.database()).unwrap();
+    assert!(matches!(
+        Store::open(paths.clone()),
+        Err(Error::SchemaDamaged { found: -1 })
+    ));
+    assert_eq!(
+        version_of(&paths.database()),
+        -1,
+        "the file is left as it was"
+    );
+    assert!(!paths.backups().exists(), "nothing is written beside it");
+}
+
 #[test]
 fn the_oldest_backup_can_be_restored_when_the_folder_is_full() {
     let dir = tempfile::tempdir().unwrap();

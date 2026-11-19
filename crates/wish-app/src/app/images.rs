@@ -17,6 +17,7 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use wish_core::service::lock;
 
 use futures_channel::mpsc::UnboundedSender;
 use gpui_kit::ImageSource;
@@ -161,26 +162,22 @@ impl Images {
 
     /// How many images the cache holds, and their size.
     pub fn usage(&self) -> (usize, u64) {
-        self.state
-            .lock()
-            .map_or((0, 0), |state| (state.present.len(), state.bytes))
+        let state = lock(&self.state);
+        (state.present.len(), state.bytes)
     }
 
     /// Whether `remote` is still to download: not in the cache, and not
     /// known to be missing from its sites.
     pub fn missing(&self, remote: &Remote) -> bool {
-        self.state.lock().is_ok_and(|state| {
-            !state.present.contains(&remote.file) && !state.not_found.contains(&remote.file)
-        })
+        let state = lock(&self.state);
+        !state.present.contains(&remote.file) && !state.not_found.contains(&remote.file)
     }
 
     /// Takes `remote` for a download of its own: `false` when it is already
     /// there, downloading or known to be missing, so that no two downloads
     /// write one file. One that failed is tried again.
     pub(crate) fn claim(&self, remote: &Remote) -> bool {
-        let Ok(mut state) = self.state.lock() else {
-            return false;
-        };
+        let mut state = lock(&self.state);
         let file = &remote.file;
         if state.present.contains(file)
             || state.waiting.contains(file)
@@ -194,12 +191,11 @@ impl Images {
 
     /// Forgets the cache's files, once they are deleted.
     pub(crate) fn forget(&self) {
-        if let Ok(mut state) = self.state.lock() {
-            state.present.clear();
-            state.failed.clear();
-            state.not_found.clear();
-            state.bytes = 0;
-        }
+        let mut state = lock(&self.state);
+        state.present.clear();
+        state.failed.clear();
+        state.not_found.clear();
+        state.bytes = 0;
     }
 
     pub fn cache(&self) -> &Path {
@@ -208,26 +204,25 @@ impl Images {
 
     /// Images asked for and still downloading.
     pub fn pending(&self) -> usize {
-        self.state.lock().map_or(0, |state| state.waiting.len())
+        lock(&self.state).waiting.len()
     }
 
     /// Records the end of the job making `file`.
     pub(crate) fn finished(&self, file: &str, fetched: Fetched) {
-        if let Ok(mut state) = self.state.lock() {
-            state.waiting.remove(file);
-            let file = file.to_owned();
-            match fetched {
-                Fetched::Stored(bytes) => {
-                    if state.present.insert(file) {
-                        state.bytes += bytes;
-                    }
+        let mut state = lock(&self.state);
+        state.waiting.remove(file);
+        let file = file.to_owned();
+        match fetched {
+            Fetched::Stored(bytes) => {
+                if state.present.insert(file) {
+                    state.bytes += bytes;
                 }
-                Fetched::NotFound => {
-                    state.not_found.insert(file);
-                }
-                Fetched::Failed => {
-                    state.failed.insert(file);
-                }
+            }
+            Fetched::NotFound => {
+                state.not_found.insert(file);
+            }
+            Fetched::Failed => {
+                state.failed.insert(file);
             }
         }
     }
@@ -235,7 +230,7 @@ impl Images {
     /// The image, when it is in the cache; otherwise it is queued for
     /// download (once) and the page draws without it.
     pub fn get(&self, remote: Remote) -> Option<ImageSource> {
-        let mut state = self.state.lock().ok()?;
+        let mut state = lock(&self.state);
         if state.present.contains(&remote.file) {
             return Some(self.cache.join(&remote.file).into());
         }
@@ -256,7 +251,7 @@ impl Images {
         let art = Remote::amber(file?);
         let blurred = format!("blur/{}", art.file);
         {
-            let mut state = self.state.lock().ok()?;
+            let mut state = lock(&self.state);
             if state.present.contains(&blurred) {
                 return Some(self.cache.join(&blurred).into());
             }

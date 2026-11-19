@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result, anyhow};
@@ -145,7 +145,7 @@ impl FetchControl {
     }
 
     pub fn progress(&self) -> Option<FetchProgress> {
-        self.progress.lock().ok().and_then(|p| *p)
+        *lock(&self.progress)
     }
 }
 
@@ -480,7 +480,7 @@ type Analyses = HashMap<AccountId, Arc<Analysis>>;
 /// a write changed what it reads; plans, inventories and collections are
 /// read again whole (a few small queries).
 fn load(store: &mut Store, data: &GameData, analyses: &Mutex<Analyses>) -> Result<Loaded> {
-    let mut analyses = analyses.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut analyses = lock(analyses);
     let changed = store.take_changed();
     analyses.retain(|account, _| !changed.includes(*account));
     let mut accounts = Vec::new();

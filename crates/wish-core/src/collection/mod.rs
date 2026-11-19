@@ -53,6 +53,7 @@ impl OwnedCharacter {
     }
 
     /// The values brought back into the game's ranges.
+    #[must_use = "it returns the clamped copy; the original is unchanged"]
     pub fn clamped(mut self) -> Self {
         self.level = Level::clamped(self.level.level, self.level.phase);
         self.constellation = self.constellation.min(MAX_CONSTELLATION);
@@ -90,6 +91,7 @@ impl OwnedWeapon {
     }
 
     /// The values brought back into the game's ranges.
+    #[must_use = "it returns the clamped copy; the original is unchanged"]
     pub fn clamped(mut self) -> Self {
         self.level = Level::clamped(self.level.level, self.level.phase);
         self.refinement = self.refinement.clamp(1, MAX_REFINEMENT);

@@ -86,10 +86,14 @@ impl Library {
             return Task::ready(Err(not_open()));
         };
         cx.background_spawn(async move {
+            // The player reads what failed, in their language.
+            let reading = |source| wish_core::Error::Io {
+                action: IoAction::Reading,
+                path: path.clone(),
+                source,
+            };
             // A paimon.moe save is a few MB; a far larger file is no export.
-            let size = std::fs::metadata(&path)
-                .with_context(|| format!("reading {}", path.display()))?
-                .len();
+            let size = std::fs::metadata(&path).map_err(reading)?.len();
             if size > MAX_IMPORT_BYTES {
                 return Err(anyhow!(t!(
                     "app-import-too-large",
@@ -97,8 +101,7 @@ impl Library {
                     size = wish_ui::format::bytes(size)
                 )));
             }
-            let bytes =
-                std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+            let bytes = std::fs::read(&path).map_err(reading)?;
             let name = file_name(&path);
             let store = lock(&store);
             Ok(import::prepare(&name, bytes, &data, &store, target)?)
@@ -152,9 +155,7 @@ impl Library {
         let (transport, pacing) = (self.services.game.clone(), self.services.pacing);
         cx.background_spawn(async move {
             let mut report = |progress: FetchProgress| {
-                if let Ok(mut slot) = control.progress.lock() {
-                    *slot = Some(progress);
-                }
+                *lock(&control.progress) = Some(progress);
             };
             Ok(service::game::fetch(
                 &link,
