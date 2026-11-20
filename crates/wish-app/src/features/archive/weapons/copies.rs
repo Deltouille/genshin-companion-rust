@@ -7,7 +7,6 @@
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Div, Entity, FontWeight, IntoElement,
@@ -21,6 +20,7 @@ use super::super::level_options;
 use super::WeaponsView;
 use super::model::copy_groups;
 use crate::app::notices::{report, report_outcome};
+use wish_ui::ButtonExt as _;
 use wish_ui::{
     PickerEvent, PickerItem, PickerState, Segmented, button, card, card_title, confirm_destructive,
     icon_button, picker,
@@ -281,7 +281,7 @@ impl WeaponsView {
                     (IconName::Star, t!("archive-add-favourite"))
                 };
                 icon_button(format!("favourite-copy-{}", copy.id), icon, label)
-                    .ghost()
+                    .quiet(cx)
                     .when(copy.favourite, |this| this.text_color(gold))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         for copy in &marked {
@@ -291,7 +291,7 @@ impl WeaponsView {
             };
             // Removing takes one copy of the row.
             let remove = button(SharedString::from(format!("remove-copy-{}", copy.id)))
-                .ghost()
+                .quiet(cx)
                 .label(if alike > 1 {
                     t!("archive-remove-one")
                 } else {

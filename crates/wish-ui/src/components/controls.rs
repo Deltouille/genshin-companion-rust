@@ -1,12 +1,10 @@
 //! The app's buttons, fields, chips and dialog footers: pills, as in the game's
-//! menus, at the app's size.
+//! menus, at the kit's medium size (32 px, 14 px text).
 //!
-//! GPUI Kit's controls are desktop-dense (32 px buttons, 14 px text); next
-//! to the 56 px sidebar entries and large figures they look like another
-//! app. These builders return the kit's own `Button` (and `Input`),
-//! keeping their keyboard, focus and accessibility behaviour, with the
-//! app's sizes: use them instead of `Button::new`. For a choice in a list,
-//! use [`super::picker`], not the kit's `Select`.
+//! These builders return the kit's own `Button` (and `Input`), keeping their
+//! keyboard, focus and accessibility behaviour and their size, with the app's
+//! shape, weight and colours: use them instead of `Button::new`. For a choice
+//! in a list, use [`super::picker`], not the kit's `Select`.
 //!
 //! They also show the pointing hand over what can be clicked, as a web page
 //! does: the kit gives every button but a link the arrow.
@@ -14,7 +12,7 @@
 use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
 use gpui_kit::component::dialog::{Dialog, DialogAction, DialogClose, DialogFooter};
 use gpui_kit::component::input::{Input, InputState};
-use gpui_kit::component::{ActiveTheme as _, Disableable as _, Icon, Sizable as _, WindowExt as _};
+use gpui_kit::component::{ActiveTheme as _, Disableable as _, Icon, WindowExt as _};
 use gpui_kit::{
     App, ElementId, Entity, FontWeight, Hsla, ParentElement as _, SharedString, Styled as _, Window,
 };
@@ -23,34 +21,44 @@ use std::rc::Rc;
 
 use gpui_kit::assets::IconName;
 
-/// A button: a 44 px pill with base-size semibold text, filled parchment with
+/// A button: a 32 px pill with semibold 14 px text, filled parchment with
 /// ink text in both themes (the `button.*` tokens). Chain the kit's builders on it: `.primary()`,
-/// `.ghost()`, `.danger()`, `.label()`, `.icon()`, `.on_click()`.
+/// `.danger()`, `.label()`, `.icon()`, `.on_click()`; without fill, [`ButtonExt::quiet`]
+/// (never the kit's `.ghost()`).
 ///
-/// Give it a label: an icon-only button wants its own square size.
+/// Give it a label: an icon-only button is an [`icon_button`].
 pub fn button(id: impl Into<ElementId>) -> Button {
     button_style(Button::new(id))
 }
 
 /// Gives a button the kit builds itself, such as a dialog's close button, the
-/// size of [`button`].
+/// look of [`button`].
 pub fn button_style(button: Button) -> Button {
     button
-        .large()
-        .h_11()
-        .px_5()
-        // Pills, as the game's buttons.
+        // Pills, as the game's buttons. The kit's padding would put the label
+        // inside the rounded ends: as much as the ends' radius.
+        .px_4()
         .rounded_full()
         .font_weight(FontWeight::SEMIBOLD)
         .cursor_pointer()
 }
 
-/// The app's buttons point with a hand, so one that can't be used now must
-/// show the arrow again.
+/// The app's own states on the kit's buttons.
 pub trait ButtonExt {
     /// Disables the button when `disabled`, with the arrow cursor. Use it in
-    /// place of the kit's `disabled` on the app's buttons.
+    /// place of the kit's `disabled` on the app's buttons: they point with a
+    /// hand, so one that can't be used now must show the arrow again.
     fn unavailable(self, disabled: bool) -> Self;
+
+    /// A button without fill: a layer of its text colour when hovered, a
+    /// stronger one while pressed. Use it in place of the kit's `ghost`, which
+    /// presses with the filled buttons' parchment: a near-white flash on the
+    /// slate, the text lost in it.
+    fn quiet(self, cx: &App) -> Self;
+
+    /// [`ButtonExt::quiet`] on a surface of its own, with text, hover and
+    /// pressed layers of `text`: the sidebar, slate in both themes.
+    fn quiet_in(self, text: Hsla, cx: &App) -> Self;
 }
 
 impl ButtonExt for Button {
@@ -61,6 +69,24 @@ impl ButtonExt for Button {
         } else {
             button
         }
+    }
+
+    fn quiet(self, cx: &App) -> Self {
+        self.quiet_in(cx.theme().secondary_foreground, cx)
+    }
+
+    fn quiet_in(self, text: Hsla, cx: &App) -> Self {
+        let theme = cx.theme();
+        // The kit's ghost hover (the `accent` layer, half of it in the dark
+        // theme); pressed, the state layer of Material 3.
+        let hover = text.opacity(if theme.mode.is_dark() { 0.04 } else { 0.08 });
+        self.custom(
+            ButtonCustomVariant::new(cx)
+                .color(theme.transparent)
+                .foreground(text)
+                .hover(hover)
+                .active(text.opacity(0.12)),
+        )
     }
 }
 
@@ -145,8 +171,6 @@ pub fn icon_button(
 ) -> Button {
     let label = label.into();
     Button::new(id)
-        .large()
-        .size_11()
         .rounded_full()
         .icon(icon)
         .accessibility_label(label.clone())
@@ -154,14 +178,13 @@ pub fn icon_button(
         .cursor_pointer()
 }
 
-/// A text field: a 48 px pill on the page's colour, as the game's search
+/// A text field: a 32 px pill on the page's colour, as the game's search
 /// fields.
 pub fn input(state: &Entity<InputState>, cx: &App) -> Input {
     let theme = cx.theme();
     Input::new(state)
-        .large()
-        .h_12()
-        .px_5()
+        // As much padding as the rounded ends' radius, as on a button.
+        .px_4()
         .rounded_full()
         .bg(theme.background)
 }

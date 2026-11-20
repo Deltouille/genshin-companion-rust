@@ -24,6 +24,7 @@ use super::super::shared::{facts_grid, hero_banner, level_badge, materials, tabl
 use super::CharactersView;
 use super::model;
 use crate::app::images::Images;
+use wish_ui::ButtonExt as _;
 use wish_ui::format;
 use wish_ui::{PageFrame, badge, button, card, card_title, rich_text, theme};
 
@@ -43,7 +44,7 @@ impl CharactersView {
             library.images(cx).clone(),
         );
         let back = button("back-to-characters")
-            .ghost()
+            .quiet(cx)
             .icon(IconName::ArrowLeft)
             .label(t!("archive-all-characters"))
             .on_click(cx.listener(|this, _, _, cx| this.show_list(cx)));

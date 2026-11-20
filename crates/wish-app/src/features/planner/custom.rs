@@ -26,6 +26,7 @@ use wish_core::planner::{
 
 use super::{PlannerView, report_plan};
 use crate::app::images::Images;
+use wish_ui::ButtonExt as _;
 use wish_ui::{MaterialTile, Segmented, button, dialog_footer, form_dialog, icon_button, input};
 
 /// The roles side by side in the form.
@@ -425,7 +426,7 @@ impl CustomForm {
                     .gap_2()
                     .child(
                         icon_button("picker-back", IconName::ArrowLeft, t!("planner-back"))
-                            .ghost()
+                            .quiet(cx)
                             .on_click(cx.listener(|this, _, _, cx| {
                                 this.picking = None;
                                 cx.notify();

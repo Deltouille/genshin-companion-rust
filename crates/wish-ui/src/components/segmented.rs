@@ -3,7 +3,6 @@
 use std::rc::Rc;
 
 use gpui_kit::base::{Selectable as _, StyledExt as _};
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _, Size};
 use gpui_kit::{
     AnyElement, App, ElementId, FontWeight, InteractiveElement as _, IntoElement,
@@ -11,12 +10,12 @@ use gpui_kit::{
     prelude::FluentBuilder as _, px,
 };
 
-use super::controls::button;
+use super::controls::{ButtonExt as _, button};
 
 type SelectHandler = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
 
 /// A choice between a few views or values, one always on: a pill split in
-/// segments, 40 px high, the current option filled with the primary colour
+/// segments, 32 px high, the current option filled with the primary colour
 /// (parchment in the dark theme, ink in the light one), as the game marks a tab.
 #[derive(IntoElement)]
 #[must_use = "a component draws only once it is a child of an element"]
@@ -66,7 +65,7 @@ impl RenderOnce for Segmented {
         // over its selected state, which also drops the hover layer there.
         // A pill, as the game's tabs and filters: the ends round to half the
         // height.
-        let (outline, text, round) = (theme.input, theme.foreground, gpui_kit::rems(1.25));
+        let (outline, text, round) = (theme.input, theme.foreground, gpui_kit::rems(1.));
         let (fill, on_fill) = (theme.primary, theme.primary_foreground);
         let last = self.options.len().saturating_sub(1);
         let mut children: Vec<AnyElement> = Vec::new();
@@ -79,7 +78,7 @@ impl RenderOnce for Segmented {
             let current = ix == self.selected;
             let on_select = self.on_select.clone();
             let segment = button(ix)
-                .ghost()
+                .quiet(cx)
                 .with_size(Size::Medium)
                 .h_full()
                 .font_weight(FontWeight::MEDIUM)
@@ -109,7 +108,7 @@ impl RenderOnce for Segmented {
             .id(self.id)
             .h_flex()
             .flex_shrink_0()
-            .h_10()
+            .h_8()
             .rounded(round)
             .border_1()
             .border_color(outline)

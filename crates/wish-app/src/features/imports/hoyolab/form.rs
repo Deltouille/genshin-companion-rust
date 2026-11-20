@@ -53,7 +53,7 @@ impl HoyolabSync {
                         .child(t!("hoyolab-pasted", names = cookie.names().join(", ")))
                         .child(
                             button("forget-pasted")
-                                .ghost()
+                                .quiet(cx)
                                 .small()
                                 .label(t!("hoyolab-use-fields"))
                                 .on_click(cx.listener(|this, _, _, cx| {
@@ -75,7 +75,7 @@ impl HoyolabSync {
             .child(
                 div().h_flex().child(
                     button("paste-cookie")
-                        .ghost()
+                        .quiet(cx)
                         .icon(IconName::Copy)
                         .label(t!("hoyolab-paste"))
                         .on_click(cx.listener(|this, _, _, cx| this.paste_cookie(cx))),

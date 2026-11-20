@@ -1,9 +1,10 @@
 //! One sidebar entry, at the app's proportions.
 
+use super::controls::ButtonExt as _;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::Icon;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::button::Button;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     App, ClickEvent, ElementId, FontWeight, IntoElement, ParentElement as _, RenderOnce,
@@ -12,13 +13,13 @@ use gpui_kit::{
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
-/// A sidebar destination: a 56 px pill with a 24 px icon, the current one on
-/// a lighter panel (`sidebar.primary`). A page
+/// A sidebar destination: a 40 px pill with a 20 px icon and 14 px text, the
+/// current one on a lighter panel (`sidebar.primary`). A page
 /// inside a [`super::NavGroup`] is [`NavItem::nested`]: no icon, nor any
 /// ornament (the user's choice on 2026-11-17), its label indented under the
-/// group's, a 48 px row.
+/// group's, a 36 px row.
 ///
-/// GPUI Kit's `SidebarMenuItem` has a fixed 28 px height, so this builds on
+/// GPUI Kit's `SidebarMenuItem` is a fixed 28 px rectangle, so this builds on
 /// its `Button` instead, which keeps keyboard focus, activation and the
 /// hover and pressed states.
 #[derive(IntoElement)]
@@ -90,20 +91,14 @@ impl RenderOnce for NavItem {
         };
         let icon = self.icon;
         let button = Button::new(self.id)
-            .ghost()
-            .text_color(text)
+            .quiet_in(text, cx)
             .w_full()
-            .map(|this| {
-                if nested {
-                    this.h_12()
-                } else {
-                    this.h(rems(3.5))
-                }
-            })
+            .map(|this| if nested { this.h_9() } else { this.h_10() })
             .px_4()
-            // A group's page starts where the diamond's text did: under the
-            // group's label, so the hierarchy still reads.
-            .when(nested, |this| this.pl(rems(2.5)))
+            // A group's page starts under the group's label, so the hierarchy
+            // still reads: the group indents its pages by 1 rem, and this
+            // padding adds the header's icon and gap.
+            .when(nested, |this| this.pl(rems(2.)))
             .rounded_full()
             .cursor_pointer()
             .accessibility_label(label)
@@ -112,16 +107,10 @@ impl RenderOnce for NavItem {
                     .w_full()
                     .h_flex()
                     .gap_3()
-                    .children(icon.map(|icon| icon.size_6().flex_shrink_0()))
+                    .children(icon.map(|icon| icon.size_5().flex_shrink_0()))
                     .child(
                         div()
-                            .map(|this| {
-                                if nested {
-                                    this.text_sm()
-                                } else {
-                                    this.text_base()
-                                }
-                            })
+                            .text_sm()
                             .font_weight(if self.active {
                                 FontWeight::BOLD
                             } else {

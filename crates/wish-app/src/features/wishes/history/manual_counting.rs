@@ -296,7 +296,7 @@ impl super::HistoryView {
             .when(self.mode == Mode::Wishes, |this| {
                 this.child(
                     button("manual-delete")
-                        .ghost()
+                        .quiet(cx)
                         .label(t!("history-delete"))
                         .tooltip(t!("history-delete-tooltip"))
                         .unavailable(selected.is_none())

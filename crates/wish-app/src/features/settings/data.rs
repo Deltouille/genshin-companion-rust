@@ -3,7 +3,6 @@
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{App, Context, Div, ParentElement as _, Styled as _, div};
 use wish_core::store::{KEEP_BACKUPS, KEEP_HOURLY_BACKUPS};
@@ -112,7 +111,7 @@ impl SettingsPage {
                         .when(mirror_folder.is_some(), |this| {
                             this.child(
                                 button("stop-mirroring")
-                                    .ghost()
+                                    .quiet(cx)
                                     .label(t!("settings-mirror-stop"))
                                     .unavailable(busy)
                                     .on_click(cx.listener(|this, _, _, cx| {

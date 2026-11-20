@@ -6,7 +6,6 @@
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, IntoElement, ParentElement as _, Styled as _,
     Window, div, rems,
@@ -151,14 +150,14 @@ impl CharactersView {
                 (IconName::Star, t!("archive-add-favourite"))
             };
             icon_button("favourite", icon, label)
-                .ghost()
+                .quiet(cx)
                 .when(character.favourite, |this| this.text_color(gold))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.toggle_favourite(&key, cx);
                 }))
         };
         let remove = button("disown")
-            .ghost()
+            .quiet(cx)
             .label(t!("archive-remove"))
             .on_click(cx.listener({
                 let (key, name) = (character.key.clone(), name.to_owned());
@@ -189,7 +188,7 @@ impl CharactersView {
                 let to = level.saturating_add_signed(delta).clamp(1, MAX_TALENT);
                 owned.talents[ix] = to;
                 icon_button(format!("talent-{ix}-{delta}"), icon, label)
-                    .ghost()
+                    .quiet(cx)
                     .size_9()
                     .unavailable(to == level)
                     .on_click(cx.listener(move |this, _, _, cx| {

@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::button::Button;
 use gpui_kit::component::{ActiveTheme as _, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
@@ -18,6 +18,7 @@ use wish_core::planner::{MaterialId, PlannerData};
 
 use crate::app::images::Images;
 use gpui_kit::StatefulInteractiveElement as _;
+use wish_ui::ButtonExt as _;
 use wish_ui::{MaterialTile, badge, format};
 
 /// The hero's height, in rems.
@@ -276,7 +277,7 @@ pub(super) fn item_card(card: ItemCard, cx: &App) -> Button {
                 }),
         );
     Button::new(card.id)
-        .ghost()
+        .quiet(cx)
         .p_0()
         .w(rems(CARD_REMS))
         .h_auto()
@@ -315,7 +316,7 @@ pub(super) fn corner_button(
 ) -> Button {
     let theme = cx.theme();
     Button::new(gpui_kit::ElementId::Name(id.into()))
-        .ghost()
+        .quiet(cx)
         .small()
         .size_7()
         .rounded_full()

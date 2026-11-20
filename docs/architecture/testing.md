@@ -21,6 +21,7 @@ bacon                                                    # continuous check
 | `crates/wish-core/tests/formats.rs` | the frozen witnesses still read, and the writer writes the current version |
 | `crates/wish-core/tests/layers.rs` | the domain modules import no database, network or file |
 | `crates/wish-app/tests/messages.rs` | no error carries English words of the app's code (`.context(format!(…))`) |
+| `crates/wish-app/tests/buttons.rs` | no `.ghost()` button, which flashes parchment when pressed (`ButtonExt::quiet` instead) |
 | `crates/wish-core/tests/docs.rs` | every path the docs and `CLAUDE.md` name exists |
 | `…_texts_are_complete` (one per crate) | the Fluent texts: every key, every language, French typography ([i18n.md](i18n.md)) |
 | `crates/wish-app/src/app/library/tests.rs` | the write queue's promises, end-to-end flows (a HoYoLAB sync, an import from the game) with fakes |

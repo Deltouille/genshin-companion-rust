@@ -2,8 +2,9 @@
 //! per feature (the wish counter: one page per banner type; the archive: the
 //! characters and weapons; the planner), then Settings and Credits.
 //!
-//! Its own column rather than GPUI Kit's `Sidebar`, whose items have a fixed
-//! 28 px height: the entries are Material 3's 56 px [`NavItem`]s.
+//! Its own column rather than GPUI Kit's `Sidebar`, whose items are fixed
+//! 28 px rectangles: the entries are pills, as the app's controls are, 40 px
+//! high ([`NavItem`]s).
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::scroll::ScrollableElement as _;

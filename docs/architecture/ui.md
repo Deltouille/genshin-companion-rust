@@ -30,6 +30,10 @@ several alternatives were turned down.
 - **Buttons** are filled parchment pills with ink text in both themes (`button.*` tokens); `.primary()` is
   parchment in dark, ink in light. Pickers are parchment pills over a parchment list; fields, chips and
   `Segmented` are pills.
+- **Controls at the kit's medium size**: buttons, icon buttons, pickers and their rows, fields, chips, segments and the
+  pager are 32 px with 14 px text (the user's choice on 2026-11-19, over 44 px buttons and 48 px pickers and fields,
+  and over 40 px and 36 px). The sidebar's entries follow: 40 px with a 20 px icon, a group's pages 36 px, all
+  14 px text (they were 56 px and 48 px).
 - **One rule for corners**: every control is a pill (buttons, pickers and their rows, fields, chips, segments,
   sidebar entries, badges); surfaces (cards, panels, the snackbar, a list's frame) use `radius.lg` (12); only item
   tiles keep `radius` (8).
@@ -51,13 +55,15 @@ place.
 
 ## Components
 
-`crates/wish-ui/src/components/`. GPUI Kit's controls are 32 px with 14 px text, which looks like another app next
-to these proportions: **never use `Button::new`, `Select::new`, `Input::new`, or the kit's `Pagination`,
-`ButtonGroup` and `Toggle` directly in the app.**
+`crates/wish-ui/src/components/`. They keep the kit's controls, their keyboard and their size, and give them the
+app's pills, weights, colours and pointing hand: **never use `Button::new`, `Select::new`, `Input::new`, or the
+kit's `Pagination`, `ButtonGroup` and `Toggle` directly in the app.** Size a control through the kit's `Size`
+(`.small()`…), which changes its text, icon and padding with it, rather than a height of its own.
 
 | Need | Use | Not |
 | --- | --- | --- |
-| a button | `button(id)` (+ `.primary()`, `.ghost()`, `.danger()`, `.label()`, `.icon()`) | `Button::new` |
+| a button | `button(id)` (+ `.primary()`, `.danger()`, `.label()`, `.icon()`) | `Button::new` |
+| a button without fill | `.quiet(cx)` (`ButtonExt`); on the sidebar `.quiet_in(text, cx)` | the kit's `.ghost()`, which flashes parchment when pressed |
 | an icon-only button | `icon_button` (with an accessibility label and a tooltip) | |
 | a button the kit builds itself (a dialog's close) | `button_style(…)` | |
 | a disabled button | `.unavailable(bool)` (`ButtonExt`): it also gives the arrow back | the kit's `.disabled(…)` |

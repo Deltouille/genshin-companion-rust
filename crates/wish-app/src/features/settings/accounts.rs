@@ -68,7 +68,7 @@ impl SettingsPage {
                         .when(wishes == 0, |this| {
                             this.child(
                                 button(SharedString::from(format!("remove-account-{id}")))
-                                    .ghost()
+                                    .quiet(cx)
                                     .label(t!("settings-account-remove"))
                                     .unavailable(busy)
                                     .on_click(cx.listener(move |this, _, window, cx| {

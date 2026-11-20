@@ -3,7 +3,6 @@
 //! about one banner type is in one place.
 
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::ButtonVariants as _;
 
 use gpui_kit::component::{ActiveTheme as _, Icon, IconName, Sizable as _};
 use gpui_kit::{
@@ -15,6 +14,7 @@ use wish_core::engine::{Counters, PoolAnalysis};
 use wish_core::model::Rarity;
 
 use super::details::{five_star_pills, stats_table};
+use wish_ui::ButtonExt as _;
 use wish_ui::pool_icon;
 use wish_ui::{badge, big_number, card, icon_button, stat_tile};
 use wish_ui::{format, theme};
@@ -99,7 +99,7 @@ pub(super) fn pool_card(
                 IconName::ChevronRight,
                 t!("overview-history", pool = pool.pool.display_name()),
             )
-            .ghost()
+            .quiet(cx)
             .on_click(on_history),
         );
 

@@ -67,13 +67,13 @@ impl Pager {
 }
 
 impl RenderOnce for Pager {
-    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let mut state = PaginationState::new(self.page, self.pages);
         if let Some(on_change) = self.on_change {
             state = state.on_change(move |page, window, cx| on_change(&page, window, cx));
         }
         let current = state.current_page();
-        let square = |id: SharedString| button(id).px_3().min_w_11();
+        let square = |id: SharedString| button(id).px_3().min_w_8();
         let request = |state: &PaginationState, page: usize| {
             let state = state.clone();
             move |_: &_, window: &mut Window, cx: &mut App| state.request_page(page, window, cx)
@@ -92,7 +92,7 @@ impl RenderOnce for Pager {
                 .child(label)
                 .child(Icon::new(icon));
             button(id)
-                .ghost()
+                .quiet(cx)
                 .child(content)
                 .unavailable(target.is_none())
                 .when_some(target, |this, page| this.on_click(request(&state, page)))
@@ -109,7 +109,7 @@ impl RenderOnce for Pager {
                         .cursor_default()
                         .into_any_element()
                 } else {
-                    this.ghost()
+                    this.quiet(cx)
                         .on_click(request(&state, page))
                         .into_any_element()
                 }
@@ -121,7 +121,7 @@ impl RenderOnce for Pager {
                     "pages-{}-{}",
                     hidden.start, hidden.end
                 )))
-                .ghost()
+                .quiet(cx)
                 .label("…")
                 .accessibility_label(t!("ui-pages", first = hidden.start, last = hidden.end - 1))
                 .dropdown_menu(move |mut menu, window, _| {

@@ -4,14 +4,15 @@ use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::component::Icon;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::button::Button;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     App, ClickEvent, ElementId, FontWeight, IntoElement, ParentElement as _, RenderOnce,
-    SharedString, Styled as _, Window, div, rems,
+    SharedString, Styled as _, Window, div,
 };
 
 use super::NavItem;
+use super::controls::ButtonExt as _;
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
@@ -87,14 +88,16 @@ impl RenderOnce for NavGroup {
             t!("ui-collapsed", label = self.label.as_ref())
         };
         let header = Button::new(self.id)
-            .ghost()
-            .text_color(if current {
-                theme.sidebar_primary_foreground
-            } else {
-                theme.sidebar_foreground
-            })
+            .quiet_in(
+                if current {
+                    theme.sidebar_primary_foreground
+                } else {
+                    theme.sidebar_foreground
+                },
+                cx,
+            )
             .w_full()
-            .h(rems(3.5))
+            .h_10()
             .px_4()
             .rounded_full()
             .cursor_pointer()
@@ -104,14 +107,14 @@ impl RenderOnce for NavGroup {
                     .w_full()
                     .h_flex()
                     .gap_3()
-                    .child(self.icon.size_6().flex_shrink_0().when(current, |icon| {
+                    .child(self.icon.size_5().flex_shrink_0().when(current, |icon| {
                         icon.text_color(crate::theme::palette(cx).gold)
                     }))
                     .child(
                         div()
                             .flex_1()
                             .min_w_0()
-                            .text_base()
+                            .text_sm()
                             .font_weight(FontWeight::SEMIBOLD)
                             .truncate()
                             .child(self.label),

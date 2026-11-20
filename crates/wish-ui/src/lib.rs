@@ -10,10 +10,11 @@
 //! control a pill, surfaces `radius.lg`, item tiles `radius`).
 //!
 //! The app never uses GPUI Kit's `Button`, `Select`, `Input`, `Pagination`,
-//! `ButtonGroup` or `Toggle` directly: they come at the kit's 32 px and 14 px,
-//! which look like another app here. It uses the controls of [`components`]
-//! instead (`button`, `picker`, `input`, `Segmented`, `Pager`…), which
-//! also give everything clickable the pointing hand.
+//! `ButtonGroup` or `Toggle` directly: their corners, weights and colours
+//! look like another app here. It uses the controls of [`components`]
+//! instead (`button`, `picker`, `input`, `Segmented`, `Pager`…), at the kit's
+//! medium size (32 px, 14 px text), which also give everything clickable the
+//! pointing hand.
 //!
 //! - [`theme`]: the themes (`theme.json`), the typeface, the app's own
 //!   colour roles ([`theme::palette`]), rarity tiles and colours.

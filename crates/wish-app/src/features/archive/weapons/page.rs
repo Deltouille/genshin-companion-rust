@@ -13,6 +13,7 @@ use gpui_kit::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement as _, Styled as _,
     Window, div,
 };
+use wish_ui::ButtonExt as _;
 use wish_ui::format;
 use wish_ui::{PageFrame, Segmented, button, card, card_title, theme};
 
@@ -34,7 +35,7 @@ impl WeaponsView {
             library.images(cx).clone(),
         );
         let back = button("back-to-weapons")
-            .ghost()
+            .quiet(cx)
             .icon(IconName::ArrowLeft)
             .label(t!("archive-all-weapons"))
             .on_click(cx.listener(|this, _, _, cx| this.show_list(cx)));

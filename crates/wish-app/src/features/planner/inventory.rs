@@ -24,6 +24,7 @@ use gpui_kit::{
 use wish_core::planner::{Allocation, CustomItem, Inventory, MORA, PlanEntry, PlannerData};
 
 use super::{PlannerView, report_plan};
+use wish_ui::ButtonExt as _;
 use wish_ui::{MaterialTile, button, dialog_footer, form_dialog, format, input};
 
 /// What a ley line outcrop of wealth gives at world level 8.
@@ -250,7 +251,7 @@ impl InventoryForm {
                 this.child(
                     div().child(
                         button("ley-line")
-                            .ghost()
+                            .quiet(cx)
                             .label(t!("planner-ley-line", mora = LEY_LINE_MORA))
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.add_ley_line(window, cx)),

@@ -16,6 +16,7 @@ use gpui_kit::{
     Styled as _, Window, div, px, rems, size,
 };
 use wish_core::model::{Pool, Rarity};
+use wish_ui::ButtonExt as _;
 use wish_ui::{
     PageFrame, Pager, Segmented, badge, big_number, button, card, card_title, filter_chip,
     icon_button, item_tile, pool_icon, stat_label, stat_tile, theme,
@@ -90,9 +91,9 @@ impl Render for Gallery {
                 .gap_2()
                 .child(button("primary").primary().label("Primary"))
                 .child(button("default").label("Default"))
-                .child(button("ghost").ghost().label("Ghost"))
+                .child(button("ghost").quiet(cx).label("Ghost"))
                 .child(button("danger").danger().label("Delete"))
-                .child(icon_button("open", IconName::ChevronRight, "Open").ghost()),
+                .child(icon_button("open", IconName::ChevronRight, "Open").quiet(cx)),
         );
         let choices = section("Segmented, filter_chip").child(
             div()

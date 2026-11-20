@@ -16,10 +16,10 @@
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::Icon;
+use gpui_kit::component::button::Button;
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::popover::Popover;
-use gpui_kit::component::{Icon, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, ElementId, Entity, EventEmitter, FocusHandle,
@@ -28,7 +28,7 @@ use gpui_kit::{
     Styled as _, Subscription, Window, div, rems,
 };
 
-use super::controls::input;
+use super::controls::{ButtonExt as _, input};
 use crate::theme;
 
 /// An option of a picker: what it shows, and what it stands for.
@@ -303,9 +303,7 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
         // Faded ink, still 4.9:1 on parchment.
         let faded = palette.ink.opacity(0.8);
         let trigger = Button::new(self.id.clone())
-            .large()
-            .h_12()
-            .px_5()
+            .px_4()
             .w_full()
             .rounded_full()
             .cursor_pointer()
@@ -338,7 +336,8 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
             })
             .track_focus(&focus)
             .bg(palette.parchment)
-            .rounded(rems(1.5))
+            .rounded(rems(1.25))
+            .text_sm()
             .text_color(palette.ink)
             .p_1()
             .w(self.menu_width)
@@ -390,7 +389,7 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for MenuButton<V> {
         let state = self.state.read(cx);
         let (open, focus) = (state.open, state.focus.clone());
         let trigger = Button::new(self.id.clone())
-            .ghost()
+            .quiet(cx)
             .size_8()
             .rounded_full()
             .icon(self.icon)
@@ -406,7 +405,8 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for MenuButton<V> {
             })
             .track_focus(&focus)
             .bg(palette.parchment)
-            .rounded(rems(1.5))
+            .rounded(rems(1.25))
+            .text_sm()
             .text_color(palette.ink)
             .p_1()
             .w(self.menu_width)
@@ -432,7 +432,7 @@ fn menu<V: Clone + PartialEq + 'static>(
         div()
             .id(("picker-option", ix))
             .h_flex()
-            .h_10()
+            .h_8()
             .px_3()
             .gap_2()
             .rounded_full()
@@ -474,7 +474,7 @@ fn menu<V: Clone + PartialEq + 'static>(
             }
             cx.stop_propagation();
         })
-        .children(search.map(|search| div().p_1().child(input(&search, cx).small())))
+        .children(search.map(|search| div().p_1().child(input(&search, cx))))
         .child(
             div()
                 .id("picker-options")

@@ -36,7 +36,7 @@ impl SettingsPage {
                 cx,
             ),
             button("empty-image-cache")
-                .ghost()
+                .quiet(cx)
                 .label(t!("settings-images-empty"))
                 .unavailable(files == 0 || running)
                 .on_click(cx.listener(|this, _, window, cx| this.confirm_empty_cache(window, cx))),

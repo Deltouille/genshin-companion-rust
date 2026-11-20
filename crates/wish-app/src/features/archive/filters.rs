@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::button::Button;
 use gpui_kit::component::input::InputState;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::{ActiveTheme as _, Icon, Sizable as _};
@@ -23,6 +23,7 @@ use gpui_kit::{
 };
 
 use super::Sort;
+use wish_ui::ButtonExt as _;
 use wish_ui::{PickerItem, PickerState, button, icon_button, input, picker};
 
 /// What a filter or the bar does when clicked.
@@ -144,7 +145,7 @@ pub(super) fn filter_bar(
             this.child(
                 div().h_flex().flex_wrap().gap_2().children(chips).child(
                     button("clear-filters")
-                        .ghost()
+                        .quiet(cx)
                         .h_8()
                         .label(t!("archive-clear-all"))
                         .on_click(move |_, window, cx| clear(window, cx)),
@@ -269,7 +270,7 @@ pub(super) fn filter_drawer(
                 )
                 .child(
                     icon_button("close-filters", IconName::Close, t!("archive-close"))
-                        .ghost()
+                        .quiet(cx)
                         .on_click({
                             let close = close.clone();
                             move |_, window, cx| close(window, cx)
@@ -294,7 +295,7 @@ pub(super) fn filter_drawer(
                 .border_color(theme.border)
                 .child(
                     button("filters-clear")
-                        .ghost()
+                        .quiet(cx)
                         .label(t!("archive-clear-all"))
                         .on_click(move |_, window, cx| clear(window, cx)),
                 )
@@ -313,7 +314,7 @@ pub(super) fn filter_drawer(
     deferred(div().absolute().inset_0().child(veil).child(panel)).with_priority(DRAWER_PRIORITY)
 }
 
-/// A filter in the drawer: a 48 px button with its icon and label, outlined
+/// A filter in the drawer: a 32 px button with its icon and label, outlined
 /// at rest; on, filled with the primary colour and ticked.
 fn filter_button(option: FilterOption, cx: &App) -> Button {
     let theme = cx.theme();
@@ -324,8 +325,8 @@ fn filter_button(option: FilterOption, cx: &App) -> Button {
         toggle,
     } = option;
     Button::new(SharedString::from(format!("filter-{label}")))
-        .ghost()
-        .h_12()
+        .quiet(cx)
+        .h_8()
         .px_3()
         .rounded_full()
         .border_2()

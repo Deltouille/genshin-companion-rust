@@ -37,7 +37,7 @@ pub fn snackbar(
                 .active(text.opacity(0.12)),
         )
         .icon(IconName::Close)
-        .size_10()
+        .size_8()
         .rounded_full()
         .flex_none()
         .cursor_pointer()

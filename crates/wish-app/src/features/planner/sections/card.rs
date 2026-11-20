@@ -7,7 +7,6 @@ use std::rc::Rc;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::slider::{Slider, SliderState};
 use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -16,6 +15,7 @@ use gpui_kit::{
     InteractiveElement as _, IntoElement, ObjectFit, ParentElement as _, RenderOnce, SharedString,
     StatefulInteractiveElement as _, Styled as _, StyledImage as _, Window, div, img,
 };
+use wish_ui::ButtonExt as _;
 use wish_ui::{PickerState, card, icon_button, menu_button, theme};
 
 use super::super::controls::Move;
@@ -78,7 +78,7 @@ impl RenderOnce for EntryCard {
                 IconName::Settings,
                 t!("planner-edit", name = entry.name.as_str()),
             )
-            .ghost()
+            .quiet(cx)
             .on_click(move |_, window, cx| edit(id, window, cx))
             .into_any_element()
         });
@@ -217,7 +217,7 @@ fn entry_header(
                 IconName::Close,
                 t!("planner-remove-tooltip", name = name.as_ref()),
             )
-            .ghost()
+            .quiet(cx)
             .on_click(move |_, window, cx| remove(id, remove_name.clone(), window, cx)),
         )
 }
