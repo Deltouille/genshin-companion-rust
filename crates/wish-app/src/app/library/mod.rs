@@ -443,7 +443,6 @@ fn open(
     // Preferences only hold folder paths; a damaged file must not lock the
     // user out of their wishes, nor be overwritten unseen.
     let (settings, settings_warning) = Settings::load_or_set_aside(&paths);
-    let images = Images::scan(paths.image_cache(), image_requests);
     let planner = PlannerData::load(&paths.game_data()).unwrap_or_else(|e| {
         warnings.push(format!("{}: {e}", wish_core::planner::PLANNER_FILE));
         PlannerData::embedded().clone()
@@ -452,6 +451,8 @@ fn open(
         warnings.push(format!("{}: {e}", wish_core::archive::ARCHIVE_FILE));
         ArchiveData::embedded().clone()
     });
+    let icons = images::ItemIcons::new(&data, &planner);
+    let images = Images::scan(paths.image_cache(), icons, image_requests);
     let image_catalog = ImageCatalog {
         icons: images::catalog(&data, &planner, &archive, Collection::Icons),
         everything: images::catalog(&data, &planner, &archive, Collection::Everything),

@@ -87,7 +87,7 @@ adding its features with `{ workspace = true, features = [...] }`.
 
 ## Game data
 
-New banners or characters: pull `reference/` or `genshin-db/`, run the extraction script, commit the JSON
+New banners or characters: run `tools/update-game-data.sh`, review what changed, run the tests, commit the JSON
 ([game-data.md](game-data.md)). A field the app needs from genshin-db: the script writes it, the Rust type reads it
 with `#[serde(default)]` if older copies in a game-data folder lack it.
 

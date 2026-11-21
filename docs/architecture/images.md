@@ -7,8 +7,8 @@ them; screenshots of the app (the README's) are fine.
 
 | Images | Source | Cache file |
 | --- | --- | --- |
-| wish icons, banner art, the primogem | paimon.moe's site | `paimon/…` |
-| character, weapon, material, element, talent and constellation icons, wish art, Original Resin | Project Amber (`gi.yatta.moe/assets/UI/<game file>.png`) | `amber/…` |
+| banner art (only paimon.moe has it) | paimon.moe's site | `paimon/banners/…` |
+| every other image: character (wished ones included), weapon, material, element, talent and constellation icons, wish art, the primogem, Original Resin | Project Amber (`gi.yatta.moe/assets/UI/<game file>.png`) | `amber/…` |
 | blurred backdrops of wish art | made here | `blur/<file>` |
 
 ## The parts
@@ -25,10 +25,14 @@ graph LR
     queue -->|"Job::Blur"| blur["shrink to 160 px, blur<br/><i>the image crate</i>"]
 ```
 
-- `crates/wish-core/src/images.rs`: `Remote` names each image's cache file and its URLs (`Remote::wish_icon`,
-  `banner`, `amber`, `skill`, `element`…); `download` fetches one with a few checks (only images, 16 MB at most,
+- `crates/wish-core/src/images.rs`: `Remote` names each image's cache file and its URLs (`Remote::banner`,
+  `amber`, `skill`, `element`…); `download` fetches one with a few checks (only images, 16 MB at most,
   never outside the cache (`in_cache`), https only, no redirect; paimon.moe answers a missing file with its HTML
-  page, which counts as missing); `catalog` lists every image of a `Collection` for "download all". No GPUI.
+  page, which counts as missing); `catalog` lists every image of a `Collection` for "download all". A wished item's
+  icon is the planner's icon of the same character or weapon, found through the game's id (`ItemIcons`), so each
+  is downloaded once; a test fails when the data leaves a wished item without one. `remove_obsolete` deletes at
+  launch what earlier versions downloaded twice (the wished items' icons and the primogem from paimon.moe). No
+  GPUI.
 - `crates/wish-app/src/app/images.rs`: `Images`, the images by what they show (`item`, `banner`, `character`,
   `material`, `skill`, `splash`, `backdrop`…). It answers from the files it knows are in the cache and queues the
   others; asking never blocks. Until an image is there, or offline, the page draws its place empty: everything

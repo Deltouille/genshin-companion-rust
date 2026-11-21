@@ -43,8 +43,9 @@ you change before changing it, and fix any sentence of it your change makes wron
   `SCREENSHOT_HEIGHT`, `SCREENSHOT_LANGUAGE=fr`, `SCREENSHOT_WEAPON`; a synthetic save with
   `node tools/sample-save.mjs <out.json>` (never for engine tests). Details: `docs/architecture/testing.md`.
 - `cargo run -p wish-ui --example gallery -- <out-dir>`: every component, light and dark.
-- `node tools/extract-paimon-data.mjs` / `node tools/extract-genshin-db.mjs`: regenerate the embedded game data
-  from `reference/` / `genshin-db/`; commit the JSON. `docs/architecture/game-data.md`.
+- `tools/update-game-data.sh`: updates the `reference/` and `genshin-db/` clones (makes them the first time) and
+  regenerates the embedded game data with `tools/extract-paimon-data.mjs` and `tools/extract-genshin-db.mjs`;
+  review and commit the JSON. `docs/architecture/game-data.md`.
 - `nix shell nixpkgs#cargo-about -c tools/third-party-licenses.sh`: after any change to `Cargo.lock`, and commit
   `crates/wish-app/licenses/THIRD-PARTY-LICENSES.txt` (CI fails when it differs).
 - `nix shell nixpkgs#cargo-deny -c cargo-deny --locked check advisories sources`: the dependency audit.

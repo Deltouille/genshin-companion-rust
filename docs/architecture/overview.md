@@ -112,7 +112,8 @@ docs/                     architecture/ (these pages), releases/ (release notes)
 ```
 
 `reference/` (a clone of paimon.moe) and `genshin-db/` (a sparse clone of genshin-db) are git-ignored, read-only
-sources for the extraction scripts and for porting. Never edit them.
+sources for the extraction scripts and for porting, which `tools/update-game-data.sh` makes and updates. Never edit
+them.
 
 ## One feature across the crates
 

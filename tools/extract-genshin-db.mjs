@@ -7,10 +7,8 @@
 //
 // Usage: node tools/extract-genshin-db.mjs [path/to/genshin-db]
 // (defaults to ./genshin-db, a sparse clone of
-// https://github.com/theBowja/genshin-db with src/data/English/{characters,
-// talents,weapons,materials} and src/data/image). Re-run after
-// `git -C genshin-db pull` when a new version comes out, then rebuild the image
-// pack: `cargo run --release -p image-pack`.
+// https://github.com/theBowja/genshin-db). tools/update-game-data.sh makes or
+// updates the clone and runs this script: use it when a new version comes out.
 //
 // The app reads only the output, so a change of source only changes this
 // script.

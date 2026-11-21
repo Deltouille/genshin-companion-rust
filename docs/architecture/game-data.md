@@ -22,22 +22,17 @@ graph LR
     amber["Project Amber's API<br/><i>icon names of the newest characters</i>"] --> plannerdata
 ```
 
-- `node tools/extract-paimon-data.mjs` regenerates the wish data after `git -C reference pull`. It fails on an
-  unknown featured key; a real typo goes in `KEY_FIXES` in the script.
-- `node tools/extract-genshin-db.mjs` regenerates the planner's, the archive's and the translations after
-  `git -C genshin-db pull`. It fails on a cost naming an unknown material. Characters without talent data (the
+- `tools/update-game-data.sh` does it all: it brings both clones up to date (making them the first time), runs
+  both scripts and shows what changed. Review the changes and run the tests before committing them.
+- `tools/extract-paimon-data.mjs` regenerates the wish data. It fails on an unknown featured key; a real typo goes
+  in `KEY_FIXES` in the script.
+- `tools/extract-genshin-db.mjs` regenerates the planner's, the archive's and the translations. It fails on a cost naming an unknown material. Characters without talent data (the
   Manekins) are skipped and listed. Talent rows in another language are kept only with the English rows'
   parameters, so the values are the same. `LANGUAGES` in the script lists the languages.
-- `genshin-db/` is a sparse clone of https://github.com/theBowja/genshin-db; `reference/` a clone of paimon-moe.
-  Both are git-ignored and read-only: never edit them. To make the sparse clone:
-
-  ```bash
-  git clone --depth 1 --filter=blob:none --sparse https://github.com/theBowja/genshin-db
-  git -C genshin-db sparse-checkout set src/data/English/characters src/data/English/talents \
-    src/data/English/weapons src/data/English/materials src/data/English/constellations \
-    src/data/French/characters src/data/French/talents src/data/French/weapons src/data/French/materials \
-    src/data/French/constellations src/data/image src/data/stats src/data/curve src/data/version
-  ```
+- `reference/` is a clone of https://github.com/MadeBaruna/paimon-moe, `genshin-db/` one of
+  https://github.com/theBowja/genshin-db. The script makes them shallow and sparse, with only the folders it reads
+  (paimon-moe's `src/`, without the site's gigabyte of images; genshin-db's folders listed in the script): a few
+  tens of MB each. Both are git-ignored and read-only: never edit them.
 
 Commit the JSON the scripts write. The app reads only these files, its own format, so a change of source only
 changes a script.

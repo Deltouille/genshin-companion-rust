@@ -4,11 +4,8 @@
 // ids from UIGF's public dictionary (needed for UIGF export).
 //
 // Usage: node tools/extract-paimon-data.mjs [path/to/paimon-moe]
-// (defaults to ./reference). Re-run after `git -C reference pull` when a
-// new banner or character is released.
-//
-// Then rebuild the image pack (item icons and banner art) from the same
-// checkout: `cargo run --release -p image-pack`.
+// (defaults to ./reference). tools/update-game-data.sh updates the clone and
+// runs this script: use it when a new banner or character is released.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';

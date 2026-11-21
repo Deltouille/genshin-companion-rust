@@ -97,8 +97,8 @@ The app only connects to the internet for three things:
 
 - importing from the game, through HoYoverse's API, with the link you gave it;
 - syncing from HoYoLAB, when you ask for it;
-- downloading the game's images the first time a page needs them, from paimon.moe and
-  [Project Amber](https://gi.yatta.moe). They're cached, so each one is downloaded once. To use the app offline,
+- downloading the game's images the first time a page needs them, from [Project Amber](https://gi.yatta.moe), and
+  the banners' art from paimon.moe. They're cached, so each one is downloaded once. To use the app offline,
   Settings → Images can download all of them in one go.
 
 Nothing about you or your wishes is sent anywhere else. Like any website, those servers do see your IP address.
@@ -130,15 +130,16 @@ downloads them as it needs them.
 
 The game data (banners, items, characters, weapons, materials, and the French texts) is generated from
 [paimon.moe](https://github.com/MadeBaruna/paimon-moe) and [genshin-db](https://github.com/theBowja/genshin-db) by
-two scripts, and the result is committed in `crates/wish-core/data/`:
+two scripts, and the result is committed in `crates/wish-core/data/`. One command updates it (it needs git and
+Node.js):
 
 ```sh
-node tools/extract-paimon-data.mjs   # banners and items, from a paimon-moe clone in reference/
-node tools/extract-genshin-db.mjs    # characters, weapons, materials, from a genshin-db clone in genshin-db/
+tools/update-game-data.sh
 ```
 
-[docs/architecture/game-data.md](docs/architecture/game-data.md) explains how to set up both clones. When a new
-banner comes out, you don't have to rebuild: drop the new `banners.json` (or any of the data files) into the
+The first time, it clones both projects into `reference/` and `genshin-db/`, with only the folders it reads (a few
+tens of MB). Then it brings them up to date, runs the scripts and shows what changed
+([docs/architecture/game-data.md](docs/architecture/game-data.md)). When a new banner comes out, you don't have to rebuild: drop the new `banners.json` (or any of the data files) into the
 `game-data/` folder inside your data folder.
 
 ## Development

@@ -22,7 +22,7 @@ use wish_core::service::lock;
 use futures_channel::mpsc::UnboundedSender;
 use gpui_kit::ImageSource;
 use wish_core::data::Banner;
-use wish_core::images::{self, Remote};
+use wish_core::images::{self, ItemIcons, Remote};
 use wish_core::model::Wish;
 use wish_core::planner::{Character, Material, Weapon};
 
@@ -33,6 +33,8 @@ use wish_core::planner::{Character, Material, Weapon};
 pub struct Images {
     cache: PathBuf,
     state: Arc<Mutex<State>>,
+    /// The wished items' icons, by item key.
+    icons: Arc<ItemIcons>,
     /// To the downloader; none before the library is open.
     requests: Option<UnboundedSender<Job>>,
 }
@@ -143,14 +145,21 @@ struct State {
 
 impl Images {
     /// Lists the cache once, so rendering never touches the disk to find out
-    /// whether an image is there. Without `requests`, missing images are not
-    /// downloaded.
-    pub(crate) fn scan(cache: PathBuf, requests: Option<UnboundedSender<Job>>) -> Self {
+    /// whether an image is there, after removing what earlier versions
+    /// downloaded and this one doesn't show. Without `requests`, missing
+    /// images are not downloaded.
+    pub(crate) fn scan(
+        cache: PathBuf,
+        icons: ItemIcons,
+        requests: Option<UnboundedSender<Job>>,
+    ) -> Self {
+        images::remove_obsolete(&cache);
         let mut state = State::default();
         list(&cache, "", &mut state);
         Self {
             cache,
             state: Arc::new(Mutex::new(state)),
+            icons: Arc::new(icons),
             requests,
         }
     }
@@ -273,10 +282,10 @@ impl Images {
         None
     }
 
-    /// The icon of a wished item, when there is one.
+    /// The icon of a wished item, when there is one: the planner's icon of
+    /// the same character or weapon.
     pub fn item(&self, wish: &Wish) -> Option<ImageSource> {
-        let key = wish.item_key.as_deref()?;
-        self.get(Remote::wish_icon(wish.item_type, key)?)
+        self.get(self.icons.get(wish.item_key.as_deref()?)?)
     }
 
     /// The art of a banner.
@@ -284,7 +293,7 @@ impl Images {
         self.get(Remote::banner(banner))
     }
 
-    /// paimon.moe's primogem icon.
+    /// The primogem's icon.
     pub fn primogem(&self) -> Option<ImageSource> {
         self.get(Remote::primogem())
     }
@@ -364,17 +373,20 @@ mod tests {
     #[test]
     fn an_image_is_asked_for_once_then_served_from_the_cache() {
         let dir = tempfile::tempdir().unwrap();
-        fs::create_dir_all(dir.path().join("paimon")).unwrap();
-        fs::write(dir.path().join("paimon/primogem.png"), b"png").unwrap();
-        // Missing from its site, as a past launch found out.
         fs::create_dir_all(dir.path().join("amber")).unwrap();
+        fs::write(dir.path().join("amber/UI_ItemIcon_201.png"), b"png").unwrap();
+        // Missing from its site, as a past launch found out.
         fs::write(
             dir.path().join("amber/UI_Buff_Element_Wind.png.missing"),
             b"",
         )
         .unwrap();
         let (requests, mut queue) = mpsc::unbounded();
-        let images = Images::scan(dir.path().to_path_buf(), Some(requests));
+        let images = Images::scan(
+            dir.path().to_path_buf(),
+            ItemIcons::default(),
+            Some(requests),
+        );
 
         // Already there: served, nothing asked; known missing: not asked.
         assert!(images.primogem().is_some());

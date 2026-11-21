@@ -1,12 +1,12 @@
 //! The game's images: icons, banner art, wish art. They are HoYoverse's, not
 //! ours to redistribute, so the app does not ship them. Each is downloaded on
-//! first use from the fan sites that already serve them, paimon.moe (the wish
-//! counter's icons and banner art) and Project Amber (the planner's and the
-//! archive's), then kept in the image cache ([`AppPaths::image_cache`]).
+//! first use from the fan sites that already serve them, then kept in the
+//! image cache ([`AppPaths::image_cache`]): Project Amber for every image but
+//! the banners' art, which only paimon.moe has.
 //!
 //! [`AppPaths::image_cache`]: crate::AppPaths::image_cache
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::Duration;
@@ -20,7 +20,8 @@ use crate::model::{ItemType, Pool};
 use crate::paths::write_atomic;
 use crate::planner::PlannerData;
 
-/// paimon.moe's images, as its site serves its `static/images` folder.
+/// paimon.moe's images, as its site serves its `static/images` folder: here,
+/// the banners' art.
 const PAIMON: &str = "https://paimon.moe/images";
 /// Project Amber's copy of the game's UI images, by the game's file names.
 const AMBER: &str = "https://gi.yatta.moe/assets/UI";
@@ -31,6 +32,10 @@ const MISSING: &str = ".missing";
 /// How long an image stays known to be missing: sites add the icons of new
 /// characters some days after their release.
 pub const MISSING_FOR: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+/// What earlier versions downloaded from paimon.moe and Project Amber has too
+/// (the wished items' icons, the primogem): the same pictures twice. Removed
+/// from the cache at launch ([`remove_obsolete`]).
+const OBSOLETE: [&str; 3] = ["paimon/characters", "paimon/weapons", "paimon/primogem.png"];
 
 /// The image a file of the cache marks as missing, if it is such a marker.
 pub fn missing_marker(file: &str) -> Option<&str> {
@@ -40,27 +45,14 @@ pub fn missing_marker(file: &str) -> Option<&str> {
 /// An image the app shows: where the cache keeps it, and where it comes from.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Remote {
-    /// Its path in the image cache, `/`-separated: `paimon/…` or `amber/…`.
+    /// Its path in the image cache, `/`-separated: `paimon/banners/…` or
+    /// `amber/…`.
     pub file: String,
     /// Where to download it, the first that has it.
     pub urls: Vec<String>,
 }
 
 impl Remote {
-    /// A wished item's icon, by paimon.moe's key (`amos_bow`).
-    pub fn wish_icon(item_type: ItemType, key: &str) -> Option<Remote> {
-        let folder = match item_type {
-            ItemType::Character => "characters",
-            ItemType::Weapon => "weapons",
-            ItemType::Unknown => return None,
-        };
-        let name = format!("{key}.png");
-        Some(Remote {
-            file: format!("paimon/{folder}/{name}"),
-            urls: vec![paimon_url(&[folder, &name])],
-        })
-    }
-
     /// A banner's art. paimon.moe names it after the banner; the cache, after
     /// its slug, since a `:` in a file name makes GPUI take it for a URL.
     pub fn banner(banner: &Banner) -> Remote {
@@ -70,12 +62,9 @@ impl Remote {
         }
     }
 
-    /// paimon.moe's primogem icon.
+    /// The primogem's icon.
     pub fn primogem() -> Remote {
-        Remote {
-            file: "paimon/primogem.png".to_owned(),
-            urls: vec![paimon_url(&["primogem.png"])],
-        }
+        Remote::amber("UI_ItemIcon_201")
     }
 
     /// Original Resin's icon, for the planner's estimate.
@@ -118,6 +107,41 @@ impl Remote {
     }
 }
 
+/// The icon of each item a wish can give, by its key (`amos_bow`): the
+/// planner's icon of the same character or weapon, found through the game's
+/// id, so that an item is downloaded once for every page.
+#[derive(Clone, Debug, Default)]
+pub struct ItemIcons(HashMap<String, String>);
+
+impl ItemIcons {
+    pub fn new(game: &GameData, planner: &PlannerData) -> Self {
+        fn by_id<'a>(
+            entries: impl Iterator<Item = (u32, &'a Option<String>)>,
+        ) -> HashMap<u32, &'a str> {
+            entries
+                .filter_map(|(id, icon)| Some((id, icon.as_deref()?)))
+                .collect()
+        }
+        let characters = by_id(planner.characters().iter().map(|c| (c.id, &c.icon)));
+        let weapons = by_id(planner.weapons().iter().map(|w| (w.id, &w.icon)));
+        let by_key = game.items.iter().filter_map(|item| {
+            let ids = match item.item_type {
+                ItemType::Character => &characters,
+                ItemType::Weapon => &weapons,
+                ItemType::Unknown => return None,
+            };
+            let icon = ids.get(&item.item_id?)?;
+            Some((item.key.clone(), (*icon).to_owned()))
+        });
+        ItemIcons(by_key.collect())
+    }
+
+    /// The icon of the wished item `key`, when the planner's data has it.
+    pub fn get(&self, key: &str) -> Option<Remote> {
+        self.0.get(key).map(|file| Remote::amber(file))
+    }
+}
+
 impl Remote {
     /// About how big it is, for estimates: the average of its kind, as
     /// measured on the sites (sizes vary a lot within a kind).
@@ -127,8 +151,6 @@ impl Remote {
             390_000
         } else if file.starts_with("amber/UI_Gacha_AvatarImg") {
             1_900_000
-        } else if file.starts_with("paimon/") {
-            25_000
         } else {
             9_000
         }
@@ -152,13 +174,8 @@ pub fn catalog(
     archive: &ArchiveData,
     collection: Collection,
 ) -> Vec<Remote> {
-    let mut remotes = Vec::new();
-    remotes.extend(
-        game.items
-            .iter()
-            .filter_map(|item| Remote::wish_icon(item.item_type, &item.key)),
-    );
-    remotes.push(Remote::primogem());
+    // The wished items' icons are the planner's ([`ItemIcons`]).
+    let mut remotes = vec![Remote::primogem()];
     remotes.push(Remote::resin());
     let icons = (planner.characters().iter().map(|c| &c.icon))
         .chain(planner.weapons().iter().map(|w| &w.icon))
@@ -262,6 +279,22 @@ pub fn download(remote: &Remote, cache: &Path) -> Result<Option<u64>> {
     Ok(None)
 }
 
+/// Removes from the image cache at `cache` what earlier versions downloaded
+/// and this one no longer shows (see `OBSOLETE`). Blocking; nothing is lost
+/// if it fails.
+pub fn remove_obsolete(cache: &Path) {
+    for file in OBSOLETE {
+        let Ok(path) = in_cache(cache, file) else {
+            continue;
+        };
+        let _ = if path.is_dir() {
+            std::fs::remove_dir_all(&path)
+        } else {
+            std::fs::remove_file(&path)
+        };
+    }
+}
+
 /// Where `file` (a name in the cache, maybe with folders) is in `cache`.
 /// The names come from the game data, which a local copy may override:
 /// never let one climb out of the cache.
@@ -292,10 +325,12 @@ mod tests {
 
     #[test]
     fn urls_follow_each_site() {
-        let bow = Remote::wish_icon(ItemType::Weapon, "amos_bow").unwrap();
-        assert_eq!(bow.file, "paimon/weapons/amos_bow.png");
-        assert_eq!(bow.urls, ["https://paimon.moe/images/weapons/amos_bow.png"]);
-        assert!(Remote::wish_icon(ItemType::Unknown, "x").is_none());
+        let primogem = Remote::primogem();
+        assert_eq!(primogem.file, "amber/UI_ItemIcon_201.png");
+        assert_eq!(
+            primogem.urls,
+            ["https://gi.yatta.moe/assets/UI/UI_ItemIcon_201.png"]
+        );
 
         let burst = Remote::skill("Skill_E_Ganyu_01_HD");
         assert_eq!(
@@ -309,6 +344,53 @@ mod tests {
             Remote::element("Cryo").unwrap().file,
             "amber/UI_Buff_Element_Ice.png"
         );
+    }
+
+    #[test]
+    fn every_wished_item_has_the_planners_icon() {
+        let (game, planner) = (GameData::embedded(), PlannerData::embedded());
+        let icons = ItemIcons::new(game, planner);
+        let bow = icons.get("amos_bow").unwrap();
+        assert_eq!(bow.file, "amber/UI_EquipIcon_Bow_Amos.png");
+        assert_eq!(
+            icons.get("raiden_shogun").unwrap().file,
+            "amber/UI_AvatarIcon_Shougun.png"
+        );
+        // No wish gives the Traveler, which paimon.moe lists as a character.
+        let without: Vec<&str> = (game.items.iter())
+            .filter(|item| !item.key.starts_with("traveler") && icons.get(&item.key).is_none())
+            .map(|item| item.key.as_str())
+            .collect();
+        assert!(without.is_empty(), "no icon for {without:?}");
+    }
+
+    #[test]
+    fn what_earlier_versions_downloaded_twice_goes() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache = dir.path();
+        for file in [
+            "paimon/characters/aino.png",
+            "paimon/weapons/amos_bow.png",
+            "paimon/weapons/new.png.missing",
+            "paimon/primogem.png",
+            "paimon/banners/Adrift in the Harbor 1.png",
+            "amber/UI_ItemIcon_201.png",
+        ] {
+            let path = cache.join(file);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"png").unwrap();
+        }
+        remove_obsolete(cache);
+        remove_obsolete(cache);
+        assert!(!cache.join("paimon/characters").exists());
+        assert!(!cache.join("paimon/weapons").exists());
+        assert!(!cache.join("paimon/primogem.png").exists());
+        assert!(
+            cache
+                .join("paimon/banners/Adrift in the Harbor 1.png")
+                .exists()
+        );
+        assert!(cache.join("amber/UI_ItemIcon_201.png").exists());
     }
 
     #[test]
