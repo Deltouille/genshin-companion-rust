@@ -17,9 +17,10 @@ use gpui_kit::{
     App, Div, FontWeight, IntoElement, ParentElement as _, RenderOnce, SharedString, Styled as _,
     Window, div,
 };
+use wish_core::archive::ArchiveData;
 use wish_core::collection::Collection;
 use wish_core::data::GameData;
-use wish_core::planner::PlannerData;
+use wish_core::planner::{PlannerData, ResinOptions};
 use wish_ui::{PageFrame, Segmented, card, card_title};
 
 use crate::app::images::Images;
@@ -50,6 +51,9 @@ pub struct Overview {
     pub owned: Collection,
     pub data: Option<Arc<GameData>>,
     pub planner: Arc<PlannerData>,
+    pub archive: Arc<ArchiveData>,
+    /// How the resin a cost takes is worked out (the planner's settings).
+    pub resin: ResinOptions,
     pub images: Arc<Images>,
     pub manual_counting: bool,
     pub busy: bool,
@@ -77,10 +81,14 @@ impl RenderOnce for Overview {
                 None => no_wishes(self.manual_counting, self.busy, cx),
             },
             OverviewTab::Characters => characters::characters_tab(
-                &self.owned,
-                &self.planner,
-                &self.images,
-                &self.on_navigate,
+                characters::CharactersTab {
+                    owned: &self.owned,
+                    planner: &self.planner,
+                    archive: &self.archive,
+                    resin: &self.resin,
+                    images: &self.images,
+                    on_navigate: &self.on_navigate,
+                },
                 window,
                 cx,
             ),

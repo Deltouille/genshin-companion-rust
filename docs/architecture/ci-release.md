@@ -28,7 +28,7 @@ GPLv3-compatible.**
 `tools/third-party-licenses.sh` (`nix shell nixpkgs#cargo-about -c tools/third-party-licenses.sh`) writes
 `crates/wish-app/licenses/THIRD-PARTY-LICENSES.txt`: every crate's licence (cargo-about; `about.toml` lists the
 accepted, GPLv3-compatible ones, `about.hbs` the layout), then the sections for what isn't a crate (Lucide's icons,
-Google Sans Flex). **Run it after any change to `Cargo.lock` and commit the file**: CI regenerates it and fails when
+Inter). **Run it after any change to `Cargo.lock` and commit the file**: CI regenerates it and fails when
 it differs, or when a crate's licence isn't accepted. Release archives hold it, and Credits shows it. The
 workspace's crates are `publish = false`, so cargo-about leaves them out.
 

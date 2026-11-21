@@ -25,7 +25,8 @@ passives, and what each ascension costs. Mark what you own yourself, or fill it 
 (the format [Irminsul](https://github.com/konkers/irminsul),
 [Inventory Kamera](https://github.com/Andrewthe13th/Inventory_Kamera) and
 [Genshin Optimizer](https://frzyc.github.io/genshin-optimizer/) export). A GOOD file brings your whole bag along:
-weapons, materials and all.
+weapons, materials and all. The overview then counts it up: your characters against those out by each version,
+their constellations, levels and talents, by element, weapon and region, and what raising them has cost so far.
 
 **Planner.** Pick characters and weapons, drag the sliders from where they are to where you want them, and you see
 what is still missing once your materials are shared out, crafting included, and roughly how much resin everything
@@ -185,7 +186,7 @@ tests catch a missing or extra text in any language. To add a language, see
   the resin estimate, and [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) for the EXP tables.
 - [UIGF](https://uigf.org) and [GOOD](https://frzyc.github.io/genshin-optimizer/#/doc), the formats it reads and
   writes.
-- [GPUI Kit](https://gpui-kit.com) (Apache License 2.0), [Google Sans Flex](https://github.com/googlefonts/googlesans-flex)
+- [GPUI Kit](https://gpui-kit.com) (Apache License 2.0), [Inter](https://rsms.me/inter/)
   (SIL Open Font License 1.1) and [Lucide](https://lucide.dev) icons (ISC License).
 
 The full notices are in [`crates/wish-app/licenses/`](crates/wish-app/licenses) and on the app's Credits page, along

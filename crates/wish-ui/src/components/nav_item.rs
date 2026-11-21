@@ -13,8 +13,8 @@ use gpui_kit::{
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
-/// A sidebar destination: a 40 px pill with a 20 px icon and 14 px text, the
-/// current one on a lighter panel (`sidebar.primary`). A page
+/// A sidebar destination: a 40 px row with the theme's small corners, a 20 px
+/// icon and 14 px text, the current one on a lighter panel (`sidebar.primary`). A page
 /// inside a [`super::NavGroup`] is [`NavItem::nested`]: no icon, nor any
 /// ornament (the user's choice on 2026-11-17), its label indented under the
 /// group's, a 36 px row.
@@ -99,7 +99,7 @@ impl RenderOnce for NavItem {
             // still reads: the group indents its pages by 1 rem, and this
             // padding adds the header's icon and gap.
             .when(nested, |this| this.pl(rems(2.)))
-            .rounded_full()
+            .rounded(theme.radius)
             .cursor_pointer()
             .accessibility_label(label)
             .child(
@@ -123,6 +123,6 @@ impl RenderOnce for NavItem {
             .when_some(self.on_click, |this, on_click| {
                 this.on_click(move |event, window, cx| on_click(event, window, cx))
             });
-        div().w_full().rounded_full().bg(fill).child(button)
+        div().w_full().rounded(theme.radius).bg(fill).child(button)
     }
 }

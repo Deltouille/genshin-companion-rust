@@ -19,7 +19,7 @@ use gpui_kit::{
 use wish_ui::{PageFrame, button, card, dialog_close_footer};
 
 /// The licence of every crate the app is built with, then those of the
-/// Lucide icons and the Google Sans Flex font (`tools/third-party-licenses.sh`). Every
+/// Lucide icons and the Inter font (`tools/third-party-licenses.sh`). Every
 /// release archive holds the same file.
 const THIRD_PARTY_LICENSES: &str = include_str!("../../../licenses/THIRD-PARTY-LICENSES.txt");
 
@@ -98,11 +98,7 @@ impl RenderOnce for Credits {
                     "https://genshin-impact.fandom.com",
                 ),
                 ("UIGF", t!("credits-uigf"), "https://uigf.org"),
-                (
-                    "Google Sans Flex",
-                    t!("credits-font"),
-                    "https://github.com/googlefonts/googlesans-flex",
-                ),
+                ("Inter", t!("credits-font"), "https://rsms.me/inter/"),
                 ("Lucide", t!("credits-lucide"), "https://lucide.dev"),
                 ("GPUI Kit", t!("credits-gpui-kit"), "https://gpui-kit.com"),
             ]
@@ -306,7 +302,7 @@ mod tests {
             "MIT License",
             "Apache License",
             "Lucide icons",
-            "Google Sans Flex font",
+            "Inter font",
         ] {
             assert!(THIRD_PARTY_LICENSES.contains(part), "{part}");
         }

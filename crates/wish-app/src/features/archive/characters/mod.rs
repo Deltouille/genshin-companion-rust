@@ -34,7 +34,7 @@ pub struct CharactersView {
     /// Only the characters marked as favourites.
     favourites: bool,
     sort: Sort,
-    /// The sort pill.
+    /// The sort picker.
     sort_select: Entity<PickerState<Sort>>,
     /// The order turned round.
     reversed: bool,

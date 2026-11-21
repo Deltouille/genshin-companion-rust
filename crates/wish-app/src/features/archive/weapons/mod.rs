@@ -47,7 +47,7 @@ pub struct WeaponsView {
     /// Only the weapons with a copy marked as a favourite.
     favourites: bool,
     sort: Sort,
-    /// The sort pill.
+    /// The sort picker.
     sort_select: Entity<PickerState<Sort>>,
     /// The order turned round.
     reversed: bool,

@@ -11,8 +11,12 @@
 - `Collection` holds both; `Collection::character_goal` and `weapon_goal` say where planning starts (the owned
   level and talents; a weapon's most levelled copy that can still go up, else level 1).
 - `collection/stats.rs` works out the Overview's figures: `CharacterStats` (owned of the game's characters, the
-  Traveler once per element; by rarity, element, weapon, constellation) and `OwnedWeaponStats` (by rarity and type,
-  copies, refinements, holders). `ELEMENTS` and `WEAPON_TYPES` are in the game's order.
+  Traveler once per element; by rarity, element, weapon and region, with the archive's regions; by version, owned
+  of those out by each version; constellations by rarity, levels and talents in brackets, each talent's average;
+  and `invested`, what raising them to where they are cost from level 1, with the planner's costs, the Traveler's
+  levels counted once) and `OwnedWeaponStats` (by rarity and type, copies, refinements, holders). `ELEMENTS`,
+  `WEAPON_TYPES` and `REGIONS` are in the game's order; a region the list lacks comes after them, and the
+  characters of none (the Traveler, Aloy) last.
 
 Stored in `owned_characters` and `owned_weapons` (`crates/wish-core/src/store/collection.rs`): each write is one
 transaction after at most one hourly `before-planning` backup, like the plan's. A snapshot carries the collection,

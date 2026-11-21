@@ -99,7 +99,7 @@ impl RenderOnce for NavGroup {
             .w_full()
             .h_10()
             .px_4()
-            .rounded_full()
+            .rounded(theme.radius)
             .cursor_pointer()
             .accessibility_label(read_aloud)
             .child(
@@ -108,7 +108,7 @@ impl RenderOnce for NavGroup {
                     .h_flex()
                     .gap_3()
                     .child(self.icon.size_5().flex_shrink_0().when(current, |icon| {
-                        icon.text_color(crate::theme::palette(cx).gold)
+                        icon.text_color(crate::theme::palette(cx).highlight)
                     }))
                     .child(
                         div()

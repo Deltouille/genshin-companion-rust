@@ -22,7 +22,35 @@ overview-crowns = { $count ->
     } at level { $level }
 overview-by-element = By element
 overview-by-weapon = By weapon
-overview-constellations = Constellations
+overview-by-region = By region
+# The characters the game data gives no region: the Traveler, Aloy.
+overview-region-none = No region
+overview-by-version = Characters by version
+overview-released = Released
+overview-owned = Owned
+overview-version = Version { $version }
+overview-five-constellations = 5★ constellations
+overview-four-constellations = 4★ constellations
+overview-levels = Levels
+overview-talents = Talents
+# In a donut's hole, under the count.
+overview-characters-word = { $count ->
+        [one] character
+       *[other] characters
+    }
+overview-talents-word = { $count ->
+        [one] talent
+       *[other] talents
+    }
+overview-talent-averages = Average: { NUMBER($normal, maximumFractionDigits: 1) } normal attack, { NUMBER($skill, maximumFractionDigits: 1) } skill, { NUMBER($burst, maximumFractionDigits: 1) } burst
+overview-invested = Resources invested
+overview-invested-help = What raising your characters to where they are cost, from level 1 with every talent at 1, and the resin that takes on average.
+overview-invested-levels = For the levels
+overview-invested-talents = For the talents
+overview-talent-books = Talent books
+overview-every-tier = Every tier together
+overview-weekly-materials = Weekly boss materials
+overview-resin = Resin
 
 ## Weapons tab
 

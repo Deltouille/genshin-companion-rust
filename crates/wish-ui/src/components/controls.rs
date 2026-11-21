@@ -1,5 +1,5 @@
-//! The app's buttons, fields, chips and dialog footers: pills, as in the game's
-//! menus, at the kit's medium size (32 px, 14 px text).
+//! The app's buttons, fields, chips and dialog footers, at the kit's medium
+//! size (32 px, 14 px text) and with the theme's small corners (`radius`).
 //!
 //! These builders return the kit's own `Button` (and `Input`), keeping their
 //! keyboard, focus and accessibility behaviour and their size, with the app's
@@ -21,8 +21,8 @@ use std::rc::Rc;
 
 use gpui_kit::assets::IconName;
 
-/// A button: a 32 px pill with semibold 14 px text, filled parchment with
-/// ink text in both themes (the `button.*` tokens). Chain the kit's builders on it: `.primary()`,
+/// A button: 32 px high with the theme's small corners and semibold 14 px
+/// text, on a grey fill (the `button.*` tokens). Chain the kit's builders on it: `.primary()` (the accent),
 /// `.danger()`, `.label()`, `.icon()`, `.on_click()`; without fill, [`ButtonExt::quiet`]
 /// (never the kit's `.ghost()`).
 ///
@@ -35,10 +35,9 @@ pub fn button(id: impl Into<ElementId>) -> Button {
 /// look of [`button`].
 pub fn button_style(button: Button) -> Button {
     button
-        // Pills, as the game's buttons. The kit's padding would put the label
-        // inside the rounded ends: as much as the ends' radius.
+        // A little more room than the kit's for the semibold labels; the
+        // corners are the kit's, the theme's `radius`.
         .px_4()
-        .rounded_full()
         .font_weight(FontWeight::SEMIBOLD)
         .cursor_pointer()
 }
@@ -52,12 +51,12 @@ pub trait ButtonExt {
 
     /// A button without fill: a layer of its text colour when hovered, a
     /// stronger one while pressed. Use it in place of the kit's `ghost`, which
-    /// presses with the filled buttons' parchment: a near-white flash on the
-    /// slate, the text lost in it.
+    /// presses with the filled buttons' colour, a flash that hides the text
+    /// on a dark surface.
     fn quiet(self, cx: &App) -> Self;
 
     /// [`ButtonExt::quiet`] on a surface of its own, with text, hover and
-    /// pressed layers of `text`: the sidebar, slate in both themes.
+    /// pressed layers of `text`: the sidebar.
     fn quiet_in(self, text: Hsla, cx: &App) -> Self;
 }
 
@@ -171,21 +170,18 @@ pub fn icon_button(
 ) -> Button {
     let label = label.into();
     Button::new(id)
-        .rounded_full()
         .icon(icon)
         .accessibility_label(label.clone())
         .tooltip(label)
         .cursor_pointer()
 }
 
-/// A text field: a 32 px pill on the page's colour, as the game's search
-/// fields.
+/// A text field: 32 px high, on the page's colour, set into the card.
 pub fn input(state: &Entity<InputState>, cx: &App) -> Input {
     let theme = cx.theme();
     Input::new(state)
-        // As much padding as the rounded ends' radius, as on a button.
+        // As much room as a button's.
         .px_4()
-        .rounded_full()
         .bg(theme.background)
 }
 
@@ -199,12 +195,11 @@ pub fn filter_chip(
     on: bool,
     cx: &App,
 ) -> Button {
-    // A 32 px pill; on, it is tinted and ticked; off, only outlined.
+    // 32 px high; on, it is tinted and ticked; off, only outlined.
     let theme = cx.theme();
     let chip = Button::new(id)
         .h_8()
         .px_3()
-        .rounded_full()
         .font_weight(FontWeight::MEDIUM)
         .cursor_pointer()
         .label(label)

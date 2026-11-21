@@ -5,11 +5,11 @@ use gpui_kit::{App, Div, FontWeight, Hsla, ParentElement as _, SharedString, Sty
 
 /// A small rounded label in a soft colour pair `(text, fill)`, as made by
 /// [`crate::theme::soft`].
-pub fn badge(text: impl Into<SharedString>, (color, fill): (Hsla, Hsla), _: &App) -> Div {
+pub fn badge(text: impl Into<SharedString>, (color, fill): (Hsla, Hsla), cx: &App) -> Div {
     div()
         .px_2()
         .py_0p5()
-        .rounded_full()
+        .rounded(cx.theme().radius)
         .text_xs()
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(color)

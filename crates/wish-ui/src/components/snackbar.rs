@@ -38,7 +38,6 @@ pub fn snackbar(
         )
         .icon(IconName::Close)
         .size_8()
-        .rounded_full()
         .flex_none()
         .cursor_pointer()
         .accessibility_label(t!("ui-close"))

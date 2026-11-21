@@ -1,7 +1,7 @@
 //! The archive lists' filter bar, after genshinlist.vercel.app's: a search
 //! field, a "Filter" button that opens the filters in a drawer
-//! (each group a grid of buttons, ticked when on), the order as a parchment
-//! pill, a button that reverses it, and under the bar the filters that are
+//! (each group a grid of buttons, ticked when on), the order as a picker, a
+//! button that reverses it, and under the bar the filters that are
 //! on, each a chip that removes it.
 //!
 //! A filter applies as soon as it is clicked; the drawer only gathers them.
@@ -59,7 +59,7 @@ pub(super) fn refresh_texts(
     });
 }
 
-/// The orders, as the sort pill lists them, newest first.
+/// The orders, as the sort picker lists them, newest first.
 pub(super) fn sort_options() -> Vec<PickerItem<Sort>> {
     vec![
         PickerItem::new(t!("archive-sort-version"), Sort::Newest),
@@ -94,7 +94,7 @@ pub(super) fn filter_bar(
             t!("archive-filter-count", count = on.len())
         })
         .on_click(open_filters);
-    // The direction shows in the icon: every button has the same parchment.
+    // The direction shows in the icon: every button has the same fill.
     let direction = icon_button(
         "reverse-order",
         if reversed {
@@ -115,7 +115,6 @@ pub(super) fn filter_bar(
             .small()
             .h_8()
             .px_3()
-            .rounded_full()
             .cursor_pointer()
             .icon(Icon::new(IconName::Close))
             .label(option.label.clone())
@@ -186,7 +185,7 @@ pub(super) fn filter_drawer(
     cx: &App,
 ) -> impl IntoElement {
     let theme = cx.theme();
-    let gold = wish_ui::theme::palette(cx).gold;
+    let gold = wish_ui::theme::palette(cx).highlight;
     let closing = state == Drawer::Closing;
     // Each way its own animation, so closing starts from the open drawer.
     let (slide, fade) = if closing {
@@ -328,7 +327,6 @@ fn filter_button(option: FilterOption, cx: &App) -> Button {
         .quiet(cx)
         .h_8()
         .px_3()
-        .rounded_full()
         .border_2()
         .cursor_pointer()
         .map(|this| {

@@ -6,8 +6,8 @@ use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{App, Div, FontWeight, ParentElement as _, SharedString, Styled as _, div};
 
 /// A raised surface on the page: cards, panels, chart frames. In the dark
-/// theme the slate panel alone sets it apart from the page; on the light
-/// parchment page a neutral hairline helps.
+/// theme its lighter grey alone sets it apart from the page; on the light
+/// page, white on near-white, a hairline helps.
 pub fn card(cx: &App) -> Div {
     let theme = cx.theme();
     div()

@@ -14,9 +14,9 @@ use super::controls::{ButtonExt as _, button};
 
 type SelectHandler = Rc<dyn Fn(&usize, &mut Window, &mut App)>;
 
-/// A choice between a few views or values, one always on: a pill split in
-/// segments, 32 px high, the current option filled with the primary colour
-/// (parchment in the dark theme, ink in the light one), as the game marks a tab.
+/// A choice between a few views or values, one always on: an outlined strip
+/// split in segments, 32 px high, the current option filled with the primary
+/// colour (the accent).
 #[derive(IntoElement)]
 #[must_use = "a component draws only once it is a child of an element"]
 pub struct Segmented {
@@ -58,14 +58,13 @@ impl Segmented {
 impl RenderOnce for Segmented {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = cx.theme();
-        // Material 3's segmented button: one outlined pill, the segments
+        // Material 3's segmented button: one outlined strip, the segments
         // split by hairlines, the current one filled with the primary colour
         // (the user's choice over M3's tonal fill and tick: the tick made the
         // segment wider when picked). The kit replays the caller's style
         // over its selected state, which also drops the hover layer there.
-        // A pill, as the game's tabs and filters: the ends round to half the
-        // height.
-        let (outline, text, round) = (theme.input, theme.foreground, gpui_kit::rems(1.));
+        // The ends take the theme's small corners, as every control.
+        let (outline, text, round) = (theme.input, theme.foreground, theme.radius);
         let (fill, on_fill) = (theme.primary, theme.primary_foreground);
         let last = self.options.len().saturating_sub(1);
         let mut children: Vec<AnyElement> = Vec::new();
@@ -83,12 +82,8 @@ impl RenderOnce for Segmented {
                 .h_full()
                 .font_weight(FontWeight::MEDIUM)
                 .label(label)
-                .rounded_l(if ix == 0 { round } else { gpui_kit::rems(0.) })
-                .rounded_r(if ix == last {
-                    round
-                } else {
-                    gpui_kit::rems(0.)
-                })
+                .rounded_l(if ix == 0 { round } else { gpui_kit::px(0.) })
+                .rounded_r(if ix == last { round } else { gpui_kit::px(0.) })
                 .map(|this| {
                     if current {
                         this.selected(true)

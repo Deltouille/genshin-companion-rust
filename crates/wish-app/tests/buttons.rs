@@ -1,7 +1,7 @@
 //! A button without fill is `ButtonExt::quiet` (`wish_ui`), never the kit's
 //! `.ghost()`: the kit presses a ghost button with the filled buttons' colour
-//! (the theme's `button.active`, parchment), a near-white flash on the app's
-//! slate that hides the button's text.
+//! (the theme's `button.active`), a flash that hides the button's text on a
+//! dark surface.
 //!
 //! This test reads the sources of the app and of `wish-ui` (their examples
 //! too) and fails on a `.ghost()` written in the code. Comments are not read.
@@ -47,7 +47,7 @@ fn no_button_presses_with_the_filled_buttons_colour() {
     }
     assert!(
         found.is_empty(),
-        "a ghost button flashes parchment when pressed; use wish_ui's ButtonExt::quiet:\n{}",
+        "a ghost button flashes the filled buttons' colour when pressed; use wish_ui's ButtonExt::quiet:\n{}",
         found.join("\n")
     );
 }

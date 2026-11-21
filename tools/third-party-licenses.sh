@@ -2,7 +2,7 @@
 # Writes crates/wish-app/licenses/THIRD-PARTY-LICENSES.txt: the licence of every
 # crate in the app (cargo-about, see about.toml), then those of what the app
 # embeds that cargo-about doesn't list: the Lucide icons (inside gpui-kit-assets,
-# which says Apache-2.0 only) and the Google Sans Flex font.
+# which says Apache-2.0 only) and the Inter font.
 #
 # Run it after changing Cargo.lock, and commit the file: the app shows it on its
 # Credits page and every release archive holds it. The CI fails when it is stale.
@@ -32,7 +32,7 @@ section() {
   cat "$crates"
   section "Lucide icons, through gpui-kit-assets (ISC; some icons from Feather, MIT)" \
     "$assets/LICENSE-LUCIDE"
-  section "Google Sans Flex font (SIL Open Font License 1.1)" \
-    crates/wish-ui/fonts/GoogleSansFlex-OFL.txt
+  section "Inter font (SIL Open Font License 1.1)" \
+    crates/wish-ui/fonts/Inter-OFL.txt
 } > "$out"
 echo "$out: $(wc -c < "$out") bytes"

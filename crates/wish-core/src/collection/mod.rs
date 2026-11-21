@@ -13,7 +13,8 @@ pub use good::{
     GoodCharacter, GoodFile, GoodPlan, GoodTalents, GoodWeapon, MaterialChange, good_key, plan_good,
 };
 pub use stats::{
-    CharacterStats, ELEMENTS, OwnedWeaponStats, OwnedWeaponSummary, Tally, WEAPON_TYPES,
+    CharacterStats, Constellations, ELEMENTS, LEVEL_BRACKETS, OwnedWeaponStats, OwnedWeaponSummary,
+    REGIONS, TALENT_BRACKETS, Tally, VersionTally, WEAPON_TYPES,
 };
 pub use sync::{Change, SyncNote, SyncPlan, plan_sync};
 

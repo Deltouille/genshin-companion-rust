@@ -31,7 +31,7 @@ pub use weapons::WeaponsView;
 use wish_core::planner::Level;
 use wish_ui::PickerItem;
 
-/// The order of the list (the sort pill's options; `reversed` turns it round).
+/// The order of the list (the sort picker's options; `reversed` turns it round).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum Sort {
     /// The latest release first, as Project Amber lists them.

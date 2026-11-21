@@ -67,7 +67,7 @@ pages or `CLAUDE.md` if a sentence there became wrong.
 
 1. In `crates/wish-ui/src/components/` if two pages or more use it, else in its feature.
 2. It takes plain data and the theme; it never reads app state.
-3. Colours from tokens (`cx.theme()`, `theme::palette`), sizes from rems, controls as pills, the pointing hand on
+3. Colours from tokens (`cx.theme()`, `theme::palette`), sizes from rems, controls with the theme's `radius`, the pointing hand on
    what is clickable.
 4. Exported from `components/mod.rs` and `lib.rs`; shown in `crates/wish-ui/examples/gallery.rs`.
 

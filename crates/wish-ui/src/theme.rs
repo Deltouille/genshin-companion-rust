@@ -1,8 +1,9 @@
-//! The app's look, after the game's menus (without their assets): ink-blue
-//! slate panels on a plain page, parchment text and pills, gold for ornaments
-//! and what is selected; in light, a parchment page beside a slate sidebar.
-//! Its light and dark themes are in `theme.json`, with the colour roles the
-//! kit's tokens don't have (the `app` sections, read here as a [`Palette`]).
+//! The app's look: neutral cool greys, one indigo accent for what is current
+//! or primary, small corners (the theme's `radius` on controls, `radius.lg` on
+//! surfaces) and the Inter typeface; the colour is kept for the game's data
+//! (rarities, elements, charts). Its light and dark themes are in
+//! `theme.json`, with the colour roles the kit's tokens don't have (the `app`
+//! sections, read here as a [`Palette`]).
 //!
 //! Every raw colour lives in `theme.json`. Rarity colours follow the game's
 //! convention (5★ gold, 4★ purple); they are always paired with the written
@@ -19,15 +20,15 @@ const THEMES: &str = include_str!("theme.json");
 const LIGHT: &str = "Genshin Companion Light";
 const DARK: &str = "Genshin Companion Dark";
 
-/// Google Sans Flex (SIL Open Font License, `fonts/GoogleSansFlex-OFL.txt`),
-/// in the weights the pages use: static instances of its variable font (opsz
-/// 18, wdth 100, ROND 0), which GPUI can't vary itself.
+/// Inter 4.1 (SIL Open Font License, `fonts/Inter-OFL.txt`), in the weights
+/// the pages use: the static fonts of its `Inter.ttc` collection, one file
+/// each, since GPUI can't vary a variable font's weight.
 const FONTS: [&[u8]; 5] = [
-    include_bytes!("../fonts/GoogleSansFlex-Regular.ttf"),
-    include_bytes!("../fonts/GoogleSansFlex-Medium.ttf"),
-    include_bytes!("../fonts/GoogleSansFlex-SemiBold.ttf"),
-    include_bytes!("../fonts/GoogleSansFlex-Bold.ttf"),
-    include_bytes!("../fonts/GoogleSansFlex-Black.ttf"),
+    include_bytes!("../fonts/Inter-Regular.ttf"),
+    include_bytes!("../fonts/Inter-Medium.ttf"),
+    include_bytes!("../fonts/Inter-SemiBold.ttf"),
+    include_bytes!("../fonts/Inter-Bold.ttf"),
+    include_bytes!("../fonts/Inter-Black.ttf"),
 ];
 
 /// Registers the app's typeface and themes, and switches to the theme
@@ -56,15 +57,21 @@ pub fn follow_system(window: &mut Window) -> gpui_kit::Subscription {
 /// The app's own colour roles, beside the kit's tokens.
 #[derive(Clone, Copy, Debug)]
 pub struct Palette {
-    /// The game's cream: an item's name strip, the filled pills.
-    pub parchment: Hsla,
-    /// Text on parchment.
-    pub ink: Hsla,
-    /// Ornaments (the diamonds) and what is selected.
-    pub gold: Hsla,
+    /// A surface raised above a card: an item's name strip, a picker's list.
+    pub raised: Hsla,
+    /// Text on [`Palette::raised`].
+    pub on_raised: Hsla,
+    /// What is current or selected: the open group's icon, a chosen filter.
+    pub highlight: Hsla,
     /// A 1★ to 5★ tile's two colours, dark then light.
     tiles: [(Hsla, Hsla); 5],
+    /// Seven shades of the 5★, 4★ and 3★ chart colours, faintest first
+    /// ([`rarity_ramp`]).
+    ramps: [[Hsla; RAMP_STEPS]; 3],
 }
+
+/// How many shades `theme.json` gives each ramp.
+const RAMP_STEPS: usize = 7;
 
 static PALETTES: LazyLock<(Palette, Palette)> = LazyLock::new(|| {
     let file: serde_json::Value = serde_json::from_str(THEMES).expect("theme.json parses");
@@ -85,11 +92,13 @@ static PALETTES: LazyLock<(Palette, Palette)> = LazyLock::new(|| {
                 color(&format!("tile.{stars}.light")),
             )
         };
+        let ramp = |hue: &str| std::array::from_fn(|step| color(&format!("ramp.{hue}.{step}")));
         Palette {
-            parchment: color("parchment"),
-            ink: color("ink"),
-            gold: color("gold"),
+            raised: color("raised"),
+            on_raised: color("on_raised"),
+            highlight: color("highlight"),
             tiles: [tile(1), tile(2), tile(3), tile(4), tile(5)],
+            ramps: [ramp("gold"), ramp("purple"), ramp("blue")],
         }
     };
     (palette(LIGHT), palette(DARK))
@@ -104,11 +113,11 @@ pub fn palette(cx: &App) -> &'static Palette {
     }
 }
 
-/// An item's name or count strip under its picture: ink on parchment, in
-/// both themes, as on the game's item cards. Returns (text, fill).
+/// An item's name or count strip under its picture: the raised surface and
+/// its text. Returns (text, fill).
 pub fn tile_label(cx: &App) -> (Hsla, Hsla) {
     let palette = palette(cx);
-    (palette.ink, palette.parchment)
+    (palette.on_raised, palette.raised)
 }
 
 /// Text and number colour of a rarity: 5★ gold, 4★ purple, 3★ muted.
@@ -146,6 +155,35 @@ pub fn rarity_tile(rarity: Rarity, cx: &App) -> Background {
     )
 }
 
+/// `steps` shades of a rarity's chart colour (5★ gold, 4★ purple, 3★ blue)
+/// for an ordered set (constellations, levels), faintest first: the most
+/// stands out the most from the card, darker in the light theme and lighter in
+/// the dark one. Up to seven, spread over `theme.json`'s `ramp.*` shades:
+/// one hue, evenly spaced in OKLCH lightness, the faintest at 2:1 against the
+/// card, which the dataviz validator checks (`--ordinal`) for 7, 5 and 4
+/// steps. Colour is never their only cue: a legend names each.
+pub fn rarity_ramp(rarity: Rarity, steps: usize, cx: &App) -> Vec<Hsla> {
+    let ramp = &palette(cx).ramps[match rarity {
+        Rarity::Five => 0,
+        Rarity::Four => 1,
+        Rarity::Three => 2,
+    }];
+    let steps = steps.min(RAMP_STEPS);
+    (0..steps)
+        .map(|step| ramp[ramp_index(step, steps)])
+        .collect()
+}
+
+/// Which of the seven shades step `step` of `steps` takes: spread evenly,
+/// the first and the last always in (4 steps: 0, 2, 4, 6).
+fn ramp_index(step: usize, steps: usize) -> usize {
+    let last = RAMP_STEPS - 1;
+    match steps {
+        0 | 1 => last,
+        _ => (step * last + (steps - 1) / 2) / (steps - 1),
+    }
+}
+
 /// A soft badge colour pair (text, fill) for a rate-up result.
 pub fn soft(color: Hsla) -> (Hsla, Hsla) {
     (color, color.opacity(0.16))
@@ -179,4 +217,30 @@ pub fn stars_tile(stars: u8, cx: &App) -> Background {
 fn tile_colors(stars: u8, cx: &App) -> (Hsla, Hsla) {
     let index = usize::from(stars.clamp(1, 5) - 1);
     palette(cx).tiles[index]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn both_palettes_read_with_their_ramps() {
+        let (light, dark) = &*PALETTES;
+        for palette in [light, dark] {
+            for ramp in &palette.ramps {
+                // Faintest first: the shades all differ.
+                assert!(ramp.windows(2).all(|pair| pair[0] != pair[1]));
+            }
+        }
+    }
+
+    #[test]
+    fn a_ramp_spreads_its_steps_over_the_seven_shades() {
+        let picks = |steps| (0..steps).map(|s| ramp_index(s, steps)).collect::<Vec<_>>();
+        assert_eq!(picks(7), [0, 1, 2, 3, 4, 5, 6]);
+        // The subsets the dataviz validator checked.
+        assert_eq!(picks(5), [0, 2, 3, 5, 6]);
+        assert_eq!(picks(4), [0, 2, 4, 6]);
+        assert_eq!(picks(1), [6]);
+    }
 }

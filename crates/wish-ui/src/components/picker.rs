@@ -1,11 +1,11 @@
-//! A picker in the game's style: a parchment pill showing the choice (or a
-//! placeholder in faded ink), opening a parchment list of the options in ink,
-//! like the game's dropdowns. The option under the keyboard is shaded, the
-//! chosen one ticked; a long list gets a search field.
+//! A picker: a button showing the choice (or a faded placeholder), opening a
+//! list of the options on the raised surface (`Palette::raised`). The option
+//! under the keyboard is shaded, the chosen one ticked; a long list gets a
+//! search field.
 //!
 //! GPUI Kit's `Select` draws its list on the popover surface and its rows with
-//! the theme's hover colours, which can't be made parchment and ink without
-//! breaking every ghost button; so the app keeps its own, on the kit's
+//! the theme's hover colours, which can't take the raised surface's without
+//! changing every other hover; so the app keeps its own, on the kit's
 //! `Popover` (which places it and closes it on Escape or a click outside).
 //!
 //! Keyboard: Up and Down move through the options, Enter picks one.
@@ -16,10 +16,10 @@
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::Icon;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::input::{InputEvent, InputState};
 use gpui_kit::component::popover::Popover;
+use gpui_kit::component::{ActiveTheme as _, Icon};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, ElementId, Entity, EventEmitter, FocusHandle,
@@ -226,7 +226,7 @@ impl<V: Clone + PartialEq + 'static> PickerState<V> {
     }
 }
 
-/// A picker on `state`, in its parchment pill.
+/// A picker on `state`.
 pub fn picker<V: Clone + PartialEq + 'static>(
     id: impl Into<ElementId>,
     state: &Entity<PickerState<V>>,
@@ -254,7 +254,7 @@ pub struct Picker<V: Clone + PartialEq + 'static> {
 }
 
 impl<V: Clone + PartialEq + 'static> Picker<V> {
-    /// Shown, in faded ink, while nothing is chosen.
+    /// Shown, faded, while nothing is chosen.
     pub fn placeholder(mut self, placeholder: impl Into<SharedString>) -> Self {
         self.placeholder = placeholder.into();
         self
@@ -300,12 +300,11 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
             ),
             None => title.to_string(),
         };
-        // Faded ink, still 4.9:1 on parchment.
-        let faded = palette.ink.opacity(0.8);
+        // The text faded, still over 4.5:1 on the raised surface.
+        let faded = palette.on_raised.opacity(0.8);
         let trigger = Button::new(self.id.clone())
             .px_4()
             .w_full()
-            .rounded_full()
             .cursor_pointer()
             .accessibility_label(label)
             .child(
@@ -335,10 +334,10 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
                 on_change.update(cx, |state, cx| state.set_open(*open, window, cx));
             })
             .track_focus(&focus)
-            .bg(palette.parchment)
-            .rounded(rems(1.25))
+            .bg(palette.raised)
+            .rounded(cx.theme().radius_lg)
             .text_sm()
-            .text_color(palette.ink)
+            .text_color(palette.on_raised)
             .p_1()
             .w(self.menu_width)
             .content(move |_, window, cx| menu(&for_menu, window, cx))
@@ -346,7 +345,7 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for Picker<V> {
 }
 
 /// A button showing `icon` that opens a menu of actions on one thing:
-/// `state`'s options ([`PickerState::actions`]), in the picker's parchment
+/// `state`'s options ([`PickerState::actions`]), in the picker's
 /// list, with the same keyboard. Picking one emits [`PickerEvent::Confirm`].
 /// `label` names the menu for a tooltip and assistive technology.
 pub fn menu_button<V: Clone + PartialEq + 'static>(
@@ -404,10 +403,10 @@ impl<V: Clone + PartialEq + 'static> RenderOnce for MenuButton<V> {
                 on_change.update(cx, |state, cx| state.set_open(*open, window, cx));
             })
             .track_focus(&focus)
-            .bg(palette.parchment)
-            .rounded(rems(1.25))
+            .bg(palette.raised)
+            .rounded(cx.theme().radius_lg)
             .text_sm()
-            .text_color(palette.ink)
+            .text_color(palette.on_raised)
             .p_1()
             .w(self.menu_width)
             .content(move |_, window, cx| menu(&for_menu, window, cx))
@@ -420,7 +419,7 @@ fn menu<V: Clone + PartialEq + 'static>(
     _: &mut Window,
     cx: &mut App,
 ) -> AnyElement {
-    let ink = theme::palette(cx).ink;
+    let on_raised = theme::palette(cx).on_raised;
     let picker = state.read(cx);
     let shown = picker.shown(cx);
     let (highlighted, selected) = (picker.highlighted, picker.selected);
@@ -435,10 +434,12 @@ fn menu<V: Clone + PartialEq + 'static>(
             .h_8()
             .px_3()
             .gap_2()
-            .rounded_full()
+            .rounded(cx.theme().radius)
             .cursor_pointer()
-            .when(position == highlighted, |this| this.bg(ink.opacity(0.14)))
-            .hover(|this| this.bg(ink.opacity(0.08)))
+            .when(position == highlighted, |this| {
+                this.bg(on_raised.opacity(0.14))
+            })
+            .hover(|this| this.bg(on_raised.opacity(0.08)))
             .child(
                 div()
                     .flex_1()
@@ -491,7 +492,7 @@ fn menu<V: Clone + PartialEq + 'static>(
                     .px_3()
                     .py_2()
                     .text_sm()
-                    .text_color(ink.opacity(0.8))
+                    .text_color(on_raised.opacity(0.8))
                     .child(t!("ui-nothing-matches")),
             )
         })

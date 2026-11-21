@@ -2,9 +2,8 @@
 //! wishes split by rarity, and how many went to each banner.
 
 use gpui_kit::base::StyledExt as _;
-use gpui_kit::component::ActiveTheme as _;
-use gpui_kit::component::chart::{AreaChart, PieChart};
-use gpui_kit::{App, FontWeight, IntoElement, ParentElement as _, SharedString, Styled as _, div};
+use gpui_kit::component::chart::AreaChart;
+use gpui_kit::{App, IntoElement, ParentElement as _, SharedString, Styled as _, div};
 use wish_core::data::{Banner, GameData};
 use wish_core::engine::PoolAnalysis;
 use wish_core::model::Rarity;
@@ -13,149 +12,32 @@ use wish_core::stats::Stats;
 use super::CHARTS_REMS;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{Context, rems};
-use wish_ui::{PityPoint, card, card_title, format, theme};
-
-/// One slice of the rarity donut.
-#[derive(Clone, Copy)]
-struct Slice {
-    rarity: Rarity,
-    count: u32,
-}
+use wish_ui::{Donut, DonutSlice, PityPoint, card, card_title, format, theme};
 
 /// The wishes split by rarity, as a donut with the total in its hole and
 /// each rarity's count and share beside it (the 5★ slice is often a sliver,
-/// so the numbers carry it).
+/// so the numbers carry it). `rarity_chart`'s colours, validated together
+/// against both card surfaces.
 pub(super) fn rarity_donut(pool: &PoolAnalysis, cx: &App) -> impl IntoElement {
-    let colors = cx.theme();
-    let total = pool.pulls.len() as u32;
+    let total = pool.pulls.len() as u64;
     let (five, four) = (pool.stats.five.count, pool.stats.four.count);
     let slices = [
-        Slice {
-            rarity: Rarity::Five,
-            count: five,
-        },
-        Slice {
-            rarity: Rarity::Four,
-            count: four,
-        },
-        Slice {
-            rarity: Rarity::Three,
-            count: total.saturating_sub(five + four),
-        },
-    ];
-    let share = move |count: u32| {
-        if total == 0 {
-            0.0
-        } else {
-            f64::from(count) / f64::from(total)
-        }
-    };
-
-    // `rarity_chart`'s colours, validated together against both card
-    // surfaces; a small gap between the slices keeps them apart.
-    let chart = PieChart::new(slices)
-        .appear(false)
-        .inner_radius_ratio(0.68)
-        .pad_angle(0.02)
-        .value(|slice: &Slice| slice.count as f32)
-        .color({
-            let colors = slices.map(|slice| theme::rarity_chart(slice.rarity, cx));
-            move |slice: &Slice| colors[rarity_ix(slice.rarity)]
-        })
-        .tooltip_name(|slice: &Slice| format!("{}★", slice.rarity.stars()).into())
-        .tooltip_value(move |slice: &Slice, _, _| {
-            format!(
-                "{} ({})",
-                format::count(slice.count),
-                format::share(share(slice.count))
-            )
-            .into()
-        });
-
-    let legend = slices.iter().map(|slice| {
-        div()
-            .h_flex()
-            .gap_2()
-            .child(
-                div()
-                    .size_2p5()
-                    .rounded_sm()
-                    .bg(theme::rarity_chart(slice.rarity, cx)),
-            )
-            .child(
-                div()
-                    .w_8()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .text_color(theme::rarity(slice.rarity, cx))
-                    .child(format!("{}★", slice.rarity.stars())),
-            )
-            .child(
-                div()
-                    .w_12()
-                    .text_right()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child(format::count(slice.count)),
-            )
-            .child(
-                div()
-                    .w_16()
-                    .text_right()
-                    .text_color(colors.muted_foreground)
-                    .child(format::share(share(slice.count))),
-            )
+        (Rarity::Five, u64::from(five)),
+        (Rarity::Four, u64::from(four)),
+        (Rarity::Three, total.saturating_sub(u64::from(five + four))),
+    ]
+    .map(|(rarity, count)| DonutSlice {
+        label: format!("{}★", rarity.stars()).into(),
+        label_color: Some(theme::rarity(rarity, cx)),
+        count,
+        color: theme::rarity_chart(rarity, cx),
     });
-
-    card(cx)
-        .h_full()
-        .p_4()
-        .gap_2()
-        .child(card_title(t!("history-by-rarity"), cx))
-        .child(
-            div()
-                .flex_1()
-                .min_h_0()
-                .h_flex()
-                .gap_4()
-                .child(
-                    // A square as high as the room under the title, so the ring
-                    // (80% of it) never leaves the card, whatever its height.
-                    div()
-                        .relative()
-                        .h_full()
-                        .aspect_ratio(1.)
-                        .flex_none()
-                        .child(chart)
-                        .child(
-                            div()
-                                .absolute()
-                                .inset_0()
-                                .v_flex()
-                                .items_center()
-                                .justify_center()
-                                .child(
-                                    div()
-                                        .text_lg()
-                                        .font_weight(FontWeight::BLACK)
-                                        .child(format::count(total)),
-                                )
-                                .child(
-                                    div()
-                                        .text_xs()
-                                        .text_color(colors.muted_foreground)
-                                        .child(t!("history-wishes-word", count = total)),
-                                ),
-                        ),
-                )
-                .child(div().v_flex().gap_1p5().text_sm().children(legend)),
-        )
-}
-
-fn rarity_ix(rarity: Rarity) -> usize {
-    match rarity {
-        Rarity::Five => 0,
-        Rarity::Four => 1,
-        Rarity::Three => 2,
-    }
+    Donut::new(
+        "rarity",
+        t!("history-by-rarity"),
+        slices.to_vec(),
+        t!("history-wishes-word", count = total),
+    )
 }
 
 /// One banner on the chart of wishes per banner.

@@ -18,8 +18,8 @@ use gpui_kit::{
 use wish_core::model::{Pool, Rarity};
 use wish_ui::ButtonExt as _;
 use wish_ui::{
-    PageFrame, Pager, Segmented, badge, big_number, button, card, card_title, filter_chip,
-    icon_button, item_tile, pool_icon, stat_label, stat_tile, theme,
+    Donut, DonutSlice, PageFrame, Pager, Segmented, badge, big_number, button, card, card_title,
+    filter_chip, icon_button, item_tile, pool_icon, stat_label, stat_tile, theme,
 };
 
 struct Gallery;
@@ -112,7 +112,25 @@ impl Render for Gallery {
         let pager = section("Pager").child(Pager::new("pager").page(4).pages(17));
         let labels = section("stat_label").child(stat_label("5★ pity", cx));
 
-        let body = div().h_flex().items_start().gap_6().child(tiles).child(
+        // A donut: its slices in a rarity's shades, the legend beside it.
+        let shades = theme::rarity_ramp(Rarity::Five, 4, cx);
+        let slices = (["C0", "C1", "C2", "C6"]
+            .into_iter()
+            .zip([9, 3, 1, 2])
+            .zip(shades))
+        .map(|((label, count), color)| DonutSlice {
+            label: label.into(),
+            label_color: None,
+            count,
+            color,
+        })
+        .collect();
+        let donut = div()
+            .h(rems(11.))
+            .child(Donut::new("donut", "Donut", slices, "characters"));
+        let left = div().v_flex().gap_6().w_96().child(tiles).child(donut);
+
+        let body = div().h_flex().items_start().gap_6().child(left).child(
             card(cx)
                 .p_4()
                 .gap_6()

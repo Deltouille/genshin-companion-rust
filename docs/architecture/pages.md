@@ -74,7 +74,7 @@ graph LR
 
 | Folder | Pages | The files |
 | --- | --- | --- |
-| `crates/wish-app/src/features/overview` | the app's home: the account in figures, a tab each | `mod.rs` (frame, empty states, grids), `wishes/` (totals, a card per banner type, the monthly chart, pity), `characters.rs`, `weapons.rs` |
+| `crates/wish-app/src/features/overview` | the app's home: the account in figures, a tab each | `mod.rs` (frame, empty states, grids), `wishes/` (totals, a card per banner type, the monthly chart, pity), `characters.rs` (totals, the characters out and owned by version, donuts of constellations, levels and talents, what raising them cost, by element, weapon and region), `weapons.rs` |
 | `crates/wish-app/src/features/wishes` | the wish history of each banner type | `history/` (`mod.rs` the view, `model.rs` rows and cells, `table.rs`, `charts.rs`, `banners.rs`, `manual_counting.rs`), `import/` (`ImportFlow`, the game import dialog) |
 | `crates/wish-app/src/features/archive` | Characters, Weapons, Resources | `characters/`, `weapons/`, `resources/` (each a view, a model, a list, a page), `filters.rs` (the filter bar and its drawer), `shared.rs` (the list card, the hero banner, stats) |
 | `crates/wish-app/src/features/planner` | the ascension planner | `mod.rs` (the view), `controls.rs` (sliders), `model.rs`, `sections/` (`still_needed`, `card`, `materials`, `drag`), dialogs: `add.rs`, `custom.rs`, `inventory.rs`, `resin.rs` |

@@ -68,7 +68,7 @@ of them mean the banner data is stale). A wish exactly at a banner's end stays o
 **The Overview's Wishes tab** (`crates/wish-app/src/features/overview/wishes/`), top to bottom: the key figures
 (`totals.rs`; two by two on a narrow page; `totals::figures` is the card the three tabs share), one card per banner
 type (`pool_card.rs`: its latest banner and a link to its history, 5★ and 4★ pity with the next one's odds, then
-`details.rs`, paimon.moe's per-type summary, and every 5★ as a pill coloured by pity), then the charts: wishes, 4★
+`details.rs`, paimon.moe's per-type summary, and every 5★ as a chip coloured by pity), then the charts: wishes, 4★
 and 5★ per month as overlaid areas (`monthly_chart.rs`), and each 5★'s pity in time order (`wish_ui::pity_chart`).
 Everything about a banner type stays in its one card. The cards go as many a row as fit (`POOL_CARD_REMS` each) in
 even rows (four as two by two, `even_columns`) and stretch to the row's tallest; the charts sit side by side (two

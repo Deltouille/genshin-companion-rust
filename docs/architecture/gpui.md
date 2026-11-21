@@ -37,10 +37,11 @@
   with `ObjectFit::Cover`. In a column, an `img`'s own height wins over `aspect_ratio`: give it a height too.
   Absolute children with `h_full()` don't resolve; give them explicit sizes.
 - Clipping (`overflow_hidden`) is rectangular: round the child itself to keep a card's corner.
-- A ghost `Button` takes the theme's `button.active` while pressed, the colour of a filled button pressed: here
-  parchment, a near-white flash on the slate. The app's buttons without fill use `ButtonExt::quiet`, a custom
-  variant whose hover and pressed states are layers of the text colour. The kit's own ghost buttons (a dialog's
-  close) still flash; only a custom variant changes it.
+- A ghost `Button` takes the theme's `button.active` while pressed, the colour of a filled button pressed, which
+  can flash on a surface of another colour (it did on the former slate theme, whose buttons were parchment). The
+  app's buttons without fill use `ButtonExt::quiet`, a custom variant whose hover and pressed states are layers of
+  the text colour, right on any surface. The kit's own ghost buttons (a dialog's close) keep `button.active`; only
+  a custom variant changes it.
 - The segmented `TabBar` paints its active tab with the page `background`, and `Toggle`'s checked state uses
   `accent` (also the hover colour): hence `wish_ui::Segmented` and `filter_chip`.
 - Without the bundled font, bold and black weights don't render (the default font lacks them). GPUI doesn't vary a

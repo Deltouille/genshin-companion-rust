@@ -79,26 +79,21 @@ impl RenderOnce for MaterialTile {
                 .child("?")
                 .into_any_element(),
         };
-        // The game's item card: the picture on its rarity tile, whose bottom
-        // right corner rounds wide into the parchment strip under it, where
-        // the count is written in ink.
-        let (ink, parchment) = theme::tile_label(cx);
+        // The picture on its rarity tile, over the raised strip with the
+        // count.
+        let (strip_text, strip) = theme::tile_label(cx);
         let tile = div()
             .v_flex()
             .w(rems(3.5))
             .rounded(colors.radius)
             .overflow_hidden()
-            .when(self.label.is_some(), |this| this.bg(parchment))
+            .when(self.label.is_some(), |this| this.bg(strip))
             .child(
                 div()
                     .size(rems(3.5))
                     // Clipping is rectangular: the tile rounds its own corners.
                     .rounded_t(colors.radius)
-                    .rounded_bl(match self.label {
-                        Some(_) => rems(0.),
-                        None => rems(0.5),
-                    })
-                    .rounded_br(rems(1.))
+                    .when(self.label.is_none(), |this| this.rounded_b(colors.radius))
                     .bg(theme::stars_tile(self.stars, cx))
                     .child(picture),
             )
@@ -110,13 +105,13 @@ impl RenderOnce for MaterialTile {
                         .text_center()
                         .text_xs()
                         .font_weight(FontWeight::BOLD)
-                        .text_color(ink)
+                        .text_color(strip_text)
                         .child(label),
                 )
             })
             .when(self.done, |this| this.opacity(0.35));
-        // The crafted count, ink on parchment like the strip, over the
-        // picture's top left corner.
+        // The crafted count, coloured like the strip, over the picture's top
+        // left corner.
         let badge = (self.crafted > 0).then(|| {
             div()
                 .absolute()
@@ -125,9 +120,9 @@ impl RenderOnce for MaterialTile {
                 .h_flex()
                 .gap(px(2.))
                 .px(px(4.))
-                .rounded_full()
-                .bg(parchment)
-                .text_color(ink)
+                .rounded(colors.radius)
+                .bg(strip)
+                .text_color(strip_text)
                 .text_xs()
                 .font_weight(FontWeight::BOLD)
                 .shadow_sm()

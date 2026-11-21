@@ -3,11 +3,10 @@
 //! presentational components every page uses.
 //!
 //! Components take plain data and render it; they know nothing of the
-//! app's state, which stays in `wish-app`. The look is the game's menus,
-//! without any of the game's assets or its font ([`theme`]): ink-blue slate
-//! cards on a plain page, parchment text and pill controls, gold for focus and
-//! sliders, item cards on their rarity tiles; one rule for corners (every
-//! control a pill, surfaces `radius.lg`, item tiles `radius`).
+//! app's state, which stays in `wish-app`. The look ([`theme`]): neutral cool
+//! greys, one indigo accent for what is current or primary, the Inter
+//! typeface, item cards on their rarity tiles; one rule for corners (controls
+//! and item tiles the theme's `radius`, surfaces `radius.lg`).
 //!
 //! The app never uses GPUI Kit's `Button`, `Select`, `Input`, `Pagination`,
 //! `ButtonGroup` or `Toggle` directly: their corners, weights and colours
@@ -44,11 +43,11 @@ pub mod theme;
 
 pub use assets::{UiAssets, pool_icon};
 pub use components::{
-    ButtonExt, MaterialTile, MenuButton, NavGroup, NavItem, PageFrame, Pager, Picker, PickerEvent,
-    PickerItem, PickerState, PityPoint, Segmented, badge, big_number, button, button_style, card,
-    card_title, confirm_destructive, dialog_close_footer, dialog_footer, filter_chip, form_dialog,
-    icon_button, input, item_tile, legend, menu_button, outcome_badge, picker, pity_chart,
-    rich_text, snackbar, stat, stat_label, stat_tile,
+    ButtonExt, Donut, DonutSlice, MaterialTile, MenuButton, NavGroup, NavItem, PageFrame, Pager,
+    Picker, PickerEvent, PickerItem, PickerState, PityPoint, Segmented, badge, big_number, button,
+    button_style, card, card_title, confirm_destructive, dialog_close_footer, dialog_footer,
+    filter_chip, form_dialog, icon_button, input, item_tile, legend, menu_button, outcome_badge,
+    picker, pity_chart, rich_text, snackbar, stat, stat_label, stat_tile,
 };
 
 use gpui_kit::App;

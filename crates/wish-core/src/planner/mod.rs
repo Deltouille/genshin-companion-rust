@@ -28,6 +28,8 @@ pub use resin::{
 
 /// Mora's material id.
 pub const MORA: MaterialId = 202;
+/// Crown of Insight's, which takes a talent from level 9 to 10.
+pub const CROWN: MaterialId = 104319;
 
 /// The highest level of each ascension phase: phase 0 ends at 20, phase 6 at 90.
 const PHASE_CAPS: [u8; 7] = [20, 40, 50, 60, 70, 80, 90];

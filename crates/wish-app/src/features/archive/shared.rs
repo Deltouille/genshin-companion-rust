@@ -212,13 +212,13 @@ pub(super) const CARD_REMS: f32 = 8.25;
 
 /// What a list card shows: the picture on its rarity tile, with an icon top
 /// left, buttons top right, what the account has bottom left and "New"
-/// bottom right; the name under it, on a parchment strip.
+/// bottom right; the name under it, on the raised strip.
 pub(super) struct ItemCard {
     /// The button's id.
     pub id: SharedString,
     pub icon: Option<ImageSource>,
     pub rarity: u8,
-    /// Not owned: the tile and picture faded, the strip slate, the name
+    /// Not owned: the tile and picture faded, the strip muted, the name
     /// muted.
     pub owned: bool,
     pub name: String,
@@ -235,7 +235,7 @@ pub(super) struct ItemCard {
 /// click does.
 pub(super) fn item_card(card: ItemCard, cx: &App) -> Button {
     let theme = cx.theme();
-    let (ink, parchment) = wish_ui::theme::tile_label(cx);
+    let (strip_text, strip) = wish_ui::theme::tile_label(cx);
     let owned = card.owned;
     let tile = wish_ui::theme::stars_tile(card.rarity, cx);
     let picture = div()
@@ -243,7 +243,6 @@ pub(super) fn item_card(card: ItemCard, cx: &App) -> Button {
         .w_full()
         .h(rems(CARD_REMS))
         .rounded_t(theme.radius_lg)
-        .rounded_br(rems(2.))
         // Faded with its picture: the card reads as one not owned.
         .bg(if owned { tile } else { tile.opacity(0.4) })
         .children(card.icon.map(|icon| {
@@ -289,7 +288,7 @@ pub(super) fn item_card(card: ItemCard, cx: &App) -> Button {
                 .v_flex()
                 .w_full()
                 .rounded(theme.radius_lg)
-                .bg(if owned { parchment } else { theme.muted })
+                .bg(if owned { strip } else { theme.muted })
                 .child(picture)
                 .child(
                     div()
@@ -300,7 +299,11 @@ pub(super) fn item_card(card: ItemCard, cx: &App) -> Button {
                         .font_weight(FontWeight::BOLD)
                         .text_center()
                         .truncate()
-                        .text_color(if owned { ink } else { theme.muted_foreground })
+                        .text_color(if owned {
+                            strip_text
+                        } else {
+                            theme.muted_foreground
+                        })
                         .child(card.name),
                 ),
         )
@@ -319,7 +322,7 @@ pub(super) fn corner_button(
         .quiet(cx)
         .small()
         .size_7()
-        .rounded_full()
+        .rounded(theme.radius)
         .bg(theme.background.opacity(0.8))
         .icon(icon)
         .tooltip(label.clone())

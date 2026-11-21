@@ -22,7 +22,35 @@ overview-crowns = { $count ->
     } au niveau { $level }
 overview-by-element = Par élément
 overview-by-weapon = Par arme
-overview-constellations = Constellations
+overview-by-region = Par région
+# Les personnages sans région dans les données du jeu : le Voyageur, Aloy.
+overview-region-none = Sans région
+overview-by-version = Personnages par version
+overview-released = Sortis
+overview-owned = Possédés
+overview-version = Version { $version }
+overview-five-constellations = Constellations des 5★
+overview-four-constellations = Constellations des 4★
+overview-levels = Niveaux
+overview-talents = Aptitudes
+# Dans le trou d’un donut, sous le nombre.
+overview-characters-word = { $count ->
+        [one] personnage
+       *[other] personnages
+    }
+overview-talents-word = { $count ->
+        [one] aptitude
+       *[other] aptitudes
+    }
+overview-talent-averages = Moyenne : { NUMBER($normal, maximumFractionDigits: 1) } en attaque normale, { NUMBER($skill, maximumFractionDigits: 1) } en compétence, { NUMBER($burst, maximumFractionDigits: 1) } en déchaînement
+overview-invested = Ressources investies
+overview-invested-help = Ce qu’a coûté la montée de vos personnages jusqu’où ils en sont, depuis le niveau 1 avec toutes les aptitudes au niveau 1, et la résine que cela demande en moyenne.
+overview-invested-levels = Pour les niveaux
+overview-invested-talents = Pour les aptitudes
+overview-talent-books = Livres d’aptitude
+overview-every-tier = Tous niveaux confondus
+overview-weekly-materials = Matériaux de boss hebdomadaires
+overview-resin = Résine
 
 ## Onglet Armes
 

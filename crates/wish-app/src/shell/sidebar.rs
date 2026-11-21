@@ -3,8 +3,8 @@
 //! characters and weapons; the planner), then Settings and Credits.
 //!
 //! Its own column rather than GPUI Kit's `Sidebar`, whose items are fixed
-//! 28 px rectangles: the entries are pills, as the app's controls are, 40 px
-//! high ([`NavItem`]s).
+//! 28 px rectangles: the entries are 40 px high, with the corners of the
+//! app's controls ([`NavItem`]s).
 
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::scroll::ScrollableElement as _;

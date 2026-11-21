@@ -169,12 +169,13 @@ edit them.** In `reference/`, the wish logic is `src/functions/wish.js` and `src
 
 ### UI
 
-- **The look is the user's choice** (after the game's menus; `docs/architecture/ui.md` says which alternatives
-  were turned down). Ask which point to change before reworking it, and show screenshots.
+- **The look is the user's choice** (neutral greys, one indigo accent, small corners, Inter;
+  `docs/architecture/ui.md` says which alternatives were turned down). Ask which point to change before reworking
+  it, and show screenshots.
 - Before UI work, read the GPUI Kit skills' guides (`gpui-kit-design-guides`, and the Coding Guides in `gpui-kit`).
 - **Never use `Button::new`, `Select::new`, `Input::new`, or the kit's `Pagination`, `ButtonGroup` and `Toggle`
   directly in the app**: use `wish_ui`'s `button`, `picker`, `input`, `Pager`, `Segmented`, `filter_chip`. A button
-  without fill is `.quiet(cx)`, never the kit's `.ghost()`, which flashes parchment when pressed
+  without fill is `.quiet(cx)`, never the kit's `.ghost()`, which presses with the filled buttons' colour
   (`crates/wish-app/tests/buttons.rs` checks).
 - **Everything clickable shows the pointing hand**; a disabled button takes `.unavailable(bool)`.
 - **Everything a click does, the keyboard does too** (build it on a kit `Button`, not a `div` with `on_click`). A

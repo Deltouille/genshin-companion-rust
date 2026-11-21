@@ -1,6 +1,6 @@
 //! The planner's "Add a character" and "Add a weapon": a button opens a
 //! dialog of cards, as the archive draws them (the picture on its rarity
-//! tile over a parchment strip), with a search. What the account owns comes
+//! tile over its name strip), with a search. What the account owns comes
 //! first, with its level and constellation (or refinement); a character
 //! already in the plan is faded and can't be added twice. Clicking a card
 //! adds it and closes the dialog: a character from the levels the account
@@ -170,7 +170,7 @@ impl AddDialog {
 
     fn card(&self, card: Card, cx: &mut Context<Self>) -> AnyElement {
         let theme = cx.theme();
-        let (ink, parchment) = theme::tile_label(cx);
+        let (strip_text, strip_fill) = theme::tile_label(cx);
         let owned = card.owned.is_some();
         let picture = div()
             .relative()
@@ -221,7 +221,11 @@ impl AddDialog {
             .font_weight(FontWeight::BOLD)
             .text_center()
             .line_clamp(2)
-            .text_color(if owned { ink } else { theme.muted_foreground })
+            .text_color(if owned {
+                strip_text
+            } else {
+                theme.muted_foreground
+            })
             .child(card.name.clone());
         let key = card.key;
         div()
@@ -229,7 +233,7 @@ impl AddDialog {
             .v_flex()
             .w(rems(CARD_REMS))
             .rounded(theme.radius_lg)
-            .bg(if owned { parchment } else { theme.muted })
+            .bg(if owned { strip_fill } else { theme.muted })
             .child(picture)
             .child(strip)
             .map(|this| {

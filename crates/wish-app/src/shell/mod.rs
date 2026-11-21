@@ -234,6 +234,8 @@ impl Shell {
             owned: library.owned(account).clone(),
             data: library.data().cloned(),
             planner: library.planner().clone(),
+            archive: library.archive().clone(),
+            resin: library.settings(cx).resin.clone(),
             images: library.images(cx).clone(),
             manual_counting: library.settings(cx).manual_counting,
             busy: library.is_busy(),

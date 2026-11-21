@@ -10,60 +10,67 @@ feature.
 **Ask the user which point to change before reworking the look.** These choices were made from screenshots, and
 several alternatives were turned down.
 
-- **After Genshin Impact's menus** (the user's choice on 2026-11-12, from the Paimon menu, the character list, the
-  inventory and the achievements, and genshinlist.vercel.app), **without any of the game's assets or its font**:
-  colours and simple shapes only.
-- **Dark**: a plain ink-blue slate page (`#151A26`), slate cards (`#1E2435`) without border, parchment text
-  (`#ECE5D8`), the primary a parchment fill with ink text, gold (`#D3BC8E`) for the focus ring and sliders.
-- **Light**: a parchment page (`#E8E2D5`) and cards (`#F4F0E7`, a neutral hairline), ink text (`#3B4255`), an ink
-  primary, and a slate sidebar as in the Paimon menu (the sidebar uses only the `sidebar.*` tokens).
-- **Turned down**: a gradient page and gold borders (on cards, on the current page); then a closer copy of
-  genshinlist.vercel.app (a neutral near-black page, warm brown-black panels, every button filled, a slate sidebar
-  in both themes) as worse. Earlier looks, all replaced: a muted navy-and-gold one (turned down as AI-generic),
-  paimon.moe's purple-navy, a first game-menu "Teyvat" theme, Material 3 after the user's blog.
+- **Neutral and minimal, with the Inter typeface** (the user's choice on 2026-11-21, after wanting "quelque chose
+  de simple, minimaliste", not necessarily Genshin's style): cool greys, one indigo accent for what is current or
+  primary (the current segment, the primary button, the focus ring, sliders), small corners. Colour is kept for the
+  game's data: rarities, elements, the item tiles, the charts.
+- **Dark**: a grey page (`#1B1C20`), lighter cards (`#222328`) without border, a darker sidebar (`#18191C`), text
+  `#E8E8EB`, the accent `#5B63F0` (`#8B91FF` for the ring and sliders). Not near-black: that was turned down.
+- **Light**: a near-white page (`#F7F7F8`), white cards with a hairline, a light grey sidebar, text `#18181B`, the
+  accent `#4F46E5`.
+- **Turned down**, explored on 2026-11-21 as mock-ups of the real app beside the chosen one: "Papier" (warm greys,
+  cards drawn as the page with a hairline, a black accent), the kit's own theme (shadcn's neutral greys, a
+  near-black dark), "Monochrome" (greys only, the pills kept); and Google Sans Flex, rounder, for Inter. Before, the
+  app followed **Genshin Impact's menus** (2026-11-12 to 2026-11-21): ink-blue slate and parchment, parchment pills,
+  gold for focus and selection, item cards with the game's wide bottom right corner. Within it, a gradient page and
+  gold borders, then a closer copy of genshinlist.vercel.app (a near-black page, brown-black panels) were worse.
+  Earlier looks, all replaced: a muted navy-and-gold one (turned down as AI-generic), paimon.moe's purple-navy, a
+  first game-menu "Teyvat" theme, Material 3 after the user's blog.
 - **No icons** in page and section titles (2026-11-13). The sidebar's nested pages have **no icon and no ornament**
   (2026-11-17).
-- **Item cards** (characters, weapons, materials, wished items) follow the game's: the picture on its rarity tile
-  (`stars_tile`: dark top left to light bottom right, the same in both themes) with its bottom right corner rounded
-  wide, over a parchment strip with the name or count in ink (`tile_label`). The archive's three lists share one
-  card (`item_card`, the user's ask on 2026-11-17).
-- **Buttons** are filled parchment pills with ink text in both themes (`button.*` tokens); `.primary()` is
-  parchment in dark, ink in light. Pickers are parchment pills over a parchment list; fields, chips and
-  `Segmented` are pills.
+- **Item cards** (characters, weapons, materials, wished items): the picture on its rarity tile (`stars_tile`:
+  dark top left to light bottom right, the same in both themes), over a strip of the raised surface with the name or
+  count (`tile_label`). The archive's three lists share one card (`item_card`, the user's ask on 2026-11-17).
+- **Buttons** are filled grey (`button.*` tokens), `.primary()` the accent. Pickers are buttons opening a list on
+  the raised surface (`Palette::raised`); fields are set into the card on the page's colour.
 - **Controls at the kit's medium size**: buttons, icon buttons, pickers and their rows, fields, chips, segments and the
   pager are 32 px with 14 px text (the user's choice on 2026-11-19, over 44 px buttons and 48 px pickers and fields,
   and over 40 px and 36 px). The sidebar's entries follow: 40 px with a 20 px icon, a group's pages 36 px, all
   14 px text (they were 56 px and 48 px).
-- **One rule for corners**: every control is a pill (buttons, pickers and their rows, fields, chips, segments,
-  sidebar entries, badges); surfaces (cards, panels, the snackbar, a list's frame) use `radius.lg` (12); only item
-  tiles keep `radius` (8).
+- **One rule for corners**: controls (buttons, pickers and their rows, fields, chips, segments, sidebar entries,
+  badges) and item tiles take the theme's `radius` (6 px); surfaces (cards, panels, a picker's list, the snackbar)
+  `radius.lg` (10 px). Only shapes that aren't controls stay round: progress bars, a slider's track, a talent's
+  icon disc.
 - **Charts**: as few bar charts as possible. Prefer areas, lines with dots, donuts.
 
 ## The theme
 
 `crates/wish-ui/src/theme.json` holds every raw colour, light and dark; nothing else does. The kit's tokens are
-there, and the app's own roles (parchment, ink, gold, the 1★–5★ tiles) are each theme's `app` section, which the kit
+there, and the app's own roles (`raised`, `on_raised` and `highlight`, the 1★–5★ tiles, the `ramp.*` shades) are
+  each theme's `app` section, which the kit
 ignores and `theme::palette(cx)` reads. `accent` is the hover state layer, drawn over a surface rather than in its
 place.
 
-- Rarity text colours: 5★ `#FFB13F` / `#965700`, 4★ `#D28FD6` / `#8E3F94` (dark / light); always beside the written
-  rarity ("5★"), never the only cue.
-- Keep text contrast at 4.5:1. When surfaces change, rerun the dataviz validator on the chart colours.
-- `theme.rs` registers Google Sans Flex (`crates/wish-ui/fonts/`, SIL OFL): five static instances of the variable
-  font (fonttools' `varLib.instancer` at opsz 18, wdth 100, ROND 0), since GPUI can't vary a variable font's weight
-  and the default font lacks bold and black. `follow_system` switches with the system's light or dark.
+- Rarity text colours: 5★ `#FFB13F` / `#965700`, 4★ `#D28FD6` / `#8E3F94`, 3★ `#7F9CFF` / `#2F5AD8` (dark / light),
+  each at 4.5:1 or more on the cards and the grey fills; always beside the written rarity ("5★"), never the only cue.
+- Keep text contrast at 4.5:1. When surfaces change, rerun the dataviz validator on the chart colours and the
+  `ramp.*` shades (done for these surfaces on 2026-11-21).
+- `theme.rs` registers Inter 4.1 (`crates/wish-ui/fonts/`, SIL OFL): its Regular, Medium, SemiBold, Bold and Black,
+  each a static font taken out of the release's `Inter.ttc` collection (fontTools' `TTCollection`), since GPUI
+  can't vary a variable font's weight and the default font lacks bold and black. `follow_system` switches with the
+  system's light or dark.
 
 ## Components
 
 `crates/wish-ui/src/components/`. They keep the kit's controls, their keyboard and their size, and give them the
-app's pills, weights, colours and pointing hand: **never use `Button::new`, `Select::new`, `Input::new`, or the
+app's corners, weights, colours and pointing hand: **never use `Button::new`, `Select::new`, `Input::new`, or the
 kit's `Pagination`, `ButtonGroup` and `Toggle` directly in the app.** Size a control through the kit's `Size`
 (`.small()`…), which changes its text, icon and padding with it, rather than a height of its own.
 
 | Need | Use | Not |
 | --- | --- | --- |
 | a button | `button(id)` (+ `.primary()`, `.danger()`, `.label()`, `.icon()`) | `Button::new` |
-| a button without fill | `.quiet(cx)` (`ButtonExt`); on the sidebar `.quiet_in(text, cx)` | the kit's `.ghost()`, which flashes parchment when pressed |
+| a button without fill | `.quiet(cx)` (`ButtonExt`); on the sidebar `.quiet_in(text, cx)` | the kit's `.ghost()`, which presses with the filled buttons' colour |
 | an icon-only button | `icon_button` (with an accessibility label and a tooltip) | |
 | a button the kit builds itself (a dialog's close) | `button_style(…)` | |
 | a disabled button | `.unavailable(bool)` (`ButtonExt`): it also gives the arrow back | the kit's `.disabled(…)` |
@@ -82,6 +89,7 @@ kit's `Pagination`, `ButtonGroup` and `Toggle` directly in the app.** Size a con
 | a material and its count | `MaterialTile` (`.done`, `bare`, `.crafted(n)`) | |
 | an item's icon on its tile | `item_tile` | |
 | figures | `stat`, `stat_tile`, `big_number`, `stat_label` | |
+| a share of a whole (rarities, constellations) | `Donut` with `DonutSlice`s: the ring, the total in its hole, each slice's count and share beside it | a bar chart |
 | labels | `badge`, `outcome_badge` | |
 | game text with highlighted terms | `rich_text` (`**…**` turns semibold) | |
 | a message about background work | `snackbar` (drawn by the app's notices) | `window.push_notification` |
@@ -124,6 +132,10 @@ dialogs, sortable tables, drag and drop, toasts, motion, tooltips), which carry 
   both surfaces.
 - `axis.rs` picks tick counts and axis tops so a counting chart's ticks stay whole (the kit spaces ticks evenly from
   zero, so a maximum of 5 would label 1.25 as "1").
+- An ordered set (constellations, levels, talent levels) takes one hue's shades, `theme::rarity_ramp`: seven
+  shades of each rarity's chart colour per theme (`ramp.*` in `theme.json`), evenly spaced in OKLCH lightness, the
+  faintest at 2:1 against the card, the most the strongest. They pass the dataviz validator's `--ordinal` checks
+  for 7, 5 and 4 steps; a ramp of fewer steps picks among them. A shade by opacity fails it (too close, too faint).
 - `legend` names a chart's series; `pity_chart` (each 5★'s pity as a line of dots with the average dashed) is shared
   by the Overview and the history page.
 - Give a chart card a definite height and its chart `flex_1().min_h_0()`, never a `min_h` larger than its row.
