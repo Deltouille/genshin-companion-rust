@@ -60,7 +60,7 @@ The three crates mirror a front end's core / shared / features split, and Cargo 
 | --- | --- | --- |
 | `crates/hoyolab` | a small HoYoLAB client (after genshin.py): game accounts, characters, authkey; the cookie as `Secret`s | `imports.md` |
 | `crates/wish-core/src/{model,engine,stats}.rs`, `data.rs` | wishes, pools, pity, banners, 50/50; items and banners | `wishes.md` |
-| `crates/wish-core/src/planner/` | the planner's data, costs, plan, custom entries, allocation, resin, what to farm | `planner.md` |
+| `crates/wish-core/src/planner/` | the planner's data, costs, plan, custom entries, allocation, resin | `planner.md` |
 | `crates/wish-core/src/collection/`, `archive.rs` | what an account owns, HoYoLAB syncs, GOOD files; the archive's pages | `collection-archive.md` |
 | `crates/wish-core/src/store/`, `snapshot.rs`, `paths.rs`, `settings.rs` | SQLite, migrations, backups, accounts; snapshots and the mirror; the data folder | `storage.md` |
 | `crates/wish-core/src/import/`, `uigf.rs`, `excel.rs`, `service/` | every import, the game's API, use cases shared with `wishctl` | `imports.md` |

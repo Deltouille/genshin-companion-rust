@@ -28,10 +28,9 @@ passives, and what each ascension costs. Mark what you own yourself, or fill it 
 weapons, materials and all.
 
 **Planner.** Pick characters and weapons, drag the sliders from where they are to where you want them, and you see
-what is still missing once your materials are shared out, crafting included. It shows which domains are worth running
-today, and roughly how much resin everything will take. It works much like
-[genshin-center](https://genshin-center.com/planner)'s planner, and it also handles characters that aren't out yet,
-whose materials you fill in yourself.
+what is still missing once your materials are shared out, crafting included, and roughly how much resin everything
+will take. It works much like [genshin-center](https://genshin-center.com/planner)'s planner, and it also handles
+characters that aren't out yet, whose materials you fill in yourself.
 
 <p>
   <img src="docs/screenshots/characters.png" width="49%" alt="The character list">

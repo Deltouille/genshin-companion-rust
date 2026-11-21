@@ -7,7 +7,7 @@
 //! - **Domain**, the game's rules, which reach no database, network or file
 //!   (`tests/layers.rs` checks it): [`model`] (wishes, pools, accounts),
 //!   [`engine`] (pity, banners, 50/50), [`stats`], [`planner`] (costs,
-//!   allocation, resin, what to farm), [`collection`] (what an account owns,
+//!   allocation, resin), [`collection`] (what an account owns,
 //!   HoYoLAB syncs, GOOD files), [`archive`] (character and weapon pages).
 //! - **Game data**, embedded JSON a newer copy can override: [`data`] (items
 //!   and banners), with the planner's and the archive's own files.

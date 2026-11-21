@@ -14,17 +14,15 @@
 //!
 //! - this file: the view, its actions, and the page's layout;
 //! - `controls`: each entry's sliders, and saving them;
-//! - `day`: the game's day, for "Farm today";
 //! - `model`: what the page shows, as plain data;
-//! - `sections/`: the cards that draw it (`today`, `still_needed`, `card`,
-//!   `materials`, `drag`);
+//! - `sections/`: the cards that draw it (`still_needed`, `card`, `materials`,
+//!   `drag`);
 //! - the dialogs: `add` (characters and weapons as cards), `custom` (a
 //!   custom character or weapon), `inventory` (how many of a material the
 //!   player has), `resin` (the estimate's options).
 
 mod add;
 mod controls;
-mod day;
 pub(crate) use add::Kind as AddKind;
 mod custom;
 mod inventory;
@@ -43,15 +41,14 @@ use gpui_kit::component::button::ButtonVariants as _;
 use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::{
     AnyElement, App, Context, Entity, FontWeight, InteractiveElement as _, IntoElement,
-    ParentElement as _, Render, Styled as _, Subscription, Task, Window, div,
+    ParentElement as _, Render, Styled as _, Subscription, Window, div,
 };
-use wish_core::planner::{CustomItem, MaterialId, PlanTarget, Role, exp_series, game_day};
+use wish_core::planner::{CustomItem, MaterialId, PlanTarget, Role, exp_series};
 
 use crate::app::{Library, Session};
 use controls::{Controls, Move};
-use day::now_on;
-use model::{GameDay, PlannerModel};
-use sections::{Actions, CardControls, EntryCard, FarmToday, Look, StillNeeded};
+use model::PlannerModel;
+use sections::{Actions, CardControls, EntryCard, Look, StillNeeded};
 use wish_core::model::AccountId;
 use wish_ui::{PageFrame, PickerState, button, card, confirm_destructive};
 
@@ -67,13 +64,8 @@ pub struct PlannerView {
     /// The entry whose card is being dragged, dimmed meanwhile.
     dragging: Option<i64>,
     /// What the page shows, worked out again when the plan, the inventory,
-    /// the account, a slider or the game's day changes; the render only
-    /// reads it.
+    /// the account or a slider changes; the render only reads it.
     model: Rc<PlannerModel>,
-    /// The game's day the model is for.
-    day: GameDay,
-    /// Wakes when the game's day changes, for its domains.
-    _day_watch: Task<()>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -93,10 +85,6 @@ impl PlannerView {
                 cx.notify();
             }),
         ];
-        let day = GameDay {
-            day: game_day(now_on(None)),
-            server: None,
-        };
         let mut view = Self {
             session,
             library,
@@ -104,8 +92,6 @@ impl PlannerView {
             moves: HashMap::new(),
             dragging: None,
             model: Rc::default(),
-            day,
-            _day_watch: Self::watch_the_day(cx),
             _subscriptions: subscriptions,
         };
         view.sync_controls(window, cx);
@@ -259,14 +245,12 @@ impl PlannerView {
     fn rebuild(&mut self, cx: &App) {
         let account = self.account(cx);
         let plan = self.live_plan(cx);
-        self.day = self.game_day(cx);
         let library = self.library.read(cx);
         let model = PlannerModel::build(
             &plan,
             library.inventory(account),
             library.planner(),
             &library.settings(cx).resin,
-            self.day,
         );
         self.model = Rc::new(model);
     }
@@ -391,11 +375,6 @@ impl Render for PlannerView {
                         .px_6()
                         .pt_2()
                         .pb_6()
-                        .children(model.today.clone().map(|today| FarmToday {
-                            today,
-                            look: look.clone(),
-                            actions: actions.clone(),
-                        }))
                         .child(StillNeeded {
                             model: model.clone(),
                             look,

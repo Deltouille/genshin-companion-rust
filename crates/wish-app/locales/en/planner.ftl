@@ -48,13 +48,6 @@ planner-tip-unknown = { $tip } (not in the game data)
 
 ## Still needed
 
-planner-today = Farm today
-planner-today-day = { $day }, { $server } server
-planner-today-day-local = { $day }, this computer’s clock
-planner-today-help = The domains open today that give what the plan still lacks. They change every day at 4:00, server time; on Sunday, every domain is open.
-planner-today-help-local = The domains open today that give what the plan still lacks. They change every day at 4:00, server time, but the account’s server isn’t known: the day follows this computer’s clock. Give the account its UID or server in Settings → Accounts.
-planner-today-none = No domain gives what the plan lacks today: the next day one does is { $day }.
-planner-today-for = For
 planner-still-needed = Still needed
 planner-entries = { $count ->
         [one] { $count } entry

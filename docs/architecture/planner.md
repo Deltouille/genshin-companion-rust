@@ -2,7 +2,7 @@
 
 After genshin-center's: the characters and weapons the player wants to raise, each from where it is to where it
 should go; what that costs in materials; what the player's bag covers when it is shared out over the plan in
-order; what is still lacking, the resin it takes, and which domains give it today.
+order; what is still lacking, and the resin it takes.
 
 The rules live in `crates/wish-core/src/planner/`; the page in `crates/wish-app/src/features/planner/`.
 
@@ -103,13 +103,6 @@ The averages per world level come from the Genshin Impact wiki (the Genshin Data
 gems, ores and enemy drops are left out, as genshin-center does. `ResinOptions` (world level, resin a day, sources
 ignored) are a setting (`Settings::resin`).
 
-## Farm today
-
-`planner/farming.rs`. The game's day starts at 04:00 in the server's time (`DAY_STARTS_AT`; `game_day`,
-`next_game_day`). `PlannerData::farms(allocation)` lists each talent book or weapon material series the plan still
-lacks: its tiers lacking, the entries lacking some, its domain and the days it is open (`Material::days`; Sunday
-opens them all). A placeholder has no days, so it is never one.
-
 ## The page
 
 `crates/wish-app/src/features/planner/`, the model the other big pages follow ([pages.md](pages.md)):
@@ -118,9 +111,7 @@ opens them all). A placeholder has no days, so it is never one.
 | --- | --- |
 | `mod.rs` | `PlannerView`: the entity, its actions (add, move, remove, open a dialog), the layout (cards in up to four columns, each at least `CARD_REMS` wide) |
 | `controls.rs` | each entry's sliders (a level range, and a character's three talent ranges; while one is dragged the costs follow it, released it saves) and its move menu (the grip: to the start, one place earlier or later, to the end), the keyboard's way to reorder the plan |
-| `day.rs` | the game's day for the account's server (else the computer's clock); `watch_the_day` rebuilds when it changes, looking every ten minutes at most since timers don't count a computer's sleep |
-| `model.rs` | `PlannerModel::build`: the plan as the sliders show it, allocated, with each card's name, picture, tiles and tooltips, the resin and "Farm today" |
-| `sections/today.rs` | "Farm today": the domains open today with the tiers lacking and who needs them, or the next day one is open |
+| `model.rs` | `PlannerModel::build`: the plan as the sliders show it, allocated, with each card's name, picture, tiles and tooltips, and the resin |
 | `sections/still_needed.rs` | what the whole plan lacks, its resin by source, "Resin options…" |
 | `sections/card.rs`, `materials.rs` | an entry's card (header, sliders, tiles); a grid of material tiles |
 | `sections/drag.rs` | dragging a card by its picture and name onto another, whose place it takes: a copy follows the pointer, the card dims |

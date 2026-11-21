@@ -50,15 +50,6 @@ ui-server-europe = Europe
 ui-server-tw-hk-mo = TW, HK, MO
 ui-server-china = Chine
 
-## Jours de la semaine.
-ui-weekday-mon = lundi
-ui-weekday-tue = mardi
-ui-weekday-wed = mercredi
-ui-weekday-thu = jeudi
-ui-weekday-fri = vendredi
-ui-weekday-sat = samedi
-ui-weekday-sun = dimanche
-
 ## Le 50/50
 
 ui-guaranteed-rate-up = vedette garantie

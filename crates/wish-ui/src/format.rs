@@ -1,7 +1,7 @@
 //! Numbers, sizes and dates as the current language writes them
 //! (`wish_core::i18n::language`), and the labels every page shares.
 
-use chrono::{Datelike, Timelike, Weekday};
+use chrono::{Datelike, Timelike};
 use wish_core::engine::RateUpOutcome;
 use wish_core::i18n::{decimal, integer};
 use wish_core::model::{PRIMOGEMS_PER_WISH, Pool, Server};
@@ -221,19 +221,6 @@ pub fn server(server: Server) -> String {
         Server::Europe => t!("ui-server-europe"),
         Server::TwHkMo => t!("ui-server-tw-hk-mo"),
         Server::China => t!("ui-server-china"),
-    }
-}
-
-/// A day of the week: "Tuesday", or "mardi".
-pub fn weekday(day: Weekday) -> String {
-    match day {
-        Weekday::Mon => t!("ui-weekday-mon"),
-        Weekday::Tue => t!("ui-weekday-tue"),
-        Weekday::Wed => t!("ui-weekday-wed"),
-        Weekday::Thu => t!("ui-weekday-thu"),
-        Weekday::Fri => t!("ui-weekday-fri"),
-        Weekday::Sat => t!("ui-weekday-sat"),
-        Weekday::Sun => t!("ui-weekday-sun"),
     }
 }
 

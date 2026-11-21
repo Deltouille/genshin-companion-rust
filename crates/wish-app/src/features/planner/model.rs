@@ -1,8 +1,7 @@
 //! What the planner page shows, worked out from the plan (each goal as its
-//! sliders show it), the inventory, the game data, the resin options and the
-//! game's day: every card's name, picture, ranges and materials, what each
-//! lacks once the inventory is shared out, the resin, what the domains open
-//! today give of it, and the words of the tooltips.
+//! sliders show it), the inventory, the game data and the resin options:
+//! every card's name, picture, ranges and materials, what each lacks once the
+//! inventory is shared out, the resin, and the words of the tooltips.
 //!
 //! Plain data, no GPUI: the view builds it when one of those changes (the
 //! library, the account, a slider moved), its render only reads it, and it is
@@ -11,11 +10,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use chrono::Weekday;
-use wish_core::model::Server;
 use wish_core::planner::{
     CustomItem, Inventory, Level, MaterialId, PlanEntry, PlanTarget, PlanTotals, PlannerData,
-    ResinEstimate, ResinOptions, ResinSource,
+    ResinEstimate, ResinOptions,
 };
 use wish_ui::format;
 
@@ -40,40 +37,6 @@ pub(super) struct PlannerModel {
     pub total: MaterialsModel,
     /// The resin farming that takes.
     pub resin: ResinEstimate,
-    /// What the domains open today give of it; `None` when the plan lacks
-    /// no talent book or weapon material.
-    pub today: Option<TodayModel>,
-}
-
-/// The game's day the page is for, and whose clock says it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct GameDay {
-    pub day: Weekday,
-    /// The account's server; `None`: the player's own clock.
-    pub server: Option<Server>,
-}
-
-/// The "Farm today" card: the domains open on the game's day that give what
-/// the plan still lacks.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct TodayModel {
-    pub day: GameDay,
-    /// Each series open today, talent books first.
-    pub farms: Vec<FarmModel>,
-    /// When none is: the next day one is.
-    pub next: Option<Weekday>,
-}
-
-/// A series a domain gives today, as the card shows it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct FarmModel {
-    /// The domain's name, else the series' (a domain the data doesn't name).
-    pub domain: String,
-    pub source: ResinSource,
-    /// The tiers still lacking, as the "Still needed" card shows them.
-    pub materials: MaterialsModel,
-    /// Who still lacks some of it, in the plan's order.
-    pub entries: Vec<(Portrait, String)>,
 }
 
 /// One card of the plan: its entry, its name and picture, and what it still
@@ -211,7 +174,6 @@ impl PlannerModel {
         inventory: &Inventory,
         planner: &PlannerData,
         resin: &ResinOptions,
-        day: GameDay,
     ) -> Self {
         let allocation = planner.allocate(plan, inventory);
         let entries: Vec<EntryModel> = (plan.iter().zip(&allocation.entries))
@@ -236,58 +198,10 @@ impl PlannerModel {
             inventory,
             planner,
         );
-        let farms = planner.farms(&allocation);
-        let today = (!farms.is_empty()).then(|| {
-            let open: Vec<FarmModel> = (farms.iter())
-                .filter(|farm| farm.open_on(day.day))
-                .map(|farm| {
-                    let lacking: BTreeSet<MaterialId> =
-                        farm.lacking.iter().map(|(id, _)| *id).collect();
-                    let materials = MaterialsModel {
-                        known: (total.known.iter())
-                            .filter(|line| lacking.contains(&line.id))
-                            .cloned()
-                            .collect(),
-                        named: Vec::new(),
-                    };
-                    let domain = (farm.domain.as_ref())
-                        .map(ToString::to_string)
-                        .or_else(|| {
-                            let first = farm.lacking.first()?.0;
-                            Some(planner.material(first)?.name.to_string())
-                        })
-                        .unwrap_or_default();
-                    let entries = (farm.entries.iter())
-                        .filter_map(|id| entries.iter().find(|entry| entry.id() == *id))
-                        .map(|entry| (entry.portrait.clone(), entry.name.clone()))
-                        .collect();
-                    FarmModel {
-                        domain,
-                        source: farm.source,
-                        materials,
-                        entries,
-                    }
-                })
-                .collect();
-            // The next day a domain gives something, when none does today.
-            let next = (open.is_empty())
-                .then(|| {
-                    std::iter::successors(Some(day.day.succ()), |d| Some(d.succ()))
-                        .take(7)
-                        .find(|d| farms.iter().any(|farm| farm.open_on(*d)))
-                })
-                .flatten();
-            TodayModel {
-                day,
-                farms: open,
-                next,
-            }
-        });
         Self {
             entries,
             total,
             resin: planner.resin_estimate(&allocation.missing.materials, resin),
-            today,
         }
     }
 
@@ -478,15 +392,7 @@ mod tests {
     }
 
     fn build(plan: &[PlanEntry], inventory: &Inventory) -> PlannerModel {
-        build_on(plan, inventory, Weekday::Mon)
-    }
-
-    fn build_on(plan: &[PlanEntry], inventory: &Inventory, day: Weekday) -> PlannerModel {
-        let day = GameDay {
-            day,
-            server: Some(Server::Europe),
-        };
-        PlannerModel::build(plan, inventory, data(), &ResinOptions::default(), day)
+        PlannerModel::build(plan, inventory, data(), &ResinOptions::default())
     }
 
     #[test]
@@ -608,69 +514,5 @@ mod tests {
             "{}",
             guides.tip
         );
-    }
-
-    #[test]
-    fn today_shows_the_domains_open_and_who_needs_them() {
-        // Ganyu reads Diligence: Tuesday, Friday and Sunday.
-        let plan = [ganyu(1)];
-        let tuesday = build_on(&plan, &Inventory::default(), Weekday::Tue);
-        let today = tuesday.today.unwrap();
-        assert_eq!(today.day.day, Weekday::Tue);
-        let books = (today.farms.iter())
-            .find(|farm| farm.source == ResinSource::TalentBooks)
-            .unwrap();
-        assert!(!books.domain.is_empty());
-        assert_eq!(books.entries.len(), 1);
-        assert_eq!(books.entries[0].1, "Ganyu");
-        // Its tiles are the "Still needed" card's, tips included.
-        assert_eq!(books.materials.known.len(), 3);
-        for tile in &books.materials.known {
-            assert!(tuesday.total.known.contains(tile));
-        }
-        assert_eq!(today.next, None);
-
-        // On Monday her books aren't given: the next day they are is Tuesday.
-        let monday = build_on(&plan, &Inventory::default(), Weekday::Mon);
-        let today = monday.today.unwrap();
-        assert!(
-            (today.farms.iter()).all(|farm| farm.source != ResinSource::TalentBooks),
-            "{:?}",
-            today.farms
-        );
-    }
-
-    #[test]
-    fn nothing_from_the_domains_means_no_today_card() {
-        // Nothing planned: nothing to farm.
-        assert_eq!(build(&[], &Inventory::default()).today, None);
-        // Ganyu, with all she needs already in the bag.
-        let model = build(&[ganyu(1)], &Inventory::default());
-        let mut inventory = Inventory::default();
-        for line in &model.total.known {
-            inventory.set(&CustomItem::Material(line.id), 100_000);
-        }
-        assert_eq!(build(&[ganyu(1)], &inventory).today, None);
-    }
-
-    #[test]
-    fn a_day_with_nothing_names_the_next_one() {
-        // Everything Ganyu needs in the bag but her books, Diligence, given
-        // on Tuesday, Friday and Sunday only. (Lower tiers in the bag would
-        // be crafted into the top one.)
-        let model = build(&[ganyu(1)], &Inventory::default());
-        let mut inventory = Inventory::default();
-        for line in &model.total.known {
-            inventory.set(&CustomItem::Material(line.id), 100_000);
-        }
-        for diligence in 104313..=104315 {
-            inventory.set(&CustomItem::Material(diligence), 0);
-        }
-        let saturday = build_on(&[ganyu(1)], &inventory, Weekday::Sat);
-        let today = saturday.today.unwrap();
-        assert!(today.farms.is_empty());
-        assert_eq!(today.next, Some(Weekday::Sun));
-        let wednesday = build_on(&[ganyu(1)], &inventory, Weekday::Wed);
-        assert_eq!(wednesday.today.unwrap().next, Some(Weekday::Fri));
     }
 }

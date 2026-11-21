@@ -70,8 +70,7 @@ preview comes from a sample HoYoLAB in the tool (`SampleHoyolab`), the GOOD prev
 file: never the real ones. The README's screenshots (`docs/screenshots/`) come from this tool, in the dark theme, on the synthetic save
 with a few owned characters and a plan of real characters added through a snapshot (`wishctl export`, edit the
 `characters` and `plan` of the JSON, `import-snapshot` into a fresh folder with the image cache copied over):
-`SCREENSHOT_HEIGHT=1000`, and 1400 for the planner so its cards show. Pick plan characters whose talent books are
-open on the day you shoot, so "Farm today" has something to show.
+`SCREENSHOT_HEIGHT=1000`, and 1400 for the planner so its cards show.
 
 To check a refactor changed nothing on screen: shoot every page with the old and the new build on two copies of
 the same data folder, and compare the PNGs. Only the times differ (the latest backup's, a mirror's), and a backup
