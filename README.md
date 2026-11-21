@@ -139,8 +139,8 @@ tools/update-game-data.sh
 
 The first time, it clones both projects into `reference/` and `genshin-db/`, with only the folders it reads (a few
 tens of MB). Then it brings them up to date, runs the scripts and shows what changed
-([docs/architecture/game-data.md](docs/architecture/game-data.md)). When a new banner comes out, you don't have to rebuild: drop the new `banners.json` (or any of the data files) into the
-`game-data/` folder inside your data folder.
+([docs/architecture/game-data.md](docs/architecture/game-data.md)). When a new banner comes out, you don't have to
+rebuild: drop the new `banners.json` (or any of the data files) into the `game-data/` folder inside your data folder.
 
 ## Development
 
@@ -176,7 +176,7 @@ tests catch a missing or extra text in any language. To add a language, see
 ## Credits
 
 - [paimon.moe](https://github.com/MadeBaruna/paimon-moe) by Made Baruna: the wish counter is a remake of it, and the
-  banner and item data come from it (MIT License).
+  banner and item data come from it (MIT License), as does the banners' art the app downloads.
 - [genshin-db](https://github.com/theBowja/genshin-db) by theBowja: the data behind the archive and the planner (MIT
   License).
 - [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync follows its
