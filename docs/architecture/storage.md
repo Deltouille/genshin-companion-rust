@@ -42,6 +42,7 @@ erDiagram
     accounts ||--o{ inventory : owns
     accounts ||--o{ owned_characters : owns
     accounts ||--o{ owned_weapons : owns
+    accounts ||--o| battle_pass : has
     imports ||--o{ wishes : added
     imports ||--o{ wish_links : recorded
     imports ||--o{ manual_counters : added
@@ -133,6 +134,10 @@ What the tables hold:
   or a count out of range when read back (a file restored from elsewhere) is an error, never another material.
 - **`owned_characters`**, **`owned_weapons`**: the collection. A character holds at most one weapon copy (a unique
   partial index).
+- **`battle_pass`**: each account's Battle Pass, one row written whole: the level, the start of the period it was
+  reached in, the Gnostic Hymn, the reward plan, whether the planner counts it, the series picked for its boxes
+  (material ids, null when left to the plan; [planner.md](planner.md)). Not in
+  snapshots: a pass lasts one period.
 
 | Store's files | Methods |
 | --- | --- |
@@ -141,6 +146,7 @@ What the tables hold:
 | `crates/wish-core/src/store/wishes.rs` | `wishes`, `manual_counters`, `links`, `known_api_ids`, `delete_manual_wishes` |
 | `crates/wish-core/src/store/import.rs` | `apply_import`, `undo_import`, `recent_imports` |
 | `crates/wish-core/src/store/plan.rs`, `inventory.rs` | the plan and the inventory, one transaction per write |
+| `crates/wish-core/src/store/battle_pass.rs` | `battle_pass`, `set_battle_pass` |
 | `crates/wish-core/src/store/collection.rs` | the collection, `sync_targets`, `apply_sync`, `apply_good` |
 | `crates/wish-core/src/store/merge.rs` | a snapshot's collection, plan and inventory merged in |
 | `crates/wish-core/src/store/backup.rs` | backups, pruning, restore |
@@ -166,6 +172,8 @@ that changes one of those calls `Store::changed`, or the app keeps a stale analy
 | `005_planner_weapons.sql` | weapon entries |
 | `006_planner_custom_weapons.sql` | custom weapons |
 | `007_collection.sql` | the collection; plan and inventory per account |
+| `008_battle_pass.sql` | each account's Battle Pass |
+| `009_battle_pass_picks.sql` | the series picked for the pass's boxes |
 
 Never edit a migration that shipped: add the next one and append it. A negative `user_version` (no app writes one,
 and it would skip every migration) is refused untouched (`Error::SchemaDamaged`), and a restore takes nothing below

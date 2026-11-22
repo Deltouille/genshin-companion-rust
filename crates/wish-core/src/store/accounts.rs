@@ -135,6 +135,7 @@ impl Store {
         // A plan entry's custom costs and materials go with it (ON DELETE
         // CASCADE).
         for table in [
+            "battle_pass",
             "plan_entries",
             "inventory",
             "owned_weapons",

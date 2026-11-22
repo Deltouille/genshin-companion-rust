@@ -89,6 +89,7 @@ kit's `Pagination`, `ButtonGroup` and `Toggle` directly in the app.** Size a con
 | a material and its count | `MaterialTile` (`.done`, `bare`, `.crafted(n)`) | |
 | an item's icon on its tile | `item_tile` | |
 | figures | `stat`, `stat_tile`, `big_number`, `stat_label` | |
+| a panel of options over the page (the archive's filters, the Battle Pass) | `Drawer` with a `DrawerState`: slides in from the right, Escape, the cross or the veil close it; no motion when the system asks for less | the kit's `Sheet`, which has no exit animation |
 | a share of a whole (rarities, constellations) | `Donut` with `DonutSlice`s: the ring, the total in its hole, each slice's count and share beside it | a bar chart |
 | labels | `badge`, `outcome_badge` | |
 | game text with highlighted terms | `rich_text` (`**…**` turns semibold) | |

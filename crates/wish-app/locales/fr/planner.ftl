@@ -53,6 +53,7 @@ planner-tip-needed = { $name } : { $need } { $need ->
        *[other] nécessaires
     }
 planner-tip-plan = { $name } : { $need } pour tout le plan, { $owned } en stock, encore { $lack } à obtenir
+planner-tip-plan-pass = { $name } : { $need } pour tout le plan, { $owned } en stock, { $pass } du pass de bataille, encore { $lack } à obtenir
 planner-tip-crafted = { $tip } ; { $crafted } { $crafted ->
         [one] fabriqué
        *[other] fabriqués
@@ -66,7 +67,6 @@ planner-entries = { $count ->
         [one] { $count } entrée
        *[other] { $count } entrées
     }
-planner-still-needed-help = Ce qui manque au plan une fois votre inventaire réparti, dans l’ordre du plan ; les niveaux inférieurs sont fabriqués vers le haut. Cliquez sur un matériau pour indiquer combien vous en avez.
 
 ## Ajouter un personnage ou une arme
 
@@ -175,3 +175,44 @@ planner-resin-sources = Compter
 planner-resin-sources-help = Les domaines comptent à leur plus haut niveau. Les boss hebdomadaires, les gemmes, les minerais, les butins d’ennemis et les spécialités locales ne prennent pas de résine comptée ici.
 planner-resin-title = Estimation de résine
 planner-resin-not-saved = Les options de résine n’ont pas été enregistrées
+
+## Le pass de bataille
+
+planner-pass-open = Pass de bataille…
+planner-pass = Pass de bataille
+planner-pass-close = Fermer
+planner-pass-level = Niveau atteint
+planner-pass-period = Cette période se termine le { $end }, dans { $days ->
+        [one] { $days } jour
+       *[other] { $days } jours
+    } ; le niveau repart ensuite de 0.
+planner-pass-track = Pass
+planner-pass-free = Gratuit
+planner-pass-premium = Hymne gnostique
+planner-pass-plan = Plan de récompenses
+planner-pass-plan-no-artifact-exp = Moras, EXP de personnage, EXP d’arme
+planner-pass-plan-no-weapon-exp = Moras, EXP de personnage, EXP d’artefact
+planner-pass-plan-no-character-exp = Moras, EXP d’arme, EXP d’artefact
+planner-pass-plan-no-mora = EXP de personnage, EXP d’arme, EXP d’artefact
+planner-pass-plan-help = Les trois types de récompenses choisis dans le jeu : les récompenses des niveaux en dépendent.
+planner-pass-counted = Compter dans « Encore nécessaire »
+planner-pass-counted-help = Les récompenses des niveaux à venir comptent comme si elles étaient dans votre inventaire.
+planner-pass-to-come = Encore à gagner, niveaux { $from } à { $to }
+planner-pass-to-come-none = Tous les niveaux sont atteints : plus rien à gagner.
+planner-pass-boxes-title = Coffres au choix
+planner-pass-boxes-help = Chaque coffre donne la série que vous choisissez en l’ouvrant. Laissés au planificateur, ils vont à ce qui manque à votre plan, dans son ordre.
+planner-pass-box-guides = Guides
+planner-pass-box-philosophies = Philosophies
+planner-pass-box-specialties = Spécialités locales
+planner-pass-box-count = { $count ->
+        [one] { $count } coffre
+       *[other] { $count } coffres
+    } de { $size }
+planner-pass-pick-auto = Selon ce qui manque au plan
+planner-pass-left = { $count ->
+        [one] { $count } coffre dont votre plan n’a pas besoin
+       *[other] { $count } coffres dont votre plan n’a pas besoin
+    } : à vous de choisir.
+planner-pass-reset = Remettre à 0
+planner-pass-reset-help = Remet le niveau à 0, comme le fait une nouvelle période.
+planner-pass-done = Terminé

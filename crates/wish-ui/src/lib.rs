@@ -43,11 +43,12 @@ pub mod theme;
 
 pub use assets::{UiAssets, pool_icon};
 pub use components::{
-    ButtonExt, Donut, DonutSlice, MaterialTile, MenuButton, NavGroup, NavItem, PageFrame, Pager,
-    Picker, PickerEvent, PickerItem, PickerState, PityPoint, Segmented, badge, big_number, button,
-    button_style, card, card_title, confirm_destructive, dialog_close_footer, dialog_footer,
-    filter_chip, form_dialog, icon_button, input, item_tile, legend, menu_button, outcome_badge,
-    picker, pity_chart, rich_text, snackbar, stat, stat_label, stat_tile,
+    ButtonExt, CloseHandler, Donut, DonutSlice, Drawer, DrawerState, MaterialTile, MenuButton,
+    NavGroup, NavItem, PageFrame, Pager, Picker, PickerEvent, PickerItem, PickerState, PityPoint,
+    Segmented, badge, big_number, button, button_style, card, card_title, confirm_destructive,
+    dialog_close_footer, dialog_footer, drawer_slide, filter_chip, form_dialog, icon_button, input,
+    item_tile, legend, menu_button, outcome_badge, picker, pity_chart, rich_text, snackbar, stat,
+    stat_label, stat_tile,
 };
 
 use gpui_kit::App;

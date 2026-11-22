@@ -93,7 +93,8 @@ More on each feature's logic: [wishes.md](wishes.md), [planner.md](planner.md),
   layouts that size from it: the planner's columns, the settings' two columns, the character hero.
 - Dialogs open with the kit's `window.open_dialog`; widths come from `window.rem_size()`. Alert dialogs take
   `.footer(dialog_footer(button(…).danger()…))`.
-- The archive's filter drawer is the app's own (`filter_drawer`), deferred over the page: the kit's `Sheet` has no
-  exit animation.
+- The archive's filters and the planner's Battle Pass open in a drawer, `wish_ui::Drawer`, deferred over the page:
+  the kit's `Sheet` has no exit animation. Its owner keeps a `DrawerState` and closes it in two steps (Closing, then
+  Closed `drawer_slide` later).
 
 Components and the look are in [ui.md](ui.md); GPUI's habits and pitfalls in [gpui.md](gpui.md).

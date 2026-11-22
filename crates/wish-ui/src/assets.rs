@@ -26,7 +26,8 @@ gpui_kit::assets::icon_assets!(
         FlaskConical,
         Import,
         CloudDownload,
-        UserPlus
+        UserPlus,
+        Ticket
     ]
 );
 

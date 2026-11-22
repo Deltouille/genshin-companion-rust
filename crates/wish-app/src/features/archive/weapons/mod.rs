@@ -52,7 +52,7 @@ pub struct WeaponsView {
     /// The order turned round.
     reversed: bool,
     /// The filter drawer, and what has the keyboard while it is open.
-    drawer: filters::Drawer,
+    drawer: wish_ui::DrawerState,
     drawer_focus: FocusHandle,
     /// The weapon whose page is open (a genshin-db key).
     pub(super) open: Option<String>,
@@ -107,7 +107,7 @@ impl WeaponsView {
             sort: Sort::default(),
             sort_select,
             reversed: false,
-            drawer: filters::Drawer::default(),
+            drawer: wish_ui::DrawerState::default(),
             drawer_focus: cx.focus_handle(),
             open: None,
             copies: Vec::new(),
@@ -227,23 +227,24 @@ impl WeaponsView {
 
     /// Opens the filter drawer, with the keyboard in it (Escape closes it).
     fn open_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.drawer = filters::Drawer::Open;
+        self.drawer = wish_ui::DrawerState::Open;
         self.drawer_focus.focus(window, cx);
         cx.notify();
     }
 
     /// Slides the filter drawer out, then forgets it.
     fn close_filters(&mut self, cx: &mut Context<Self>) {
-        if self.drawer != filters::Drawer::Open {
+        if self.drawer != wish_ui::DrawerState::Open {
             return;
         }
-        self.drawer = filters::Drawer::Closing;
+        self.drawer = wish_ui::DrawerState::Closing;
         cx.notify();
+        let slide = wish_ui::drawer_slide(cx);
         cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(filters::DRAWER_SLIDE).await;
+            cx.background_executor().timer(slide).await;
             this.update(cx, |this, cx| {
-                if this.drawer == filters::Drawer::Closing {
-                    this.drawer = filters::Drawer::Closed;
+                if this.drawer == wish_ui::DrawerState::Closing {
+                    this.drawer = wish_ui::DrawerState::Closed;
                     cx.notify();
                 }
             })

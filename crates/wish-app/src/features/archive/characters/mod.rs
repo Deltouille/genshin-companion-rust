@@ -39,7 +39,7 @@ pub struct CharactersView {
     /// The order turned round.
     reversed: bool,
     /// The filter drawer, and what has the keyboard while it is open.
-    drawer: filters::Drawer,
+    drawer: wish_ui::DrawerState,
     drawer_focus: FocusHandle,
     /// The character whose page is open (a genshin-db key).
     open: Option<String>,
@@ -122,7 +122,7 @@ impl CharactersView {
             sort: Sort::default(),
             sort_select,
             reversed: false,
-            drawer: filters::Drawer::default(),
+            drawer: wish_ui::DrawerState::default(),
             drawer_focus: cx.focus_handle(),
             open: None,
             level,

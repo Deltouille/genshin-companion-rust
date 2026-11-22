@@ -12,7 +12,7 @@ use crate::import::ImportSource;
 use crate::model::{
     AccountId, GachaType, ItemType, Pool, Rarity, Server, Source, TextEnum, WishId, WishTime,
 };
-use crate::planner::Role;
+use crate::planner::{RewardPlan, Role};
 
 /// Stores each text enum as its text. (A blanket `impl<T: TextEnum> ToSql for
 /// T` isn't allowed: the trait and the type parameter are both foreign to
@@ -46,6 +46,7 @@ sql_text!(
     Server,
     ImportSource,
     Role,
+    RewardPlan,
     BackupReason,
 );
 

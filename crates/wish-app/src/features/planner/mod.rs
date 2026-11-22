@@ -19,9 +19,11 @@
 //!   `drag`);
 //! - the dialogs: `add` (characters and weapons as cards), `custom` (a
 //!   custom character or weapon), `inventory` (how many of a material the
-//!   player has), `resin` (the estimate's options).
+//!   player has), `resin` (the estimate's options);
+//! - `battle_pass`: the Battle Pass drawer.
 
 mod add;
+mod battle_pass;
 mod controls;
 pub(crate) use add::Kind as AddKind;
 mod custom;
@@ -66,6 +68,8 @@ pub struct PlannerView {
     /// What the page shows, worked out again when the plan, the inventory,
     /// the account or a slider changes; the render only reads it.
     model: Rc<PlannerModel>,
+    /// The Battle Pass drawer.
+    pass: battle_pass::PassControls,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -85,6 +89,7 @@ impl PlannerView {
                 cx.notify();
             }),
         ];
+        let pass = Self::pass_controls(window, cx);
         let mut view = Self {
             session,
             library,
@@ -92,6 +97,7 @@ impl PlannerView {
             moves: HashMap::new(),
             dragging: None,
             model: Rc::default(),
+            pass,
             _subscriptions: subscriptions,
         };
         view.sync_controls(window, cx);
@@ -241,16 +247,28 @@ impl PlannerView {
     }
 
     /// Works the page out again: the plan as the sliders show it, shared out
-    /// over the inventory, and the resin.
+    /// over the inventory (with the Battle Pass's rewards still to come when
+    /// they count), and the resin.
     fn rebuild(&mut self, cx: &App) {
         let account = self.account(cx);
         let plan = self.live_plan(cx);
+        let pass = self.current_pass(cx);
+        let rewards = wish_core::planner::BattlePassData::embedded().remaining(
+            self.pass_level(cx),
+            pass.premium,
+            pass.plan,
+        );
         let library = self.library.read(cx);
         let model = PlannerModel::build(
             &plan,
             library.inventory(account),
             library.planner(),
             &library.settings(cx).resin,
+            Some(model::PassInput {
+                rewards: &rewards,
+                picks: pass.picks,
+                counted: pass.counted,
+            }),
         );
         self.model = Rc::new(model);
     }
@@ -420,11 +438,24 @@ impl Render for PlannerView {
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_custom(None, window, cx);
                     })),
+            )
+            .child(
+                button("battle-pass")
+                    .icon(IconName::Ticket)
+                    .label(t!("planner-pass-open"))
+                    .on_click(cx.listener(|this, _, window, cx| this.open_pass(window, cx))),
             );
-        PageFrame::new(t!("planner-title"), body)
-            .subtitle(t!("planner-subtitle"))
-            .toolbar(toolbar)
-            .body_scrolls()
+        let drawer = self.pass_drawer(cx);
+        div()
+            .relative()
+            .size_full()
+            .child(
+                PageFrame::new(t!("planner-title"), body)
+                    .subtitle(t!("planner-subtitle"))
+                    .toolbar(toolbar)
+                    .body_scrolls(),
+            )
+            .children(drawer)
     }
 }
 

@@ -10,6 +10,7 @@ keep them (the review's LEG-2, option 1). **The game's images are not embedded**
 | `banners.json` | every banner per type: times, featured items, time-zone flags, side-by-side banners | `data.rs` (`GameData`) | same |
 | `planner.json` | characters, weapons and materials with their costs, domains and days, the EXP tables | `planner/data.rs` (`PlannerData`) | `tools/extract-genshin-db.mjs` from `genshin-db/` |
 | `archive.json` | character and weapon pages: profiles, stats and growth curves, talents and their values, constellations, passives, art and icon names | `archive.rs` (`ArchiveData`) | same |
+| `battle_pass.json` | the Battle Pass's rewards per reward plan and level (free and Gnostic Hymn), kept to what the planner counts, the boxes' sizes, a period's start and length | `planner/battle_pass.rs` (`BattlePassData`) | `tools/extract-battle-pass.mjs`, from the Genshin Impact Wiki's API |
 | `fr.json` | the same names and texts in French, by key (materials by id), and every character's and weapon's name by its English one | `i18n/game.rs` | same |
 
 ## Where it comes from
@@ -20,10 +21,11 @@ graph LR
     gdb["genshin-db/<br/><i>sparse clone</i>"] -->|"tools/extract-genshin-db.mjs"| plannerdata["planner.json<br/>archive.json<br/>fr.json"]
     agd["AnimeGameData<br/><i>EXP tables</i>"] --> plannerdata
     amber["Project Amber's API<br/><i>icon names of the newest characters</i>"] --> plannerdata
+    wiki["Genshin Impact Wiki's API<br/><i>the current Battle Pass's page</i>"] -->|"tools/extract-battle-pass.mjs"| passdata["battle_pass.json"]
 ```
 
 - `tools/update-game-data.sh` does it all: it brings both clones up to date (making them the first time), runs
-  both scripts and shows what changed. Review the changes and run the tests before committing them.
+  the three scripts and shows what changed. Review the changes and run the tests before committing them.
 - `tools/extract-paimon-data.mjs` regenerates the wish data. It fails on an unknown featured key; a real typo goes
   in `KEY_FIXES` in the script.
 - `tools/extract-genshin-db.mjs` regenerates the planner's, the archive's and the translations. It fails on a cost naming an unknown material. Characters without talent data (the

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Updates the game data the app embeds (crates/wish-core/data/): brings the two
-# source clones up to date, making them the first time, then runs both
-# extraction scripts. Run it when a new banner, character or weapon comes out,
-# then review what changed and run the tests before committing.
+# source clones up to date, making them the first time, then runs the
+# extraction scripts (the Battle Pass's reads the Genshin Impact Wiki's API).
+# Run it when a new banner, character or weapon comes out, then review what
+# changed and run the tests before committing.
 #
 # Usage: tools/update-game-data.sh
 set -euo pipefail
@@ -45,6 +46,8 @@ update genshin-db https://github.com/theBowja/genshin-db "${paths[@]}"
 
 node tools/extract-paimon-data.mjs
 node tools/extract-genshin-db.mjs
+# The Battle Pass's rewards, from the Genshin Impact Wiki's API.
+node tools/extract-battle-pass.mjs
 
 echo
 if git diff --quiet -- crates/wish-core/data; then

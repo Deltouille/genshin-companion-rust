@@ -30,8 +30,10 @@ their constellations, levels and talents, by element, weapon and region, and wha
 
 **Planner.** Pick characters and weapons, drag the sliders from where they are to where you want them, and you see
 what is still missing once your materials are shared out, crafting included, and roughly how much resin everything
-will take. It works much like [genshin-center](https://genshin-center.com/planner)'s planner, and it also handles
-characters that aren't out yet, whose materials you fill in yourself.
+will take. Tell it your Battle Pass level and it can count the rewards still to come, its boxes of talent books and
+specialties going to the series you pick or to what your plan lacks. It works much like
+[genshin-center](https://genshin-center.com/planner)'s planner, and it also handles characters that aren't out yet,
+whose materials you fill in yourself.
 
 <p>
   <img src="docs/screenshots/characters.png" width="49%" alt="The character list">
@@ -130,8 +132,8 @@ downloads them as it needs them.
 
 The game data (banners, items, characters, weapons, materials, and the French texts) is generated from
 [paimon.moe](https://github.com/MadeBaruna/paimon-moe) and [genshin-db](https://github.com/theBowja/genshin-db) by
-two scripts, and the result is committed in `crates/wish-core/data/`. One command updates it (it needs git and
-Node.js):
+scripts (the Battle Pass's rewards come from the [Genshin Impact Wiki](https://genshin-impact.fandom.com)), and the
+result is committed in `crates/wish-core/data/`. One command updates it (it needs git and Node.js):
 
 ```sh
 tools/update-game-data.sh
@@ -182,8 +184,9 @@ tests catch a missing or extra text in any language. To add a language, see
 - [genshin.py](https://github.com/seriaati/genshin.py) by thesadru and seriaati: the HoYoLAB sync follows its
   requests (MIT License).
 - [Project Amber](https://gi.yatta.moe) for the icons and character art, the
-  [Genshin Impact Wiki](https://genshin-impact.fandom.com) and the Genshin Data Gathering team for the drop rates behind
-  the resin estimate, and [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) for the EXP tables.
+  [Genshin Impact Wiki](https://genshin-impact.fandom.com) for the Battle Pass's rewards and, with the Genshin Data
+  Gathering team, the drop rates behind the resin estimate, and
+  [AnimeGameData](https://gitlab.com/Dimbreath/AnimeGameData) for the EXP tables.
 - [UIGF](https://uigf.org) and [GOOD](https://frzyc.github.io/genshin-optimizer/#/doc), the formats it reads and
   writes.
 - [GPUI Kit](https://gpui-kit.com) (Apache License 2.0), [Inter](https://rsms.me/inter/)

@@ -7,6 +7,7 @@
 //! Mora) are constants here.
 
 mod allocate;
+mod battle_pass;
 mod custom;
 mod data;
 mod inventory;
@@ -16,6 +17,10 @@ mod resin;
 use std::collections::BTreeMap;
 
 pub use allocate::{Allocation, EntryShare};
+pub use battle_pass::{
+    BATTLE_PASS_LEVELS, BattlePass, BattlePassData, BattlePassRewards, BattlePassShare,
+    BattlePassSource, BoxKind, BoxPicks, BoxSizes, RewardPlan,
+};
 pub use custom::{CustomMaterials, Role};
 pub use data::{
     Character, Cost, MAX_LEVEL, Material, MaterialId, PLANNER_FILE, PlannerData, Weapon,

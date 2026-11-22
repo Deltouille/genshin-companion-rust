@@ -744,3 +744,52 @@ mod hoyolab_sync {
         );
     }
 }
+
+mod battle_pass {
+    use super::*;
+    use chrono::DateTime;
+    use wish_core::planner::{BattlePass, BattlePassData, BoxKind, PlannerData, RewardPlan};
+
+    #[test]
+    fn an_account_s_pass_is_kept_and_goes_with_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = Store::open(AppPaths::at(dir.path())).unwrap();
+        let main = store.add_account("Main", None, None).unwrap().id;
+        let alt = store.add_account("Alt", None, None).unwrap().id;
+        assert_eq!(store.battle_pass(main).unwrap(), None);
+
+        let data = BattlePassData::embedded();
+        let now = DateTime::parse_from_rfc3339("2026-11-20T12:00:00+01:00").unwrap();
+        let pass = BattlePass {
+            premium: true,
+            plan: RewardPlan::NoMora,
+            counted: true,
+            ..BattlePass::new(data, now)
+        }
+        .at_level(23, data, now);
+        store.set_battle_pass(main, &pass).unwrap();
+        assert_eq!(store.battle_pass(main).unwrap(), Some(pass));
+        assert_eq!(store.battle_pass(alt).unwrap(), None);
+
+        // Written again, whole: a series picked, then another level.
+        let freedom = PlannerData::embedded().material_named("Philosophies of Freedom");
+        let picked = BattlePass {
+            picks: pass.picks.with(BoxKind::Philosophies, freedom),
+            ..pass
+        };
+        store.set_battle_pass(main, &picked).unwrap();
+        assert_eq!(store.battle_pass(main).unwrap(), Some(picked));
+        let later = picked.at_level(31, data, now);
+        store.set_battle_pass(main, &later).unwrap();
+        assert_eq!(store.battle_pass(main).unwrap(), Some(later));
+
+        // An account removed takes its pass along.
+        store.set_battle_pass(alt, &pass).unwrap();
+        store.remove_account(alt).unwrap();
+        let conn = Connection::open(AppPaths::at(dir.path()).database()).unwrap();
+        let rows: i64 = conn
+            .query_row("SELECT count(*) FROM battle_pass", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(rows, 1);
+    }
+}

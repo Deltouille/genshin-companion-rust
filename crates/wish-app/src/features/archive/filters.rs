@@ -7,24 +7,21 @@
 //! A filter applies as soon as it is clicked; the drawer only gathers them.
 
 use std::rc::Rc;
-use std::time::Duration;
 
 use gpui_kit::assets::IconName;
 use gpui_kit::base::StyledExt as _;
 use gpui_kit::component::button::Button;
 use gpui_kit::component::input::InputState;
-use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::{ActiveTheme as _, Icon, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    Animation, AnimationExt as _, App, ClickEvent, Div, Entity, FocusHandle, FontWeight,
-    ImageSource, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _,
-    SharedString, Styled as _, Window, deferred, div, ease_out_quint, img, rems,
+    App, ClickEvent, Div, Entity, FocusHandle, FontWeight, ImageSource, IntoElement,
+    ParentElement as _, SharedString, Styled as _, Window, div, img, rems,
 };
 
 use super::Sort;
 use wish_ui::ButtonExt as _;
-use wish_ui::{PickerItem, PickerState, button, icon_button, input, picker};
+use wish_ui::{Drawer, DrawerState, PickerItem, PickerState, button, icon_button, input, picker};
 
 /// What a filter or the bar does when clicked.
 pub(super) type Handler = Rc<dyn Fn(&mut Window, &mut App)>;
@@ -153,31 +150,10 @@ pub(super) fn filter_bar(
         })
 }
 
-/// Whether the filter drawer shows: sliding in and open, or sliding out
-/// before it goes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(super) enum Drawer {
-    #[default]
-    Closed,
-    Open,
-    Closing,
-}
-
-/// How long the drawer takes to slide in or out.
-pub(super) const DRAWER_SLIDE: Duration = Duration::from_millis(200);
-
-/// The drawer's width.
-const DRAWER_REMS: f32 = 26.;
-
-/// Above the page, under the dialogs (GPUI Kit's start at 10).
-const DRAWER_PRIORITY: usize = 5;
-
-/// The filters in a drawer at the right of the page, over a veil, the whole
-/// page's height: it slides in, and out again when closed (Done, the cross,
-/// Escape, or a click on the veil). It is drawn from the list's own state, so
-/// a click shows at once.
+/// The filters in a drawer at the right of the page (`wish_ui::Drawer`):
+/// each group a grid of buttons, "Clear all" and Done at the bottom.
 pub(super) fn filter_drawer(
-    state: Drawer,
+    state: DrawerState,
     focus: &FocusHandle,
     groups: Vec<FilterGroup>,
     close: Handler,
@@ -185,15 +161,6 @@ pub(super) fn filter_drawer(
     cx: &App,
 ) -> impl IntoElement {
     let theme = cx.theme();
-    let gold = wish_ui::theme::palette(cx).highlight;
-    let closing = state == Drawer::Closing;
-    // Each way its own animation, so closing starts from the open drawer.
-    let (slide, fade) = if closing {
-        ("drawer-out", "veil-out")
-    } else {
-        ("drawer-in", "veil-in")
-    };
-    let shown = move |delta: f32| if closing { 1. - delta } else { delta };
     let content = groups.into_iter().map(|group| {
         div()
             .v_flex()
@@ -214,103 +181,28 @@ pub(super) fn filter_drawer(
                 ),
             )
     });
-    let veil = div()
-        .id("filter-veil")
-        .absolute()
-        .inset_0()
-        .bg(theme.overlay)
-        .on_mouse_down(MouseButton::Left, {
-            let close = close.clone();
-            move |_, window, cx| close(window, cx)
-        })
-        .with_animation(
-            fade,
-            Animation::new(DRAWER_SLIDE).with_easing(ease_out_quint()),
-            move |this, delta| this.opacity(shown(delta)),
-        );
-    let panel = div()
-        .id("filter-drawer")
-        .track_focus(focus)
-        .absolute()
-        .top_0()
-        .bottom_0()
-        .right_0()
-        .w(rems(DRAWER_REMS))
-        .v_flex()
-        .bg(theme.group_box)
-        .text_color(theme.foreground)
-        .border_l_1()
-        .border_color(theme.border)
-        .shadow_xl()
-        // Clicks inside stay inside; Escape closes it.
-        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-        .on_key_down({
-            let close = close.clone();
-            move |event, window, cx| {
-                if event.keystroke.key == "escape" {
-                    cx.stop_propagation();
-                    close(window, cx);
-                }
-            }
-        })
-        .child(
-            div()
-                .h_flex()
-                .px_5()
-                .pt_5()
-                .pb_3()
-                .child(
-                    div()
-                        .flex_1()
-                        .text_2xl()
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(gold)
-                        .child(t!("archive-filter")),
-                )
-                .child(
-                    icon_button("close-filters", IconName::Close, t!("archive-close"))
-                        .quiet(cx)
-                        .on_click({
-                            let close = close.clone();
-                            move |_, window, cx| close(window, cx)
-                        }),
-                ),
+    let drawer = Drawer::new(
+        "filters",
+        state,
+        focus,
+        t!("archive-filter"),
+        t!("archive-close"),
+        close.clone(),
+    );
+    content
+        .fold(drawer, Drawer::child)
+        .footer_child(
+            button("filters-clear")
+                .quiet(cx)
+                .label(t!("archive-clear-all"))
+                .on_click(move |_, window, cx| clear(window, cx)),
         )
-        .child(
-            div()
-                .id("filter-groups")
-                .flex_1()
-                .min_h_0()
-                .overflow_y_scrollbar()
-                .child(div().v_flex().gap_6().px_5().pb_4().children(content)),
+        .footer_child(div().flex_1())
+        .footer_child(
+            button("filters-done")
+                .label(t!("archive-done"))
+                .on_click(move |_, window, cx| close(window, cx)),
         )
-        .child(
-            div()
-                .h_flex()
-                .gap_2()
-                .px_5()
-                .py_4()
-                .border_t_1()
-                .border_color(theme.border)
-                .child(
-                    button("filters-clear")
-                        .quiet(cx)
-                        .label(t!("archive-clear-all"))
-                        .on_click(move |_, window, cx| clear(window, cx)),
-                )
-                .child(div().flex_1())
-                .child(
-                    button("filters-done")
-                        .label(t!("archive-done"))
-                        .on_click(move |_, window, cx| close(window, cx)),
-                ),
-        )
-        .with_animation(
-            slide,
-            Animation::new(DRAWER_SLIDE).with_easing(ease_out_quint()),
-            move |this, delta| this.right(rems(-DRAWER_REMS * (1. - shown(delta)))),
-        );
-    deferred(div().absolute().inset_0().child(veil).child(panel)).with_priority(DRAWER_PRIORITY)
 }
 
 /// A filter in the drawer: a 32 px button with its icon and label, outlined

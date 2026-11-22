@@ -9,8 +9,9 @@
 //! - `wishes`: reading wishes, manual counters and game ids, deleting wishes
 //!   counted by hand;
 //! - `import`: applying an [`ImportBatch`](crate::import::ImportBatch), undoing one, the import log;
-//! - `collection`, `plan`, `inventory`: what an account owns, its plan and
-//!   its bag; `merge`: a snapshot's collection, plan and inventory merged in;
+//! - `collection`, `plan`, `inventory`, `battle_pass`: what an account owns,
+//!   its plan, its bag and its Battle Pass; `merge`: a snapshot's collection,
+//!   plan and inventory merged in;
 //! - `backup`: backups, their rotation, and restoring one.
 //!
 //! The data-safety rules hold for every write: imports only add rows
@@ -20,6 +21,7 @@
 
 mod accounts;
 mod backup;
+mod battle_pass;
 mod collection;
 mod import;
 mod inventory;
@@ -51,6 +53,8 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema/005_planner_weapons.sql"),
     include_str!("schema/006_planner_custom_weapons.sql"),
     include_str!("schema/007_collection.sql"),
+    include_str!("schema/008_battle_pass.sql"),
+    include_str!("schema/009_battle_pass_picks.sql"),
 ];
 
 /// The schema version this app writes: how many migrations it has.

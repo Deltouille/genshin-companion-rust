@@ -458,6 +458,67 @@ fn main() -> Result<()> {
             shell.update(cx, |shell, cx| shell.show_plan_moves(1, false, window, cx))
         })?;
         cx.run_until_parked();
+        // The Battle Pass drawer, on a pass at level 23 with the Gnostic Hymn,
+        // counted in "Still needed", its Philosophies boxes picked and the
+        // others left to the plan (entered once in a data folder that has
+        // none).
+        if cx.update(|cx| library.read(cx).battle_pass(account).is_none()) {
+            use wish_core::planner::{BattlePass, BattlePassData, BoxKind, PlannerData};
+            let data = BattlePassData::embedded();
+            let now = chrono::Local::now().fixed_offset();
+            let freedom = PlannerData::embedded().material_named("Philosophies of Freedom");
+            let pass = BattlePass {
+                premium: true,
+                counted: true,
+                ..BattlePass::new(data, now)
+            }
+            .at_level(23, data, now);
+            let pass = BattlePass {
+                picks: pass.picks.with(BoxKind::Philosophies, freedom),
+                ..pass
+            };
+            cx.update(|cx| {
+                library.update(cx, |l, cx| l.set_battle_pass(account, pass, cx).detach())
+            });
+            for _ in 0..100 {
+                cx.run_until_parked();
+                if cx.update(|cx| library.read(cx).battle_pass(account).is_some()) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        }
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| shell.show_battle_pass(true, window, cx))
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("planner-pass-{mode_name}"))?;
+        // Its list of reward plans, open.
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.show_battle_pass_plans(true, window, cx)
+            })
+        })?;
+        for _ in 0..3 {
+            std::thread::sleep(Duration::from_millis(400));
+            cx.advance_clock(Duration::from_millis(400));
+            cx.update_window(window, |_, window, _| window.refresh())?;
+            cx.run_until_parked();
+        }
+        shoot(&mut cx, format!("planner-pass-plans-{mode_name}"))?;
+        cx.update_window(window, |_, window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.show_battle_pass_plans(false, window, cx);
+                shell.show_battle_pass(false, window, cx);
+            })
+        })?;
+        cx.advance_clock(Duration::from_secs(1));
+        cx.run_until_parked();
 
         // The open-source licences, over the Credits page.
         cx.update_window(window, |_, window, cx| {

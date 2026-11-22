@@ -5,6 +5,7 @@ mod badge;
 mod card;
 mod controls;
 mod donut;
+mod drawer;
 mod item_tile;
 mod legend;
 mod material_tile;
@@ -26,6 +27,7 @@ pub use controls::{
     filter_chip, form_dialog, icon_button, input,
 };
 pub use donut::{Donut, DonutSlice};
+pub use drawer::{CloseHandler, Drawer, DrawerState, drawer_slide};
 pub use item_tile::item_tile;
 pub use legend::legend;
 pub use material_tile::MaterialTile;

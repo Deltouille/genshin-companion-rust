@@ -132,7 +132,7 @@ impl CharactersView {
             .action(crate::features::imports::hoyolab_sync_button())
             .toolbar(toolbar)
             .body_scrolls();
-        let drawer = (self.drawer != filters::Drawer::Closed).then(|| {
+        let drawer = (self.drawer != wish_ui::DrawerState::Closed).then(|| {
             let weak = view.downgrade();
             let close: filters::Handler = Rc::new(move |_, cx| {
                 weak.update(cx, |this, cx| this.close_filters(cx)).ok();
@@ -244,23 +244,24 @@ impl CharactersView {
 
     /// Opens the filter drawer, with the keyboard in it (Escape closes it).
     pub(crate) fn open_filters(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.drawer = filters::Drawer::Open;
+        self.drawer = wish_ui::DrawerState::Open;
         self.drawer_focus.focus(window, cx);
         cx.notify();
     }
 
     /// Slides the filter drawer out, then forgets it.
     fn close_filters(&mut self, cx: &mut Context<Self>) {
-        if self.drawer != filters::Drawer::Open {
+        if self.drawer != wish_ui::DrawerState::Open {
             return;
         }
-        self.drawer = filters::Drawer::Closing;
+        self.drawer = wish_ui::DrawerState::Closing;
         cx.notify();
+        let slide = wish_ui::drawer_slide(cx);
         cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(filters::DRAWER_SLIDE).await;
+            cx.background_executor().timer(slide).await;
             this.update(cx, |this, cx| {
-                if this.drawer == filters::Drawer::Closing {
-                    this.drawer = filters::Drawer::Closed;
+                if this.drawer == wish_ui::DrawerState::Closing {
+                    this.drawer = wish_ui::DrawerState::Closed;
                     cx.notify();
                 }
             })

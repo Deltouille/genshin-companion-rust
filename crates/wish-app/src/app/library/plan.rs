@@ -1,4 +1,5 @@
-//! The plan and the inventory: each change shown at once, then written.
+//! The plan, the inventory and the Battle Pass: each change shown at once,
+//! then written.
 
 use super::*;
 
@@ -119,6 +120,29 @@ impl Library {
             move |store, _| {
                 let account = account_for_writing(store, account)?;
                 Ok(store.set_owned_many(account, &counts)?)
+            },
+            |_, ()| (),
+        )
+    }
+
+    /// Records `account`'s Battle Pass, all of it.
+    pub fn set_battle_pass(
+        &mut self,
+        account: Option<AccountId>,
+        pass: BattlePass,
+        cx: &mut Context<Self>,
+    ) -> Task<Result<()>> {
+        // Shown at once; the reload after the write confirms it.
+        if let Some(holdings) = account.and_then(|a| self.holdings.get_mut(&a)) {
+            holdings.battle_pass = Some(pass);
+            cx.notify();
+        }
+        self.write(
+            cx,
+            true,
+            move |store, _| {
+                let account = account_for_writing(store, account)?;
+                Ok(store.set_battle_pass(account, &pass)?)
             },
             |_, ()| (),
         )

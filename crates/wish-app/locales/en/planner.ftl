@@ -43,6 +43,7 @@ planner-tip-covered = { $name }: { $need } needed, covered by your inventory
 planner-tip-partly = { $name }: { $need } needed, { $lack } still to get
 planner-tip-needed = { $name }: { $need } needed
 planner-tip-plan = { $name }: { $need } for the whole plan, { $owned } owned, { $lack } still to get
+planner-tip-plan-pass = { $name }: { $need } for the whole plan, { $owned } owned, { $pass } from the Battle Pass, { $lack } still to get
 planner-tip-crafted = { $tip }; { $crafted } crafted from the tiers below
 planner-tip-unknown = { $tip } (not in the game data)
 
@@ -53,7 +54,6 @@ planner-entries = { $count ->
         [one] { $count } entry
        *[other] { $count } entries
     }
-planner-still-needed-help = What the plan lacks once your inventory is shared out, in the plan’s order; lower tiers are crafted up. Click a material to enter how many you have.
 
 ## Adding a character or a weapon
 
@@ -159,3 +159,44 @@ planner-resin-sources = Count
 planner-resin-sources-help = Domains count at their highest level. Weekly bosses, gems, ores, enemy drops and local specialties take no resin counted here.
 planner-resin-title = Resin estimate
 planner-resin-not-saved = The resin options were not saved
+
+## The Battle Pass
+
+planner-pass-open = Battle Pass…
+planner-pass = Battle Pass
+planner-pass-close = Close
+planner-pass-level = Level reached
+planner-pass-period = This period ends on { $end }, in { $days ->
+        [one] { $days } day
+       *[other] { $days } days
+    }; the level then starts again at 0.
+planner-pass-track = Pass
+planner-pass-free = Free
+planner-pass-premium = Gnostic Hymn
+planner-pass-plan = Reward plan
+planner-pass-plan-no-artifact-exp = Mora, Character EXP, Weapon EXP
+planner-pass-plan-no-weapon-exp = Mora, Character EXP, Artifact EXP
+planner-pass-plan-no-character-exp = Mora, Weapon EXP, Artifact EXP
+planner-pass-plan-no-mora = Character EXP, Weapon EXP, Artifact EXP
+planner-pass-plan-help = The three reward types picked in the game: the levels’ rewards follow them.
+planner-pass-counted = Count in “Still needed”
+planner-pass-counted-help = The rewards of the levels still to come count as if they were in your bag.
+planner-pass-to-come = Still to come, levels { $from } to { $to }
+planner-pass-to-come-none = Every level is reached: nothing is left to come.
+planner-pass-boxes-title = Boxes to pick from
+planner-pass-boxes-help = Each box gives the series you pick when you open it. Left to the planner, they go to what your plan lacks, in its order.
+planner-pass-box-guides = Guides
+planner-pass-box-philosophies = Philosophies
+planner-pass-box-specialties = Local specialties
+planner-pass-box-count = { $count ->
+        [one] { $count } box
+       *[other] { $count } boxes
+    } of { $size }
+planner-pass-pick-auto = What your plan lacks
+planner-pass-left = { $count ->
+        [one] { $count } box
+       *[other] { $count } boxes
+    } your plan doesn’t need: yours to pick.
+planner-pass-reset = Reset to 0
+planner-pass-reset-help = Sets the level back to 0, as a new period does.
+planner-pass-done = Done

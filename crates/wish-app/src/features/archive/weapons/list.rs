@@ -109,7 +109,7 @@ impl WeaponsView {
             ))
             .toolbar(toolbar)
             .body_scrolls();
-        let drawer = (self.drawer != filters::Drawer::Closed).then(|| {
+        let drawer = (self.drawer != wish_ui::DrawerState::Closed).then(|| {
             let weak = view.downgrade();
             let close: filters::Handler = Rc::new(move |_, cx| {
                 weak.update(cx, |this, cx| this.close_filters(cx)).ok();

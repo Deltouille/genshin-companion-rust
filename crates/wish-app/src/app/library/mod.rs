@@ -45,7 +45,7 @@ use wish_core::import::{
     self, ImportBatch, ImportRecord, ImportReport, PreparedImport, UndoReport,
 };
 use wish_core::model::{Account, AccountId, Server, WishId};
-use wish_core::planner::{CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
+use wish_core::planner::{BattlePass, CustomItem, Inventory, PlanEntry, PlanTarget, PlannerData};
 use wish_core::service::export::ExportSummary;
 use wish_core::service::{self, lock};
 use wish_core::settings::Settings;
@@ -96,11 +96,16 @@ pub struct Holdings {
     pub inventory: Inventory,
     /// The characters and weapons it has.
     pub owned: Owned,
+    /// Its Battle Pass, once entered.
+    pub battle_pass: Option<BattlePass>,
 }
 
 impl Holdings {
     pub fn is_empty(&self) -> bool {
-        self.plan.is_empty() && self.inventory == Inventory::default() && self.owned.is_empty()
+        self.plan.is_empty()
+            && self.inventory == Inventory::default()
+            && self.owned.is_empty()
+            && self.battle_pass.is_none()
     }
 }
 
@@ -350,6 +355,11 @@ impl Library {
         &self.holdings(account).owned
     }
 
+    /// `account`'s Battle Pass, once entered.
+    pub fn battle_pass(&self, account: Option<AccountId>) -> Option<&BattlePass> {
+        self.holdings(account).battle_pass.as_ref()
+    }
+
     /// Set when a copy of the planner or archive data in the game-data folder
     /// could not be read, and the built-in data is used instead.
     pub fn game_data_warning(&self) -> Option<&SharedString> {
@@ -504,6 +514,7 @@ fn load(store: &mut Store, data: &GameData, analyses: &Mutex<Analyses>) -> Resul
             plan: store.plan(account.id)?,
             inventory: store.inventory(account.id)?,
             owned: store.collection(account.id)?,
+            battle_pass: store.battle_pass(account.id)?,
         };
         // An account an import made and its undo left empty is not shown;
         // one added by hand is, even before it holds anything.

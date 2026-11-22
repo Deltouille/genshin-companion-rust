@@ -1,7 +1,9 @@
 //! What the planner page shows, worked out from the plan (each goal as its
-//! sliders show it), the inventory, the game data and the resin options:
-//! every card's name, picture, ranges and materials, what each lacks once the
-//! inventory is shared out, the resin, and the words of the tooltips.
+//! sliders show it), the inventory, the game data, the resin options and the
+//! Battle Pass: every card's name, picture, ranges and materials, what each
+//! lacks once the inventory (and the pass's rewards still to come, when they
+//! count) is shared out, the resin, what the pass brings, and the words of the
+//! tooltips.
 //!
 //! Plain data, no GPUI: the view builds it when one of those changes (the
 //! library, the account, a slider moved), its render only reads it, and it is
@@ -11,8 +13,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use wish_core::planner::{
-    CustomItem, Inventory, Level, MaterialId, PlanEntry, PlanTarget, PlanTotals, PlannerData,
-    ResinEstimate, ResinOptions,
+    BattlePassRewards, BoxKind, BoxPicks, CustomItem, Inventory, Level, MaterialId, PlanEntry,
+    PlanTarget, PlanTotals, PlannerData, ResinEstimate, ResinOptions,
 };
 use wish_ui::format;
 
@@ -37,6 +39,31 @@ pub(super) struct PlannerModel {
     pub total: MaterialsModel,
     /// The resin farming that takes.
     pub resin: ResinEstimate,
+    /// What the Battle Pass's levels still to come bring the plan.
+    pub pass: PassModel,
+}
+
+/// The Battle Pass's levels still to come, as the drawer shows them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(super) struct PassModel {
+    /// The first level still to come; past 50 when none is.
+    pub from_level: u8,
+    /// Mora, EXP books and ores, in the game's order.
+    pub rewards: Vec<(MaterialId, u64)>,
+    /// The boxes still to come, by kind.
+    pub boxes: Vec<(BoxKind, u64)>,
+    /// What each kind of box becomes, in the game's order.
+    pub picked: Vec<(BoxKind, MaterialId, u64)>,
+    /// The boxes the plan needs nothing from, to pick freely.
+    pub left: Vec<(BoxKind, u64)>,
+}
+
+/// The Battle Pass as the page counts it: its rewards still to come, the
+/// series picked for its boxes, and whether "Still needed" counts them.
+pub(super) struct PassInput<'a> {
+    pub rewards: &'a BattlePassRewards,
+    pub picks: BoxPicks,
+    pub counted: bool,
 }
 
 /// One card of the plan: its entry, its name and picture, and what it still
@@ -168,14 +195,34 @@ enum Count {
 }
 
 impl PlannerModel {
-    /// The page for `plan`, its goals as the sliders show them.
+    /// The page for `plan`, its goals as the sliders show them, with the
+    /// Battle Pass's rewards still to come counted when `pass` says so.
     pub fn build(
         plan: &[PlanEntry],
         inventory: &Inventory,
         planner: &PlannerData,
         resin: &ResinOptions,
+        pass: Option<PassInput>,
     ) -> Self {
-        let allocation = planner.allocate(plan, inventory);
+        // The pass's share is worked out either way: the drawer shows where
+        // its boxes would go.
+        let shared = pass
+            .as_ref()
+            .map(|pass| planner.allocate_with(plan, inventory, pass.rewards, pass.picks));
+        let counted = pass.as_ref().is_some_and(|pass| pass.counted);
+        let (allocation, share) = match shared {
+            Some((with, share)) if counted => (with, Some(share)),
+            Some((_, share)) => (planner.allocate(plan, inventory), Some(share)),
+            None => (planner.allocate(plan, inventory), None),
+        };
+        // What the pass adds to each material, when it counts.
+        let mut from_pass: BTreeMap<MaterialId, u64> = BTreeMap::new();
+        if let Some(share) = share.as_ref().filter(|_| counted) {
+            let picked = share.picked_materials();
+            for (&id, &count) in share.rewards.materials.iter().chain(&picked) {
+                *from_pass.entry(id).or_default() += count;
+            }
+        }
         let entries: Vec<EntryModel> = (plan.iter().zip(&allocation.entries))
             .map(|(entry, share)| {
                 let materials = materials(
@@ -184,6 +231,7 @@ impl PlannerModel {
                     &share.crafted,
                     Count::Entry,
                     inventory,
+                    &from_pass,
                     planner,
                 );
                 let resin = planner.resin_estimate(&share.missing.materials, resin);
@@ -196,12 +244,34 @@ impl PlannerModel {
             &allocation.crafted,
             Count::Plan,
             inventory,
+            &from_pass,
             planner,
         );
+        let in_order = |counts: &BTreeMap<MaterialId, u64>| {
+            let mut list: Vec<(MaterialId, u64)> = counts.iter().map(|(&id, &n)| (id, n)).collect();
+            list.sort_by_key(|(id, _)| (planner.material(*id).map_or(u32::MAX, |m| m.sort), *id));
+            list
+        };
+        let pass = share
+            .map(|share| PassModel {
+                from_level: share.rewards.from_level,
+                rewards: in_order(&share.rewards.materials),
+                boxes: share.rewards.boxes.iter().map(|(&k, &n)| (k, n)).collect(),
+                picked: (share.picked.iter())
+                    .flat_map(|(&kind, picked)| {
+                        in_order(picked)
+                            .into_iter()
+                            .map(move |(id, n)| (kind, id, n))
+                    })
+                    .collect(),
+                left: share.left.into_iter().collect(),
+            })
+            .unwrap_or_default();
         Self {
             entries,
             total,
             resin: planner.resin_estimate(&allocation.missing.materials, resin),
+            pass,
         }
     }
 
@@ -306,14 +376,27 @@ fn materials(
     crafted: &BTreeMap<MaterialId, u64>,
     count: Count,
     inventory: &Inventory,
+    from_pass: &BTreeMap<MaterialId, u64>,
     planner: &PlannerData,
 ) -> MaterialsModel {
+    let pass_of = |item: &CustomItem| match item {
+        CustomItem::Material(id) => from_pass.get(id).copied().unwrap_or(0),
+        CustomItem::Named(_) => 0,
+    };
     let tip = |name: &str, item: &CustomItem, need: u64, lack: u64| match count {
         Count::Entry if lack == 0 => t!("planner-tip-covered", name = name, need = need),
         Count::Entry if lack < need => {
             t!("planner-tip-partly", name = name, need = need, lack = lack)
         }
         Count::Entry => t!("planner-tip-needed", name = name, need = need),
+        Count::Plan if pass_of(item) > 0 => t!(
+            "planner-tip-plan-pass",
+            name = name,
+            need = need,
+            owned = inventory.owned(item),
+            pass = pass_of(item),
+            lack = lack
+        ),
         Count::Plan => t!(
             "planner-tip-plan",
             name = name,
@@ -392,7 +475,52 @@ mod tests {
     }
 
     fn build(plan: &[PlanEntry], inventory: &Inventory) -> PlannerModel {
-        PlannerModel::build(plan, inventory, data(), &ResinOptions::default())
+        PlannerModel::build(plan, inventory, data(), &ResinOptions::default(), None)
+    }
+
+    #[test]
+    fn the_battle_pass_counts_only_when_asked() {
+        use wish_core::planner::{BattlePassData, RewardPlan};
+        let rewards = BattlePassData::embedded().remaining(20, true, RewardPlan::NoArtifactExp);
+        let plan = [ganyu(1)];
+        let with = |counted| {
+            PlannerModel::build(
+                &plan,
+                &Inventory::default(),
+                data(),
+                &ResinOptions::default(),
+                Some(PassInput {
+                    rewards: &rewards,
+                    picks: BoxPicks::default(),
+                    counted,
+                }),
+            )
+        };
+        let (off, on, none) = (with(false), with(true), build(&plan, &Inventory::default()));
+        let lack = |model: &PlannerModel, id: MaterialId| {
+            (model.total.known.iter())
+                .find(|line| line.id == id)
+                .map_or(0, |line| line.lack)
+        };
+        let mora = wish_core::planner::MORA;
+        // Not counted: the totals are the plan's alone; the drawer still
+        // knows where the boxes would go.
+        assert_eq!(lack(&off, mora), lack(&none, mora));
+        assert_eq!(off.pass.picked, on.pass.picked);
+        assert!(!on.pass.picked.is_empty());
+        assert_eq!(none.pass, PassModel::default());
+        // Counted: Mora and Ganyu's books lack less, and the tooltip says the
+        // pass brings some.
+        assert!(lack(&on, mora) < lack(&off, mora));
+        let (_, books, _) = on.pass.picked[0];
+        assert!(lack(&on, books) < lack(&off, books));
+        let tip = &(on.total.known.iter())
+            .find(|line| line.id == mora)
+            .unwrap()
+            .tip;
+        assert!(tip.contains("Battle Pass"), "{tip}");
+        // Levels 21 to 50: the first level still to come is 21.
+        assert_eq!(on.pass.from_level, 21);
     }
 
     #[test]

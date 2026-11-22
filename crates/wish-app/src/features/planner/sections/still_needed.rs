@@ -1,5 +1,6 @@
 //! The "Still needed" card, on top of the plan: what the whole plan lacks
-//! once the inventory is shared out, and the resin farming it takes.
+//! once the inventory (and the Battle Pass's rewards still to come, when they
+//! count) is shared out, and the resin farming it takes.
 
 use std::rc::Rc;
 
@@ -32,12 +33,6 @@ impl RenderOnce for StillNeeded {
                         .text_color(cx.theme().muted_foreground)
                         .child(t!("planner-entries", count = entries)),
                 ),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().muted_foreground)
-                    .child(t!("planner-still-needed-help")),
             )
             .child(grid(
                 "total",

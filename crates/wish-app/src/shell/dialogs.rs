@@ -79,6 +79,31 @@ impl Shell {
             .update(cx, |planner, cx| planner.open_resin_options(window, cx));
     }
 
+    /// Opens or closes the planner's Battle Pass drawer, as its button and
+    /// Done do (the screenshot tool uses it).
+    pub fn show_battle_pass(&mut self, open: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.navigate(Page::Planner, cx);
+        self.planner.update(cx, |planner, cx| {
+            if open {
+                planner.open_pass(window, cx);
+            } else {
+                planner.close_pass(cx);
+            }
+        });
+    }
+
+    /// Opens or closes the Battle Pass drawer's list of reward plans (the
+    /// screenshot tool uses it).
+    pub fn show_battle_pass_plans(
+        &mut self,
+        open: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.planner
+            .update(cx, |planner, cx| planner.show_pass_plans(open, window, cx));
+    }
+
     /// Opens or closes the move menu of the plan's entry `at` (from 0), as
     /// its grip does (the screenshot tool uses it).
     pub fn show_plan_moves(
