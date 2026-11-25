@@ -12,6 +12,7 @@ pub enum Page {
     Archive(ArchivePage),
     /// The ascension planner.
     Planner,
+    Chronicle(ChroniclePage),
     /// Every way to bring data in.
     Imports,
     Settings,
@@ -59,6 +60,17 @@ pub enum ArchivePage {
     Resources,
 }
 
+/// The chronicle's pages: what HoYoLAB shows for a while only, kept.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChroniclePage {
+    /// The Spiral Abyss, period by period.
+    Abyss,
+    /// The Imaginarium Theater, period by period.
+    Theater,
+    /// The Traveler's Diary, month by month.
+    Diary,
+}
+
 /// A feature: a group in the sidebar, holding its pages. A new one (a quest
 /// reader…) adds a variant here, one to [`Page`] with its own page enum, a
 /// group in `sidebar.rs` and a folder in `features/`.
@@ -67,6 +79,7 @@ pub enum Feature {
     Wishes,
     Archive,
     Planner,
+    Chronicle,
 }
 
 impl Page {
@@ -76,6 +89,7 @@ impl Page {
             Page::Wishes(_) => Some(Feature::Wishes),
             Page::Archive(_) => Some(Feature::Archive),
             Page::Planner => Some(Feature::Planner),
+            Page::Chronicle(_) => Some(Feature::Chronicle),
             Page::Overview(_) | Page::Imports | Page::Settings | Page::Credits => None,
         }
     }
@@ -89,6 +103,7 @@ impl Feature {
             Feature::Wishes => Page::Wishes(WishPage::History(Pool::CharacterEvent)),
             Feature::Archive => Page::Archive(ArchivePage::Characters),
             Feature::Planner => Page::Planner,
+            Feature::Chronicle => Page::Chronicle(ChroniclePage::Abyss),
         }
     }
 }

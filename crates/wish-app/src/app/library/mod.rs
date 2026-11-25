@@ -30,6 +30,7 @@ use futures_channel::mpsc::UnboundedSender;
 use futures_channel::oneshot;
 use gpui_kit::{App, AppContext as _, Context, Entity, SharedString, Subscription, Task};
 use wish_core::archive::ArchiveData;
+use wish_core::chronicle::{Chronicle, RecordsPlan};
 use wish_core::collection::{
     Collection as Owned, GoodFile, GoodPlan, OwnedCharacter, OwnedWeapon, SyncPlan,
 };
@@ -98,6 +99,8 @@ pub struct Holdings {
     pub owned: Owned,
     /// Its Battle Pass, once entered.
     pub battle_pass: Option<BattlePass>,
+    /// The Abyss, Theater and Diary periods HoYoLAB showed, kept.
+    pub chronicle: Chronicle,
 }
 
 impl Holdings {
@@ -106,6 +109,7 @@ impl Holdings {
             && self.inventory == Inventory::default()
             && self.owned.is_empty()
             && self.battle_pass.is_none()
+            && self.chronicle.is_empty()
     }
 }
 
@@ -187,6 +191,10 @@ pub struct Library {
     mirror_due: Arc<AtomicBool>,
     /// Writes the mirror once the changes stop (`schedule_mirror`).
     mirror_timer: Option<Task<()>>,
+    /// Whether the system keyring keeps a HoYoLAB login.
+    kept_login: KeptLogin,
+    /// The chronicle synced with it on its own.
+    chronicle_syncs: kept_login::ChronicleSyncs,
     /// Database writes queued or running.
     writes: usize,
     /// Writes not finished yet, counted where they run: quitting waits for
@@ -239,6 +247,7 @@ impl Library {
                         });
                         this.set_loaded(opened.loaded);
                         this.state = LoadState::Ready;
+                        this.ask_keyring(cx);
                     }
                     Err(err) => this.state = LoadState::Failed(format!("{err:#}").into()),
                 }
@@ -267,6 +276,8 @@ impl Library {
             mirror: None,
             mirror_due: Arc::default(),
             mirror_timer: None,
+            kept_login: KeptLogin::Checking,
+            chronicle_syncs: kept_login::ChronicleSyncs::default(),
             writes: 0,
             unfinished: unfinished.clone(),
             // A setting can change what the pages show.
@@ -358,6 +369,11 @@ impl Library {
     /// `account`'s Battle Pass, once entered.
     pub fn battle_pass(&self, account: Option<AccountId>) -> Option<&BattlePass> {
         self.holdings(account).battle_pass.as_ref()
+    }
+
+    /// The Abyss, Theater and Diary periods `account` keeps.
+    pub fn chronicle(&self, account: Option<AccountId>) -> &Chronicle {
+        &self.holdings(account).chronicle
     }
 
     /// Set when a copy of the planner or archive data in the game-data folder
@@ -515,6 +531,7 @@ fn load(store: &mut Store, data: &GameData, analyses: &Mutex<Analyses>) -> Resul
             inventory: store.inventory(account.id)?,
             owned: store.collection(account.id)?,
             battle_pass: store.battle_pass(account.id)?,
+            chronicle: Chronicle::read(&store.chronicle(account.id)?),
         };
         // An account an import made and its undo left empty is not shown;
         // one added by hand is, even before it holds anything.
@@ -576,6 +593,8 @@ pub fn is_cancelled(err: &anyhow::Error) -> bool {
 
 mod collection;
 mod data;
+mod kept_login;
+pub use kept_login::KeptLogin;
 mod mirror;
 use mirror::write_mirror_if_due;
 mod plan;

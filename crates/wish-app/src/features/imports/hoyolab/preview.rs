@@ -103,7 +103,8 @@ impl HoyolabSync {
                     .child(div().flex_1().min_w_0().child(text))
             })
             .collect();
-        let changes = plan.changes();
+        let chronicle = model::chronicle(&chosen.records);
+        let changes = plan.changes() + chosen.records.changes();
         div()
             .v_flex()
             .gap_3()
@@ -116,6 +117,16 @@ impl HoyolabSync {
                 into = into
             )))
             .child(div().text_sm().child(model::summary(plan)))
+            .when(!chronicle.is_empty(), |this| {
+                this.child(
+                    div()
+                        .v_flex()
+                        .gap_1()
+                        .text_sm()
+                        .children(chronicle)
+                        .child(div().text_color(muted).child(t!("hoyolab-chronicle-note"))),
+                )
+            })
             .when(!lines.is_empty(), |this| {
                 this.child(
                     div()

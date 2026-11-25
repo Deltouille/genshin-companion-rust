@@ -22,12 +22,12 @@ settings-backups = Sauvegardes
 settings-backups-summary = { $count ->
         [one] { $count } sauvegarde
        *[other] { $count } sauvegardes
-    }, la dernière le { $latest }. Faites avant chaque import, annulation ou restauration, et une fois par jour (les { $kept } plus récentes sont gardées), puis une fois par heure pendant le comptage à la main ou la modification du plan (les { $kept_hourly } plus récentes).
+    }, la dernière le { $latest }. Faites avant chaque import, annulation ou restauration, et une fois par jour (les { $kept } plus récentes sont gardées), puis au plus une fois par heure pendant le comptage à la main, la modification du plan ou la chronique gardée toute seule (les { $kept_hourly } plus récentes).
 settings-backups-none = Aucune sauvegarde pour l’instant. Une est faite avant chaque import ou annulation, et une fois par jour.
 settings-back-up-now = Sauvegarder maintenant
 settings-restore = Restaurer…
 settings-mirror-folder = Dossier miroir
-settings-mirror-help = Une copie de tous vos vœux, personnages, armes, plan et inventaire, mise à jour quelques secondes après chaque changement et à la fermeture de l’app. Choisissez un dossier synchronisé par Syncthing, Nextcloud, Dropbox ou un équivalent pour garder une copie hors de cet ordinateur.
+settings-mirror-help = Une copie de tous vos vœux, personnages, armes, plan, inventaire et chronique, mise à jour quelques secondes après chaque changement et à la fermeture de l’app. Choisissez un dossier synchronisé par Syncthing, Nextcloud, Dropbox ou un équivalent pour garder une copie hors de cet ordinateur.
 settings-mirror-written = Écrit pour la dernière fois à { $time }.
 settings-mirror-failed = Impossible d’écrire la dernière copie : { $error }
 settings-mirror-pending = Écrit après le prochain changement.
@@ -62,6 +62,7 @@ settings-backup-reason-delete = Avant la suppression de vœux
 settings-backup-reason-counting = Avant un comptage de vœux
 settings-backup-reason-planning = Avant un changement de votre collection ou de votre plan
 settings-backup-reason-sync = Avant une synchronisation HoYoLAB
+settings-backup-reason-chronicle = Avant de garder la chronique
 settings-backup-reason-account = Avant de supprimer un compte
 settings-backup-reason-unknown = Sauvegarde
 
@@ -100,7 +101,7 @@ settings-group-export = Export
 settings-export = Exporter…
 settings-export-failed = Impossible d’exporter
 settings-export-snapshot = Instantané
-settings-export-snapshot-help = Tous les comptes, sans rien laisser de côté : vœux, personnages, armes, plan et inventaire. À réimporter ici, sur cet ordinateur ou un autre.
+settings-export-snapshot-help = Tous les comptes, sans rien laisser de côté : vœux, personnages, armes, plan, inventaire et chronique. À réimporter ici, sur cet ordinateur ou un autre.
 settings-export-uigf = UIGF
 settings-export-uigf-help = Pour d’autres outils de suivi comme Snap Hutao ou Starward. Les comptes doivent avoir un UID.
 settings-export-spreadsheet = Tableur
@@ -201,3 +202,18 @@ settings-account-server = Serveur
 settings-account-server-unknown = Non renseigné
 settings-account-uid-kept = Il vient d’un import ou a été donné une fois : les imports retrouvent le compte par lui, il ne change donc plus.
 settings-account-identity-help = Un UID dit son serveur. Sans UID, choisissez le serveur : les horaires des bannières et le jour du planificateur le suivent. Une fois donné, l’UID ne change plus.
+
+## HoYoLAB : le cookie gardé dans le trousseau du système
+
+settings-group-hoyolab = HoYoLAB
+settings-hoyolab-kept = Cookie gardé sur cet ordinateur
+settings-hoyolab-kept-help = Dans le trousseau de ce système (ltuid_v2, ltoken_v2 et ltmid_v2 seulement). La chronique de l’UID { $uids } se synchronise toute seule toutes les 6 heures pendant que l’app est ouverte, dans le compte qui a cet UID. Dernière synchronisation : { $last }.
+settings-hoyolab-unlinked = Aucun compte ici n’a encore cet UID : synchronisez une fois avec HoYoLAB et choisissez le compte où il va.
+settings-hoyolab-no-uid = aucun compte pour l’instant
+settings-hoyolab-never = pas encore
+settings-hoyolab-sync-now = Synchroniser maintenant
+settings-hoyolab-forget = Oublier le cookie
+settings-hoyolab-none = Aucun cookie gardé
+settings-hoyolab-none-help = Cochez « Se souvenir de ce cookie sur cet ordinateur » lors d’une synchronisation avec HoYoLAB : la chronique se synchronise alors toute seule pendant que l’app est ouverte. Le cookie ne va que dans le trousseau de ce système.
+settings-hoyolab-unavailable = Ce système n’a pas de trousseau que l’app puisse utiliser (sous Linux, un Secret Service comme GNOME Keyring ou KWallet), donc aucun cookie n’est gardé : chaque synchronisation le demande.
+settings-hoyolab-checking = Interrogation du trousseau du système…

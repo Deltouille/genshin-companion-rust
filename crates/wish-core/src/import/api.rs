@@ -324,7 +324,7 @@ fn request(
 }
 
 /// Sleeps in short steps so a cancel takes effect quickly.
-fn pause(duration: Duration, cancelled: &AtomicBool) -> Result<()> {
+pub(crate) fn pause(duration: Duration, cancelled: &AtomicBool) -> Result<()> {
     let step = Duration::from_millis(50);
     let mut left = duration;
     while !left.is_zero() {

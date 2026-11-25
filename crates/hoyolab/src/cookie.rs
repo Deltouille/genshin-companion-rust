@@ -21,6 +21,12 @@ const KEPT: [&str; 10] = [
     "account_id",
 ];
 
+/// The fields that log in, and nothing else: what may be kept in the
+/// system keyring. `ltmid_v2` goes with `ltoken_v2` (an account's id, not a
+/// token). The cookie token, which makes authkeys and redeems codes, isn't
+/// among them: it is always used once.
+const LOGIN: [&str; 5] = ["ltuid_v2", "ltoken_v2", "ltmid_v2", "ltuid", "ltoken"];
+
 /// What HoYoLAB needs of the player's cookie: each field a [`Secret`].
 #[derive(Clone)]
 pub struct Cookie {
@@ -70,6 +76,19 @@ impl Cookie {
     /// The names of the fields kept, without their values.
     pub fn names(&self) -> Vec<&'static str> {
         self.fields.iter().map(|(name, _)| *name).collect()
+    }
+
+    /// The fields that log in to HoYoLAB's Battle Chronicle and Diary only
+    /// (`ltuid_v2`, `ltoken_v2`, `ltmid_v2`, or the older `ltuid` and
+    /// `ltoken`): what the app may keep in the system keyring when the player
+    /// asks. Never the cookie token.
+    pub fn login(&self) -> Cookie {
+        Cookie {
+            fields: (self.fields.iter())
+                .filter(|(name, _)| LOGIN.contains(name))
+                .cloned()
+                .collect(),
+        }
     }
 
     /// Whether it can ask for an authkey: `cookie_token_v2` with
@@ -136,6 +155,22 @@ mod tests {
         );
         // The values never show.
         assert!(!format!("{cookie:?}").contains("v2_abc"));
+    }
+
+    #[test]
+    fn the_login_leaves_the_cookie_token_out() {
+        let cookie = Cookie::parse(
+            "ltuid_v2=123; ltoken_v2=v2_abc; ltmid_v2=mid; cookie_token_v2=v2_ct; \
+             account_id_v2=123; account_mid_v2=mid",
+        )
+        .unwrap();
+        let login = cookie.login();
+        assert_eq!(login.names(), ["ltuid_v2", "ltoken_v2", "ltmid_v2"]);
+        assert!(!login.can_make_authkeys());
+        assert!(!login.header().expose().contains("v2_ct"));
+        // It reads back as it was written.
+        let again = Cookie::parse(login.header().expose()).unwrap();
+        assert_eq!(again.names(), login.names());
     }
 
     #[test]

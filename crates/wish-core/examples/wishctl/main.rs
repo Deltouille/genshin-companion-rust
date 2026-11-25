@@ -45,8 +45,9 @@ Commands:
   hoyolab-check [--raw D] Read your HoYoLAB cookie from stdin and check what HoYoLAB tells of your
                           account, writing nothing (D: also save HoYoLAB's answers there, without
                           the cookie)
-  hoyolab-fetch [--uid U] Read your HoYoLAB cookie from stdin and show what a sync of your characters
-                          and their weapons would change (U: which game account; else the highest AR)
+  hoyolab-fetch [--uid U] Read your HoYoLAB cookie from stdin and show what a sync of your characters,
+                          their weapons and the chronicle (Abyss, Theater, Diary) would change (U:
+                          which game account; else the highest AR)
   hoyolab-sync [--uid U]  The same, then write it (into the account of that UID; else the only one
                           without a UID, which takes it; else a new one)
                           (--from F: read the details hoyolab-check --raw saved, with --uid, instead

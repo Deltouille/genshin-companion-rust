@@ -15,6 +15,7 @@ use wish_core::{AppPaths, Store};
 
 const SNAPSHOT_V1: &str = include_str!("fixtures/witness/snapshot-v1.json");
 const SNAPSHOT_V2: &str = include_str!("fixtures/witness/snapshot-v2.json");
+const SNAPSHOT_V3: &str = include_str!("fixtures/witness/snapshot-v3.json");
 const SETTINGS_V0_6: &str = include_str!("fixtures/witness/settings-v0.6.json");
 
 fn open_store(dir: &std::path::Path) -> Store {
@@ -226,17 +227,58 @@ fn the_version_2_witness_still_reads() {
     assert_eq!(store.inventory(second).unwrap().owned(&starshroom), 40);
 }
 
+#[test]
+fn the_version_3_witness_still_reads() {
+    use wish_core::chronicle::{Chronicle, RecordKind};
+
+    let snapshot = Snapshot::from_json(SNAPSHOT_V3.as_bytes()).unwrap();
+    assert_eq!(snapshot.version, 3);
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = open_store(dir.path());
+    let report = store.apply_import(snapshot.into_batch()).unwrap();
+    assert_eq!(report.accounts[0].extras.records, 3);
+    let main = store.accounts().unwrap()[0].id;
+    let records = store.chronicle(main).unwrap();
+    let kinds: Vec<(RecordKind, u32, bool)> = records
+        .iter()
+        .map(|r| (r.kind, r.period, r.ended))
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            (RecordKind::Abyss, 102, true),
+            (RecordKind::Diary, 202511, true),
+            (RecordKind::Theater, 61, true)
+        ]
+    );
+    // Every field the app reads still reads.
+    let chronicle = Chronicle::read(&records);
+    assert_eq!(chronicle.unreadable, 0);
+    let abyss = &chronicle.abyss[0].abyss;
+    assert_eq!(
+        (abyss.total_star, abyss.floors[0].levels[0].battles.len()),
+        (35, 2)
+    );
+    let theater = &chronicle.theater[0].theater;
+    assert_eq!((theater.stat.max_round_id, theater.stat.medal_num), (8, 6));
+    let diary = &chronicle.diary[0];
+    assert_eq!(
+        (diary.year, diary.month, diary.primogems.len()),
+        (2025, 11, 2)
+    );
+}
+
 /// The writer checked against the witness of the current version. When the
 /// format moves to a new version, this test moves to its witness; the older
 /// witness keeps its reading test.
 #[test]
-fn the_snapshot_writer_still_writes_the_version_2_witness() {
+fn the_snapshot_writer_still_writes_the_version_3_witness() {
     let dir = tempfile::tempdir().unwrap();
     let mut store = open_store(dir.path());
-    let snapshot = Snapshot::from_json(SNAPSHOT_V2.as_bytes()).unwrap();
+    let snapshot = Snapshot::from_json(SNAPSHOT_V3.as_bytes()).unwrap();
     store.apply_import(snapshot.into_batch()).unwrap();
     let written = Snapshot::from_store(&store).unwrap().to_json();
-    assert_eq!(content(&written), content(SNAPSHOT_V2.as_bytes()));
+    assert_eq!(content(&written), content(SNAPSHOT_V3.as_bytes()));
 }
 
 #[test]

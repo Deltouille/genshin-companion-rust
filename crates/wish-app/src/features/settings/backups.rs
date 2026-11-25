@@ -179,6 +179,7 @@ fn backup_reason(reason: Option<BackupReason>) -> String {
         Some(BackupReason::BeforePlanning) => t!("settings-backup-reason-planning"),
         Some(BackupReason::BeforeSync) => t!("settings-backup-reason-sync"),
         Some(BackupReason::BeforeRemovingAccount) => t!("settings-backup-reason-account"),
+        Some(BackupReason::BeforeChronicle) => t!("settings-backup-reason-chronicle"),
         None => t!("settings-backup-reason-unknown"),
     }
 }

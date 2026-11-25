@@ -115,15 +115,16 @@ impl Store {
     /// Removes an account that has no wishes (one added by mistake, or the
     /// "Main" a GOOD import made, no longer wanted), with its collection,
     /// plan and inventory, after a backup, in one transaction. An account
-    /// with wishes, counters or imports in the history is refused: the wish
-    /// history is the data the app keeps, and undoing an import needs its
-    /// account.
+    /// with wishes, counters or imports in the history, or a chronicle, is
+    /// refused: the wish history and what HoYoLAB no longer shows are the
+    /// data the app keeps, and undoing an import needs its account.
     pub fn remove_account(&mut self, account: AccountId) -> Result<()> {
         let label = self.account(account)?.label;
         let history: bool = self.conn.query_row(
             "SELECT EXISTS (SELECT 1 FROM wishes WHERE account_id = ?1)
                  OR EXISTS (SELECT 1 FROM manual_counters WHERE account_id = ?1)
-                 OR EXISTS (SELECT 1 FROM imports WHERE account_id = ?1)",
+                 OR EXISTS (SELECT 1 FROM imports WHERE account_id = ?1)
+                 OR EXISTS (SELECT 1 FROM chronicle WHERE account_id = ?1)",
             [account.0],
             |row| row.get(0),
         )?;

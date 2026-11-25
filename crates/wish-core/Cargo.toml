@@ -15,6 +15,8 @@ fluent-bundle = "0.16.0"
 # Reads the texts' variables, for the tests that check every language against the code.
 fluent-syntax = "0.12.0"
 hoyolab.workspace = true
+# The system keyring, where the player's HoYoLAB login may be kept (`keyring`), with a store per system below.
+keyring-core = "1.0.1"
 rusqlite = { version = "0.41.1", features = ["bundled", "backup"] }
 rust_xlsxwriter = "0.102.0"
 serde.workspace = true
@@ -25,6 +27,17 @@ thiserror.workspace = true
 ureq.workspace = true
 unic-langid = "0.9.6"
 url.workspace = true
+
+# Each system's keyring: the Keychain, the Credential Manager, the Secret Service (pure Rust, through zbus, which
+# GPUI already brings).
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1.0.2", features = ["keychain"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-native-keyring-store = { version = "1.1.0", default-features = false }
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+zbus-secret-service-keyring-store = { version = "1.0.1", features = ["rt-async-io-crypto-rust"] }
 
 [dev-dependencies]
 anyhow.workspace = true

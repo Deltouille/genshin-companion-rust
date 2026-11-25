@@ -154,6 +154,97 @@ pub(crate) fn hoyolab_check(raw: Option<&Path>) -> Result<()> {
         Ok(key) => println!("obtained ({} characters, not shown)", key.len()),
         Err(e) => println!("not obtained: {e}"),
     }
+
+    // 6. The chronicle: what the app keeps, and whether its fields read.
+    println!("\n6. The chronicle HoYoLAB still shows:");
+    check_chronicle(&client, account, &save)?;
+    Ok(())
+}
+
+/// What the chronicle's answers hold, read as the app reads them: a field
+/// that doesn't read shows here before it shows in the app.
+fn check_chronicle(
+    client: &hoyolab::Client,
+    account: &hoyolab::GameAccount,
+    save: &dyn Fn(&str, &serde_json::Value) -> Result<()>,
+) -> Result<()> {
+    use hoyolab::chronicle::{Currency, DiaryLogPage, DiaryMonth, SpiralAbyss, Theater, read};
+
+    let pause = || std::thread::sleep(wish_core::import::api::Pacing::default().delay);
+    for (previous, name) in [(false, "abyss.json"), (true, "abyss-previous.json")] {
+        pause();
+        let data = client.spiral_abyss_raw(account, previous)?;
+        save(name, &data)?;
+        match read::<SpiralAbyss>(&data) {
+            Ok(a) => println!(
+                "   Abyss {}: period {}, {} battles, {}★, deepest {}, {} floors",
+                if previous { "before" } else { "now" },
+                a.schedule_id,
+                a.total_battle_times,
+                a.total_star,
+                a.max_floor,
+                a.floors.len()
+            ),
+            Err(e) => println!("   Abyss: doesn't read: {e}"),
+        }
+    }
+    pause();
+    let data = client.theater_raw(account)?;
+    save("theater.json", &data)?;
+    match read::<Theater>(&data) {
+        Ok(t) => {
+            for p in &t.periods {
+                let acts = p.detail.as_ref().map_or(0, |d| d.rounds_data.len());
+                println!(
+                    "   Theater: period {}, taken part: {}, difficulty {}, act {} reached, {} acts in detail",
+                    p.schedule.schedule_id,
+                    p.has_data,
+                    p.stat.difficulty_id,
+                    p.stat.max_round_id,
+                    acts
+                );
+            }
+        }
+        Err(e) => println!("   Theater: doesn't read: {e}"),
+    }
+    pause();
+    let data = client.diary_raw(account, None)?;
+    save("diary.json", &data)?;
+    match read::<DiaryMonth>(&data) {
+        Ok(d) => {
+            let sources: Vec<String> = (d.month_data.group_by.iter())
+                .map(|s| format!("{} ({}) {}", s.action, s.action_id, s.num))
+                .collect();
+            println!(
+                "   Diary: month {}, months kept {:?}, {} primogems, {} Mora; from {}",
+                d.data_month,
+                d.optional_month,
+                d.month_data.current_primogems,
+                d.month_data.current_mora,
+                sources.join(", ")
+            );
+            pause();
+            let page = client.diary_log_raw(account, d.data_month, Currency::Primogems, 1)?;
+            save("diary-log.json", &page)?;
+            match read::<DiaryLogPage>(&page) {
+                Ok(p) => {
+                    let mut actions: Vec<String> = (p.list.iter())
+                        .map(|e| format!("{} ({})", e.action, e.action_id))
+                        .collect();
+                    actions.sort();
+                    actions.dedup();
+                    println!(
+                        "   Diary log, page 1: {} entries, the first at {}; kinds: {}",
+                        p.list.len(),
+                        p.list.first().map_or("-", |e| e.time.as_str()),
+                        actions.join(", ")
+                    );
+                }
+                Err(e) => println!("   Diary log: doesn't read: {e}"),
+            }
+        }
+        Err(e) => println!("   Diary: doesn't read: {e}"),
+    }
     Ok(())
 }
 
@@ -219,8 +310,8 @@ fn stty(_: &str) -> bool {
     false
 }
 
-/// Fetches the characters of one game account from HoYoLAB and shows what a
-/// sync would change in its collection; with `apply`, writes it (after a
+/// Fetches the characters and the chronicle of one game account from HoYoLAB
+/// and shows what a sync would change; with `apply`, writes it (after a
 /// backup), into the account of that UID, made if there is none.
 pub(crate) fn hoyolab_sync(
     paths: &AppPaths,
@@ -231,7 +322,7 @@ pub(crate) fn hoyolab_sync(
     use wish_core::archive::ArchiveData;
     use wish_core::planner::PlannerData;
 
-    let (account, details) = match from {
+    let fetched = match from {
         Some(file) => saved_details(file, uid)?,
         None => fetch_details(uid)?,
     };
@@ -241,7 +332,7 @@ pub(crate) fn hoyolab_sync(
     // Worked out as the app does, then into the suggested account, as
     // `import-game`: the one with the UID, else the only account without a
     // UID, else a new one.
-    let preview = service::hoyolab::preview(account, details, &store, None, planner, archive)?;
+    let preview = service::hoyolab::preview(fetched, &store, None, planner, archive)?;
     let account = &preview.account;
     let choice = &preview.choices[preview.suggested];
     let existing = choice.target.clone();
@@ -263,41 +354,64 @@ pub(crate) fn hoyolab_sync(
     let plan = &choice.plan;
     print_sync(plan, planner);
     print_notes(&plan.notes);
+    print_records(&choice.records);
 
     if !apply {
         println!("\nNothing was written. `hoyolab-sync` writes it, after a backup.");
         return Ok(());
     }
     let target = existing.map(|existing| existing.id);
-    let (_, applied, backup) =
-        store.apply_sync(target, account, &preview.details, planner, archive)?;
+    let synced = store.apply_hoyolab(
+        target,
+        account,
+        &preview.details,
+        &preview.records,
+        planner,
+        archive,
+    )?;
     println!(
         "\nWritten: {} changes. Backup: {}",
-        applied.changes(),
-        backup.display()
+        synced.plan.changes() + synced.records.changes(),
+        synced.backup.display()
     );
     Ok(())
 }
 
-/// The details of one game account's characters, from HoYoLAB: `uid`'s, or
-/// the account with the highest Adventure Rank. The cookie is dropped once
-/// they are in.
-fn fetch_details(
-    uid: Option<&str>,
-) -> Result<(hoyolab::GameAccount, Vec<hoyolab::CharacterDetail>)> {
+/// What a sync does to the chronicle, kind by kind.
+fn print_records(plan: &wish_core::chronicle::RecordsPlan) {
+    println!("\nChronicle (the periods HoYoLAB still shows):");
+    for (name, counts) in [
+        ("Spiral Abyss", plan.abyss),
+        ("Imaginarium Theater", plan.theater),
+        ("Traveler's Diary", plan.diary),
+    ] {
+        println!(
+            "  {name}: {} new, {} brought up to date, {} kept as they were",
+            counts.added, counts.updated, counts.kept
+        );
+    }
+}
+
+/// What HoYoLAB shows of one game account (its characters, its chronicle):
+/// `uid`'s, or the account with the highest Adventure Rank. The cookie is
+/// dropped once they are in.
+fn fetch_details(uid: Option<&str>) -> Result<service::hoyolab::Fetched> {
     let cookie = read_cookie()?;
-    // As the app does it: every account behind the cookie.
+    // As the app does it: every account behind the cookie, as politely.
     let fetched = service::hoyolab::fetch(
         cookie,
         &hoyolab::HttpTransport::new(),
+        wish_core::import::api::Pacing::default().delay,
+        chrono::Utc::now(),
+        service::hoyolab::Wanted::Everything,
         &AtomicBool::new(false),
     )?;
     let index = match uid {
-        Some(uid) => fetched.iter().position(|(a, _)| a.uid == uid),
-        None => (0..fetched.len()).max_by_key(|&i| fetched[i].0.level),
+        Some(uid) => fetched.iter().position(|f| f.account.uid == uid),
+        None => (0..fetched.len()).max_by_key(|&i| fetched[i].account.level),
     };
     let Some(index) = index else {
-        let known: Vec<&str> = fetched.iter().map(|(a, _)| a.uid.as_str()).collect();
+        let known: Vec<&str> = fetched.iter().map(|f| f.account.uid.as_str()).collect();
         bail!(
             "no such Genshin account on this HoYoLAB account (it has: {})",
             known.join(", ")
@@ -306,11 +420,9 @@ fn fetch_details(
     Ok(fetched.into_iter().nth(index).expect("found above"))
 }
 
-/// The details `hoyolab-check --raw` saved in `file`, for the account `uid`.
-fn saved_details(
-    file: &Path,
-    uid: Option<&str>,
-) -> Result<(hoyolab::GameAccount, Vec<hoyolab::CharacterDetail>)> {
+/// The details `hoyolab-check --raw` saved in `file`, for the account `uid`
+/// (no chronicle).
+fn saved_details(file: &Path, uid: Option<&str>) -> Result<service::hoyolab::Fetched> {
     #[derive(serde::Deserialize)]
     struct Saved {
         list: Vec<hoyolab::CharacterDetail>,
@@ -327,5 +439,9 @@ fn saved_details(
         level: 0,
         game_biz: "hk4e_global".to_owned(),
     };
-    Ok((account, saved.list))
+    Ok(service::hoyolab::Fetched {
+        account,
+        details: saved.list,
+        records: Vec::new(),
+    })
 }

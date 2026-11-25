@@ -38,22 +38,24 @@ graph LR
     stored --> plan_good
     plan_sync --> syncplan["SyncPlan<br/><i>changes + SyncNotes</i>"]
     plan_good --> goodplan["GoodPlan<br/><i>a SyncPlan + MaterialChanges</i>"]
-    syncplan --> apply_sync["Store::apply_sync"]
+    syncplan --> apply_sync["Store::apply_hoyolab"]
     goodplan --> apply_good["Store::apply_good"]
 ```
 
 ### A HoYoLAB sync (`collection/sync.rs`)
 
-- Characters match by game id; the Traveler (10000005 or 10000007) by element. Talents match by their names in
+- Characters match by game id; the Traveler (10000005 or 10000007) by element (`hoyolab_character`, which the
+  chronicle's pages use too). Talents match by their names in
   `archive.json` (English: `Text::english`), less the +3 an active C3 or C5 gives.
 - Level caps whose phase HoYoLAB doesn't send are counted as not ascended (and said); levels above 90 count as
   90/90 (said); characters, weapons or talents the data lacks are left out (listed). Each note is a `SyncNote`,
   whose `Display` the preview and `wishctl` print.
 - A weapon copy is the one its holder has; else one without a holder; else one a character of the sync let go of
   (it holds another weapon in the game: a swap moves the copies rather than adding two); else a new copy.
-- `Store::apply_sync(target, game, …)` gives the chosen account the UID and the server (or makes the new one),
-  works the plan out again against the stored collection, and writes it in one transaction after a `before-sync`
-  backup.
+- `Store::apply_hoyolab(target, game, …)` gives the chosen account the UID and the server (or makes the new
+  one), works the plan out again against the stored collection, and writes it in one transaction after a
+  `before-sync` backup, with the chronicle's periods ([chronicle.md](chronicle.md)). `Store::apply_sync` is the
+  same without a chronicle.
 
 ### A GOOD file (`collection/good.rs`)
 

@@ -1,5 +1,6 @@
 //! What the [`Library`](super::Library) reaches outside the computer: the
-//! game's wish history API, HoYoLAB and the image sites. Given once, when it
+//! game's wish history API, HoYoLAB and the image sites; and the system
+//! keyring. Given once, when it
 //! opens, so tests give fakes and never touch the network.
 
 use std::sync::Arc;
@@ -7,6 +8,7 @@ use std::time::Duration;
 
 use wish_core::hoyolab;
 use wish_core::import::api::{self, Pacing};
+use wish_core::keyring::{Keyring, NoKeyring, SystemKeyring};
 
 /// Whether the library downloads the images the pages ask for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +27,9 @@ pub struct Services {
     /// tests.
     pub pacing: Pacing,
     pub hoyolab: Arc<dyn hoyolab::Transport + Send + Sync>,
+    /// Where the player's HoYoLAB login may be kept: the system keyring in
+    /// the app, none or one in memory in tests.
+    pub keyring: Arc<dyn Keyring>,
     pub images: ImageDownloads,
 }
 
@@ -35,6 +40,7 @@ impl Services {
             game: Arc::new(api::HttpTransport::new()),
             pacing: Pacing::default(),
             hoyolab: Arc::new(hoyolab::HttpTransport::new()),
+            keyring: Arc::new(SystemKeyring::default()),
             images: ImageDownloads::On,
         }
     }
@@ -50,6 +56,7 @@ impl Services {
                 retries: 0,
             },
             hoyolab: Arc::new(Offline),
+            keyring: Arc::new(NoKeyring),
             images: ImageDownloads::Off,
         }
     }

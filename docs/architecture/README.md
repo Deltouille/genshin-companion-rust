@@ -17,6 +17,7 @@ Read [overview.md](overview.md) first. Then the page for the part you are changi
 | [wishes.md](wishes.md) | The wish counter's engine: pools, pity, banners and time zones, 50/50, the summary numbers |
 | [planner.md](planner.md) | The ascension planner: game data, costs, custom entries, allocation and crafting, resin, farming |
 | [collection-archive.md](collection-archive.md) | What an account owns, how syncs and GOOD files change it, and the archive's pages |
+| [chronicle.md](chronicle.md) | The Spiral Abyss, Imaginarium Theater and Traveler's Diary HoYoLAB shows for a while, kept for good |
 | [game-data.md](game-data.md) | The embedded game data, where it comes from, the extraction scripts, overriding it |
 | [images.md](images.md) | The game's images: never shipped, where each comes from, the cache, the downloader |
 | [i18n.md](i18n.md) | Texts in every language (Fluent), the game's own texts, the checks |

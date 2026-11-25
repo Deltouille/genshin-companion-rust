@@ -8,9 +8,11 @@ use chrono::{Local, SecondsFormat};
 use rusqlite::{Connection, OptionalExtension, Row, Transaction, params};
 
 use super::accounts::account_label;
+use super::chronicle::write_records;
 use super::inventory::{read_inventory, set_owned};
 use super::{Store, account_from_row};
 use crate::archive::ArchiveData;
+use crate::chronicle::{Record, RecordsPlan};
 use crate::collection::{
     Change, Collection, GoodFile, GoodPlan, OwnedCharacter, OwnedWeapon, SyncPlan, plan_good,
     plan_sync,
@@ -149,16 +151,39 @@ impl Store {
         planner: &PlannerData,
         archive: &ArchiveData,
     ) -> Result<(AccountId, SyncPlan, PathBuf)> {
+        let synced = self.apply_hoyolab(target, game, details, &[], planner, archive)?;
+        Ok((synced.account, synced.plan, synced.backup))
+    }
+
+    /// [`Store::apply_sync`], and the chronicle's `records` HoYoLAB showed
+    /// written in the same transaction: periods not kept yet added, one
+    /// kept while under way replaced by a newer fetch, one kept once over
+    /// left as it is.
+    pub fn apply_hoyolab(
+        &mut self,
+        target: Option<AccountId>,
+        game: &hoyolab::GameAccount,
+        details: &[hoyolab::CharacterDetail],
+        records: &[Record],
+        planner: &PlannerData,
+        archive: &ArchiveData,
+    ) -> Result<HoyolabSynced> {
         let backup = self.backup(BackupReason::BeforeSync)?;
         let tx = self.conn.transaction()?;
         let now = now();
         let account = sync_account(&tx, target, game, &now)?;
         let plan = plan_sync(details, &read_collection(&tx, account)?, planner, archive);
         write_sync(&tx, account, &plan, &now)?;
+        let records = write_records(&tx, account, records)?;
         tx.commit()?;
         // The account may be new, or have taken a server.
         self.changed(account);
-        Ok((account, plan, backup))
+        Ok(HoyolabSynced {
+            account,
+            plan,
+            records,
+            backup,
+        })
     }
 
     /// Applies a GOOD import once the player confirmed its preview, into
@@ -236,6 +261,18 @@ fn write_sync(tx: &Transaction, account: AccountId, plan: &SyncPlan, now: &str) 
         }
     }
     Ok(())
+}
+
+/// What a HoYoLAB sync wrote ([`Store::apply_hoyolab`]).
+#[derive(Clone, Debug)]
+pub struct HoyolabSynced {
+    pub account: AccountId,
+    /// The collection's changes.
+    pub plan: SyncPlan,
+    /// The chronicle's.
+    pub records: RecordsPlan,
+    /// The backup taken first.
+    pub backup: PathBuf,
 }
 
 /// Where a HoYoLAB sync can go: `None` is a new account.

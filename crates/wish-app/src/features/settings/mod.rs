@@ -1,6 +1,7 @@
 //! Settings, one card per group: the accounts (`accounts`), the language,
 //! your data, its backups and the mirror (`data`, `backups`, `mirror`),
-//! recent imports and undoing one (`imports`), exports (`export`), the image
+//! recent imports and undoing one (`imports`), exports (`export`), the
+//! HoYoLAB login the keyring keeps (`hoyolab`), the image
 //! cache (`images`), counting by hand, and the game data. This file holds the
 //! page, its small groups, the layout (one centred column, or two on a wide
 //! window) and the rows every group is made of.
@@ -18,6 +19,7 @@ mod accounts;
 mod backups;
 mod data;
 mod export;
+mod hoyolab;
 mod images;
 mod imports;
 mod mirror;
@@ -194,6 +196,7 @@ impl SettingsPage {
         let images = self.images_group(cx);
         let language = self.language_group(cx);
         let accounts = self.accounts_group(cx);
+        let hoyolab = self.hoyolab_group(cx);
         // A centred column; on a wide window, two: the data and its imports
         // on the left, the rest on the right.
         let room = crate::shell::content_width(window) / window.rem_size();
@@ -217,6 +220,7 @@ impl SettingsPage {
                         .v_flex()
                         .gap_6()
                         .child(language)
+                        .child(hoyolab)
                         .child(export)
                         .child(images)
                         .child(counting)
@@ -228,6 +232,7 @@ impl SettingsPage {
                 .gap_6()
                 .child(language)
                 .child(accounts)
+                .child(hoyolab)
                 .child(data)
                 .child(recent)
                 .child(export)

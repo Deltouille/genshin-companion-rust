@@ -35,6 +35,12 @@ specialties going to the series you pick or to what your plan lacks. It works mu
 [genshin-center](https://genshin-center.com/planner)'s planner, and it also handles characters that aren't out yet,
 whose materials you fill in yourself.
 
+**Chronicle.** HoYoLAB shows your Spiral Abyss and Imaginarium Theater for the period under way and the one before,
+and your Traveler's Diary for three months; then they're gone. Each HoYoLAB sync keeps them here for good: the
+Abyss's stars, records and the teams that cleared each chamber; the Theater's acts and their cast; where each month's
+primogems came from, day by day and reward by reward. A period that's over never changes once kept, so syncing once
+a month misses nothing.
+
 <p>
   <img src="docs/screenshots/characters.png" width="49%" alt="The character list">
   <img src="docs/screenshots/character.png" width="49%" alt="A character's page">
@@ -98,7 +104,8 @@ The app used to be called Genshin Wishes. The first time the new version starts,
 The app only connects to the internet for three things:
 
 - importing from the game, through HoYoverse's API, with the link you gave it;
-- syncing from HoYoLAB, when you ask for it;
+- syncing from HoYoLAB (your characters and your chronicle), when you ask for it, and the chronicle on its own
+  every few hours while the app is open if you asked it to remember your cookie;
 - downloading the game's images the first time a page needs them, from [Project Amber](https://gi.yatta.moe), and
   the banners' art from paimon.moe. They're cached, so each one is downloaded once. To use the app offline,
   Settings → Images can download all of them in one go.
@@ -106,8 +113,12 @@ The app only connects to the internet for three things:
 Nothing about you or your wishes is sent anywhere else. Like any website, those servers do see your IP address.
 
 **About the HoYoLAB cookie.** The sync needs three values from your HoYoLAB cookie (`ltuid_v2`, `ltoken_v2`,
-`ltmid_v2`; in your browser press F12, then Storage → Cookies → hoyolab.com). The app uses them for that one sync,
-sends them only to HoYoverse, and never saves them. Those values give access to your HoYoLAB account, so don't hand
+`ltmid_v2`; in your browser press F12, then Storage → Cookies → hoyolab.com). The app uses them for that one sync
+and sends them only to HoYoverse. If you tick "Remember this cookie on this computer", it keeps those three values
+in your system's keyring (Keychain, Windows Credential Manager, or a Secret Service such as GNOME Keyring or KWallet
+on Linux), nowhere else, and syncs your chronicle on its own while it's open; Settings → HoYoLAB forgets them. The
+keyring encrypts them on disk, but any program running as you can ask for them, and on macOS the first launch of
+each new version asks before reading them. Those values give access to your HoYoLAB account, so don't hand
 them to anything else: no website, no Discord bot, no person. HoYoLAB has no public API either; the app uses the same
 one as the HoYoLAB website, which HoYoverse can change or block at any time.
 

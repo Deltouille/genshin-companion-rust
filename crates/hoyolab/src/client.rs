@@ -17,7 +17,8 @@ use crate::{Cookie, Error, Result, Secret};
 const GAME_ROLES_URL: &str =
     "https://api-os-takumi.mihoyo.com/binding/api/getUserGameRolesByCookie";
 /// The Battle Chronicle's Genshin endpoints.
-const RECORD_URL: &str = "https://sg-public-api.hoyolab.com/event/game_record/genshin/api";
+pub(crate) const RECORD_URL: &str =
+    "https://sg-public-api.hoyolab.com/event/game_record/genshin/api";
 /// Authkeys from the cookie token.
 const AUTHKEY_URL: &str =
     "https://api-account-os.hoyoverse.com/binding/api/genAuthKeyByCookieToken";
@@ -26,10 +27,10 @@ const AUTHKEY_URL: &str =
 const GENSHIN_GLOBAL: &str = "hk4e_global";
 
 /// What genshin.py sends: HoYoLAB answers browsers.
-const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
+pub(crate) const USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
 
 /// English, so names match the game data.
-const LANGUAGE: &str = "en-us";
+pub(crate) const LANGUAGE: &str = "en-us";
 
 /// The overseas server a Genshin UID plays on, from its leading digits:
 /// `None` for a UID of the Chinese servers, which HoYoLAB doesn't serve.
@@ -231,7 +232,7 @@ impl<'t> Client<'t> {
     }
 
     /// A request signed as HoYoLAB's web pages sign theirs.
-    fn signed(&self, method: Method, url: &str, body: Option<Value>) -> Result<Value> {
+    pub(crate) fn signed(&self, method: Method, url: &str, body: Option<Value>) -> Result<Value> {
         let headers = vec![
             ("User-Agent", USER_AGENT.to_owned()),
             ("x-rpc-app_version", "1.5.0".to_owned()),
@@ -249,8 +250,13 @@ impl<'t> Client<'t> {
         })
     }
 
+    /// The `Cookie` header to send.
+    pub(crate) fn cookie_header(&self) -> Secret {
+        self.cookie.header()
+    }
+
     /// Sends `request` and returns the answer's `data`.
-    fn send(&self, request: Request) -> Result<Value> {
+    pub(crate) fn send(&self, request: Request) -> Result<Value> {
         #[derive(Deserialize)]
         struct Answer {
             retcode: i64,
@@ -271,15 +277,16 @@ impl<'t> Client<'t> {
 
 /// A Battle Chronicle request's body: the account, then `extra`'s fields.
 fn record_body(account: &GameAccount, extra: Value) -> Result<Value> {
-    let role_id: u64 = account
-        .uid
-        .parse()
-        .map_err(|_| Error::Format(format!("{} isn't a UID", account.uid)))?;
-    let mut body = json!({ "role_id": role_id, "server": account.region });
+    let mut body = json!({ "role_id": role_id(account)?, "server": account.region });
     if let (Value::Object(body), Value::Object(extra)) = (&mut body, extra) {
         body.extend(extra);
     }
     Ok(body)
+}
+
+/// The account's UID as the Battle Chronicle takes it, a number.
+pub(crate) fn role_id(account: &GameAccount) -> Result<u64> {
+    (account.uid.parse()).map_err(|_| Error::Format(format!("{} isn't a UID", account.uid)))
 }
 
 fn parse<T: DeserializeOwned>(data: Value) -> Result<T> {
@@ -323,6 +330,7 @@ mod tests {
 
     /// A request the fake received, its cookie in the clear.
     struct Sent {
+        url: String,
         headers: Vec<(&'static str, String)>,
         cookie: String,
         body: Option<String>,
@@ -349,6 +357,7 @@ mod tests {
     impl Transport for FakeApi {
         fn send(&self, request: &Request) -> Result<String> {
             self.sent.borrow_mut().push(Sent {
+                url: request.url.clone(),
                 headers: request.headers.clone(),
                 cookie: request.cookie.expose().to_owned(),
                 body: request.body.clone(),
@@ -489,6 +498,41 @@ mod tests {
                 .unwrap_err();
             assert!(check(&error), "{retcode}: {error}");
         }
+    }
+
+    #[test]
+    fn the_chronicle_asks_for_the_account_s_records() {
+        use crate::chronicle::Currency;
+
+        let api = FakeApi::new(vec![
+            ("schedule_type=2", ok(json!({ "schedule_id": 101 }))),
+            ("need_detail=true", ok(json!({ "data": [] }))),
+            ("month=10", ok(json!({ "data_month": 10 }))),
+            ("page_size=100", ok(json!({ "list": [] }))),
+        ]);
+        let client = Client::new(cookie(), &api);
+        client.spiral_abyss_raw(&account(), true).unwrap();
+        client.theater_raw(&account()).unwrap();
+        client.diary_raw(&account(), Some(10)).unwrap();
+        (client.diary_log_raw(&account(), 10, Currency::Primogems, 2)).unwrap();
+
+        let sent = api.sent.borrow();
+        let urls: Vec<&str> = sent.iter().map(|s| s.url.as_str()).collect();
+        assert_eq!(
+            urls,
+            [
+                "https://sg-public-api.hoyolab.com/event/game_record/genshin/api/spiralAbyss?role_id=712345678&server=os_euro&schedule_type=2",
+                "https://sg-public-api.hoyolab.com/event/game_record/genshin/api/role_combat?role_id=712345678&server=os_euro&need_detail=true",
+                "https://sg-hk4e-api.hoyolab.com/event/ysledgeros/month_info?uid=712345678&region=os_euro&lang=en-us&month=10",
+                "https://sg-hk4e-api.hoyolab.com/event/ysledgeros/month_detail?uid=712345678&region=os_euro&lang=en-us&month=10&type=1&current_page=2&page_size=100",
+            ]
+        );
+        // The Battle Chronicle is signed; the Diary, as genshin.py asks it,
+        // isn't.
+        let signed = |s: &Sent| s.headers.iter().any(|(name, _)| *name == "DS");
+        assert!(signed(&sent[0]) && signed(&sent[1]));
+        assert!(!signed(&sent[2]) && !signed(&sent[3]));
+        assert!(sent.iter().all(|s| s.body.is_none()));
     }
 
     #[test]

@@ -26,7 +26,7 @@ use super::{
 };
 use crate::archive::{ArchiveData, CharacterPage};
 use crate::i18n::item_name;
-use crate::planner::{Level, PlannerData};
+use crate::planner::{Character, Level, PlannerData};
 
 /// The Traveler's ids: Aether and Lumine.
 const TRAVELER_IDS: [u32; 2] = [10000005, 10000007];
@@ -244,6 +244,26 @@ fn character_key(detail: &CharacterDetail, planner: &PlannerData) -> Option<Stri
     (planner.characters().iter())
         .find(|c| c.id == base.id)
         .map(|c| c.key.clone())
+}
+
+/// The planner's character HoYoLAB names by its game `id` and its
+/// `element` (English): the Traveler of that element, or of any element
+/// when HoYoLAB doesn't say (its Abyss rankings don't).
+pub fn hoyolab_character<'a>(
+    planner: &'a PlannerData,
+    id: u32,
+    element: &str,
+) -> Option<&'a Character> {
+    if TRAVELER_IDS.contains(&id) {
+        let key = format!("traveler{}", element.to_lowercase());
+        return (planner.character(&key)).or_else(|| {
+            planner
+                .characters()
+                .iter()
+                .find(|c| c.key.starts_with("traveler"))
+        });
+    }
+    planner.characters().iter().find(|c| c.id == id)
 }
 
 enum LevelNote {

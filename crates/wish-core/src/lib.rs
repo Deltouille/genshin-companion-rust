@@ -8,12 +8,14 @@
 //!   (`tests/layers.rs` checks it): [`model`] (wishes, pools, accounts),
 //!   [`engine`] (pity, banners, 50/50), [`stats`], [`planner`] (costs,
 //!   allocation, resin), [`collection`] (what an account owns,
-//!   HoYoLAB syncs, GOOD files), [`archive`] (character and weapon pages).
+//!   HoYoLAB syncs, GOOD files), [`archive`] (character and weapon pages),
+//!   [`chronicle`] (the Abyss, the Theater and the Diary HoYoLAB showed).
 //! - **Game data**, embedded JSON a newer copy can override: [`data`] (items
 //!   and banners), with the planner's and the archive's own files.
 //! - **Storage**: [`store`] (SQLite, migrations, backups), [`snapshot`] (the
 //!   lossless export and the mirror), [`paths`] (the data folder),
-//!   [`settings`] (`settings.json`).
+//!   [`settings`] (`settings.json`), [`keyring`] (the HoYoLAB login, when
+//!   the player asks the app to keep it).
 //! - **Imports and exports**: [`import`] (paimon.moe saves, the game's API,
 //!   UIGF, spreadsheets, counting by hand), [`uigf`], [`excel`].
 //! - **Use cases** shared by the app and `wishctl`: [`service`].
@@ -29,6 +31,7 @@ macro_rules! t {
 }
 
 pub mod archive;
+pub mod chronicle;
 pub mod collection;
 pub mod data;
 pub mod engine;
@@ -37,6 +40,7 @@ pub mod excel;
 pub mod i18n;
 pub mod images;
 pub mod import;
+pub mod keyring;
 pub mod model;
 pub mod paths;
 pub mod planner;

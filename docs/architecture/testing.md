@@ -90,8 +90,8 @@ writing commands take the folder's lock, so they stop while the app is open.
 | `import-snapshot <file>`, `export <file>` | merge a snapshot; write one |
 | `find-link`, `fetch-game <link>`, `import-game <link>` | find the history link on this computer; show what an import from the game would add; do it |
 | `undo <id>`, `summary`, `backup` | undo an import (`summary` lists the ids); the counters, pity and 50/50 per account; a backup now |
-| `hoyolab-check [--raw DIR]` | read a cookie from stdin (echo off) and print what HoYoLAB tells of the account, writing nothing, never printing the cookie or the authkey; `--raw` saves HoYoLAB's answers |
-| `hoyolab-fetch [--uid U]`, `hoyolab-sync [--uid U]` | what a sync would change; do it (`--from FILE --uid U` reads saved answers, offline) |
+| `hoyolab-check [--raw DIR]` | read a cookie from stdin (echo off) and print what HoYoLAB tells of the account (and whether the chronicle's answers read), writing nothing, never printing the cookie or the authkey; `--raw` saves HoYoLAB's answers |
+| `hoyolab-fetch [--uid U]`, `hoyolab-sync [--uid U]` | what a sync would change (the collection, the chronicle); do it (`--from FILE --uid U` reads saved answers, offline) |
 | `check-good <file>`, `import-good <file>` | what a GOOD import would change; do it (`--uid U` or `--account NAME`, else the only account, else a new "Main") |
 
 The HoYoLAB cookie never goes in a command line or the shell's history: these commands read it from stdin.

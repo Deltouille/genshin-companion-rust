@@ -1,5 +1,5 @@
 //! The domain's modules, the game's rules (`model`, `engine`, `stats`,
-//! `planner`, `collection`, `archive`), touch neither the database, nor the
+//! `planner`, `collection`, `archive`, `chronicle`), touch neither the database, nor the
 //! network, nor files: they test alone, and any shell can use them. Only
 //! `store`, `import`, `images`, `paths` and `settings` reach outside.
 //!
@@ -11,13 +11,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 /// The domain's files and folders, under `src/`.
-const DOMAIN: [&str; 6] = [
+const DOMAIN: [&str; 7] = [
     "model.rs",
     "engine.rs",
     "stats.rs",
     "planner",
     "collection",
     "archive.rs",
+    "chronicle.rs",
 ];
 
 /// What the domain must not use, and what it would reach.

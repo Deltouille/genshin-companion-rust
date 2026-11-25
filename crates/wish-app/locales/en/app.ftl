@@ -23,6 +23,10 @@ app-nav-resources = Resources
 app-nav-archive = Archive
 app-nav-planner = Planner
 app-nav-ascension = Ascension
+app-nav-chronicle = Chronicle
+app-nav-abyss = Spiral Abyss
+app-nav-theater = Imaginarium Theater
+app-nav-diary = Traveler’s Diary
 app-nav-import = Import
 app-nav-settings = Settings
 app-nav-credits = Credits
@@ -73,3 +77,23 @@ app-exported-left-out = Exported { $wishes ->
     }. Left out, without a UID: { $left_out }.
 app-exported-account = Exported the wishes of { $account }.
 app-images-busy = images are downloading: stop that first
+
+## The chronicle synced on its own, with the HoYoLAB login the keyring keeps
+
+app-chronicle-kept = Chronicle synced from HoYoLAB: { $added ->
+        [0] { $updated ->
+            [one] a period brought up to date
+           *[other] { $updated } periods brought up to date
+        }
+        [one] a period kept
+       *[other] { $added } periods kept
+    }.
+app-chronicle-up-to-date = The chronicle already has everything HoYoLAB shows.
+app-chronicle-paused = HoYoLAB asks for a captcha: the chronicle won’t sync on its own until the app opens again
+app-chronicle-failed = The chronicle didn’t sync
+app-chronicle-syncing = The chronicle is syncing already.
+app-login-kept = The cookie is kept in this system’s keyring: the chronicle now syncs on its own.
+app-no-login-kept = No HoYoLAB cookie is kept on this computer.
+app-login-refused = HoYoLAB no longer accepts the cookie kept, so it was forgotten. Sync from HoYoLAB again and tick “Remember” to keep a new one.
+app-forget-login-failed = The HoYoLAB cookie wasn’t forgotten
+app-settings-save-failed = Couldn’t save the setting

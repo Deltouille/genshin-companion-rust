@@ -157,7 +157,11 @@ sequenceDiagram
 A use case that fetches (the game's history, HoYoLAB) takes `&Mutex<Store>` and locks it before and after its
 requests, never during (`service::lock`). The library runs it on the background executor and passes the
 `Services` it was opened with (`app/services.rs`): `Services::network()` in the app, `Services::offline()` in
-tests, where every request fails and nothing downloads, and fakes are put in for one flow.
+tests, where every request fails, nothing downloads and there is no keyring, and fakes are put in for one flow.
+
+The library also owns the HoYoLAB login the system keyring keeps, if the player asked (`KeptLogin`), and the
+chronicle synced with it on its own (`library/kept_login.rs`, [chronicle.md](chronicle.md)): it asks the keyring
+once the data is open, and checks every half hour whether a sync is due.
 
 ## Notices
 

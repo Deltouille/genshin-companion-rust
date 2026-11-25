@@ -1,0 +1,748 @@
+{
+  "format": "genshin-wishes-snapshot",
+  "version": 3,
+  "exported_at": "2026-11-25T14:07:40+01:00",
+  "app_version": "0.10.0",
+  "accounts": [
+    {
+      "label": "Main",
+      "uid": "700000001",
+      "server": "europe",
+      "wishes": [
+        {
+          "id": "paimon:character-event:20240101100000:0",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:00:00",
+          "seq": 0,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:0",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 0,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:1",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 1,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:2",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 2,
+          "name": "Cool Steel",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "cool_steel",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:3",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 3,
+          "name": "Xiangling",
+          "item_type": "Character",
+          "rarity": 4,
+          "item_key": "xiangling",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:4",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 4,
+          "name": "Harbinger of Dawn",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "harbinger_of_dawn",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:5",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 5,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:6",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 6,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:7",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 7,
+          "name": "Cool Steel",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "cool_steel",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:8",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 8,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240101100500:9",
+          "gacha_type": "301",
+          "time": "2024-01-01 10:05:00",
+          "seq": 9,
+          "name": "Bennett",
+          "item_type": "Character",
+          "rarity": 4,
+          "item_key": "bennett",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240102090000:0",
+          "gacha_type": "400",
+          "time": "2024-01-02 09:00:00",
+          "seq": 0,
+          "name": "Venti",
+          "item_type": "Character",
+          "rarity": 5,
+          "item_key": "venti",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:character-event:20240102090100:0",
+          "gacha_type": "301",
+          "time": "2024-01-02 09:01:00",
+          "seq": 0,
+          "name": "Slingshot",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "slingshot",
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:weapon-event:20240201120000:0",
+          "gacha_type": "302",
+          "time": "2024-02-01 12:00:00",
+          "seq": 0,
+          "name": "Wolf's Gravestone",
+          "item_type": "Weapon",
+          "rarity": 5,
+          "item_key": "wolfs_gravestone",
+          "source": "paimon"
+        },
+        {
+          "id": "manual:20240601120000:1794732349042786154:00",
+          "gacha_type": "200",
+          "time": "2024-06-01 12:00:00",
+          "seq": 0,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "source": "manual"
+        },
+        {
+          "id": "manual:20240601120000:1794732349042786154:01",
+          "gacha_type": "200",
+          "time": "2024-06-01 12:00:00",
+          "seq": 1,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "source": "manual"
+        },
+        {
+          "id": "manual:20240601120500:1794732349058541496:00",
+          "gacha_type": "301",
+          "time": "2024-06-01 12:05:00",
+          "seq": 0,
+          "name": "Venti",
+          "item_type": "Character",
+          "rarity": 5,
+          "item_key": "venti",
+          "manual_pity": 77,
+          "source": "manual"
+        },
+        {
+          "id": "1712345678000000002",
+          "gacha_type": "301",
+          "time": "2024-06-02 10:00:00",
+          "seq": 0,
+          "name": "Debate Club",
+          "item_type": "Weapon",
+          "rarity": 3,
+          "item_key": "debate_club",
+          "source": "api"
+        }
+      ],
+      "links": [
+        {
+          "wish_id": "paimon:character-event:20240101100000:0",
+          "api_id": "1712345678000000001"
+        }
+      ],
+      "characters": [
+        {
+          "key": "bennett",
+          "level": [
+            80,
+            6
+          ],
+          "constellation": 6,
+          "talents": [
+            10,
+            9,
+            9
+          ]
+        },
+        {
+          "key": "ganyu",
+          "level": [
+            70,
+            4
+          ],
+          "constellation": 1,
+          "talents": [
+            6,
+            8,
+            8
+          ],
+          "favourite": true
+        },
+        {
+          "key": "travelergeo",
+          "level": [
+            1,
+            0
+          ],
+          "constellation": 0,
+          "talents": [
+            1,
+            1,
+            1
+          ]
+        }
+      ],
+      "weapons": [
+        {
+          "key": "amosbow",
+          "level": [
+            70,
+            4
+          ],
+          "refinement": 1,
+          "holder": "ganyu",
+          "favourite": true
+        },
+        {
+          "key": "favoniussword",
+          "level": [
+            90,
+            6
+          ],
+          "refinement": 5,
+          "holder": "bennett"
+        },
+        {
+          "key": "debateclub",
+          "level": [
+            1,
+            0
+          ],
+          "refinement": 1
+        }
+      ],
+      "plan": [
+        {
+          "kind": "character",
+          "key": "ganyu",
+          "from": [
+            70,
+            4
+          ],
+          "to": [
+            90,
+            6
+          ],
+          "talents": [
+            [
+              6,
+              9
+            ],
+            [
+              8,
+              10
+            ],
+            [
+              8,
+              10
+            ]
+          ]
+        },
+        {
+          "kind": "weapon",
+          "key": "amosbow",
+          "from": [
+            70,
+            4
+          ],
+          "to": [
+            90,
+            6
+          ]
+        },
+        {
+          "kind": "custom-character",
+          "name": "New character",
+          "stars": 5,
+          "materials": {
+            "common": {
+              "id": 112002
+            },
+            "local-specialty": {
+              "name": "Moonfall Lily"
+            },
+            "boss-material": {
+              "id": 9000300
+            },
+            "elemental-gem": {
+              "id": 104111
+            },
+            "talent-book": {
+              "id": 104301
+            },
+            "weekly-material": {
+              "id": 9000600
+            }
+          },
+          "from": [
+            20,
+            1
+          ],
+          "to": [
+            80,
+            6
+          ],
+          "talents": [
+            [
+              1,
+              8
+            ],
+            [
+              1,
+              9
+            ],
+            [
+              2,
+              10
+            ]
+          ]
+        },
+        {
+          "kind": "custom-weapon",
+          "name": "New sword",
+          "stars": 4,
+          "materials": {
+            "common": {
+              "name": "Rusty Gear"
+            },
+            "weapon-material": {
+              "id": 114001
+            },
+            "elite-drop": {
+              "id": 9000800
+            }
+          },
+          "from": [
+            1,
+            0
+          ],
+          "to": [
+            90,
+            6
+          ]
+        },
+        {
+          "kind": "custom",
+          "name": "Older custom entry",
+          "costs": [
+            {
+              "id": 202,
+              "count": 120000
+            },
+            {
+              "name": "Starshroom",
+              "count": 20
+            }
+          ]
+        }
+      ],
+      "inventory": [
+        {
+          "id": 202,
+          "count": 1234567
+        },
+        {
+          "id": 104319,
+          "count": 2
+        },
+        {
+          "id": 9000500,
+          "count": 5
+        },
+        {
+          "name": "Moonfall Lily",
+          "count": 12
+        }
+      ],
+      "chronicle": [
+        {
+          "kind": "abyss",
+          "period": 102,
+          "fetched_at": "2025-12-20T12:00:00Z",
+          "ended": true,
+          "data": {
+            "damage_rank": [
+              {
+                "avatar_icon": "",
+                "avatar_id": 10000032,
+                "rarity": 4,
+                "value": 98765
+              }
+            ],
+            "defeat_rank": [],
+            "end_time": "1765850399",
+            "energy_skill_rank": [],
+            "floors": [
+              {
+                "icon": "",
+                "index": 12,
+                "is_unlock": true,
+                "levels": [
+                  {
+                    "battles": [
+                      {
+                        "avatars": [
+                          {
+                            "element": "Cryo",
+                            "icon": "",
+                            "id": 10000037,
+                            "level": 90,
+                            "rarity": 5
+                          },
+                          {
+                            "element": "Pyro",
+                            "icon": "",
+                            "id": 10000032,
+                            "level": 80,
+                            "rarity": 4
+                          }
+                        ],
+                        "index": 1,
+                        "timestamp": "1763300000"
+                      },
+                      {
+                        "avatars": [
+                          {
+                            "element": "Geo",
+                            "icon": "",
+                            "id": 10000005,
+                            "level": 70,
+                            "rarity": 5
+                          }
+                        ],
+                        "index": 2,
+                        "timestamp": "1763300400"
+                      }
+                    ],
+                    "index": 1,
+                    "max_star": 3,
+                    "star": 3
+                  }
+                ],
+                "max_star": 9,
+                "settle_time": "0",
+                "star": 8
+              }
+            ],
+            "is_unlock": true,
+            "max_floor": "12-3",
+            "normal_skill_rank": [],
+            "reveal_rank": [
+              {
+                "avatar_icon": "",
+                "avatar_id": 10000037,
+                "rarity": 5,
+                "value": 8
+              }
+            ],
+            "schedule_id": 102,
+            "start_time": "1763258400",
+            "take_damage_rank": [],
+            "total_battle_times": 14,
+            "total_star": 35,
+            "total_win_times": 12
+          }
+        },
+        {
+          "kind": "diary",
+          "period": 202511,
+          "fetched_at": "2025-12-20T12:00:00Z",
+          "ended": true,
+          "data": {
+            "month": {
+              "data_month": 11,
+              "day_data": {
+                "current_mora": 0,
+                "current_primogems": 0
+              },
+              "month_data": {
+                "current_mora": 50000,
+                "current_primogems": 120,
+                "group_by": [
+                  {
+                    "action": "Daily Activity",
+                    "action_id": 1,
+                    "num": 120,
+                    "percent": 100
+                  }
+                ],
+                "last_mora": 40000,
+                "last_primogems": 60,
+                "mora_rate": 25,
+                "primogem_rate": 100
+              },
+              "optional_month": [
+                10,
+                11,
+                12
+              ],
+              "region": "os_euro",
+              "uid": 700000001
+            },
+            "primogems": [
+              {
+                "current_page": 1,
+                "data_month": 11,
+                "list": [
+                  {
+                    "action": "Daily Commission Rewards",
+                    "action_id": 1,
+                    "num": 60,
+                    "time": "2025-11-02 05:00:00"
+                  },
+                  {
+                    "action": "Daily Commission Rewards",
+                    "action_id": 1,
+                    "num": 60,
+                    "time": "2025-11-01 05:00:00"
+                  }
+                ],
+                "region": "os_euro",
+                "uid": 700000001
+              }
+            ]
+          }
+        },
+        {
+          "kind": "theater",
+          "period": 61,
+          "fetched_at": "2025-12-20T12:00:00Z",
+          "ended": true,
+          "data": {
+            "detail": {
+              "backup_avatars": [],
+              "fight_statisic": {
+                "max_damage_avatar": {
+                  "avatar_id": 10000037,
+                  "rarity": 5,
+                  "value": "123456"
+                },
+                "total_use_time": 1800
+              },
+              "rounds_data": [
+                {
+                  "avatars": [
+                    {
+                      "avatar_id": 10000037,
+                      "avatar_type": 1,
+                      "element": "Cryo",
+                      "level": 90,
+                      "rarity": 5
+                    },
+                    {
+                      "avatar_id": 10000032,
+                      "avatar_type": 3,
+                      "element": "Pyro",
+                      "level": 90,
+                      "rarity": 4
+                    }
+                  ],
+                  "finish_time": "1761990000",
+                  "is_get_medal": true,
+                  "round_id": 1
+                }
+              ]
+            },
+            "has_data": true,
+            "has_detail_data": true,
+            "schedule": {
+              "end_time": "1764547199",
+              "schedule_id": 61,
+              "schedule_type": 1,
+              "start_time": "1761955200"
+            },
+            "stat": {
+              "avatar_bonus_num": 9,
+              "coin_num": 40,
+              "difficulty_id": 3,
+              "get_medal_round_list": [
+                1,
+                1,
+                0,
+                1,
+                1,
+                1,
+                1,
+                0
+              ],
+              "heraldry": 0,
+              "max_round_id": 8,
+              "medal_num": 6,
+              "rent_cnt": 3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "label": "Account 2",
+      "server": "asia",
+      "wishes": [
+        {
+          "id": "paimon:standard:20240301080000:0",
+          "gacha_type": "200",
+          "time": "2024-03-01 08:00:00",
+          "seq": 0,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "manual_pity": 1,
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:standard:20240301080000:1",
+          "gacha_type": "200",
+          "time": "2024-03-01 08:00:00",
+          "seq": 1,
+          "name": "Unknown",
+          "item_type": "Unknown",
+          "rarity": 3,
+          "manual_pity": 1,
+          "source": "paimon"
+        },
+        {
+          "id": "paimon:standard:20240302200000:0",
+          "gacha_type": "200",
+          "time": "2024-03-02 20:00:00",
+          "seq": 0,
+          "name": "Diluc",
+          "item_type": "Character",
+          "rarity": 5,
+          "item_key": "diluc",
+          "manual_pity": 76,
+          "source": "paimon"
+        }
+      ],
+      "manual_counters": [
+        {
+          "pool": "standard",
+          "total": 80,
+          "pity5": 3,
+          "pity4": 5
+        }
+      ],
+      "characters": [
+        {
+          "key": "xiangling",
+          "level": [
+            1,
+            0
+          ],
+          "constellation": 0,
+          "talents": [
+            1,
+            1,
+            1
+          ]
+        }
+      ],
+      "plan": [
+        {
+          "kind": "character",
+          "key": "xiangling",
+          "from": [
+            1,
+            0
+          ],
+          "to": [
+            90,
+            6
+          ],
+          "talents": [
+            [
+              1,
+              10
+            ],
+            [
+              1,
+              10
+            ],
+            [
+              1,
+              10
+            ]
+          ]
+        }
+      ],
+      "inventory": [
+        {
+          "name": "Starshroom",
+          "count": 40
+        }
+      ]
+    }
+  ]
+}

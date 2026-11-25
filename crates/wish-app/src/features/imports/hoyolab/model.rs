@@ -2,6 +2,7 @@
 //! line per change, and where it goes. Pure functions over the
 //! [`SyncPlan`], tested without GPUI.
 
+use wish_core::chronicle::{RecordCounts, RecordsPlan};
 use wish_core::collection::{Change, OwnedCharacter, OwnedWeapon, SyncPlan};
 use wish_core::hoyolab::GameAccount;
 use wish_core::model::Account;
@@ -162,6 +163,39 @@ fn moved(change: &Change<OwnedWeapon>) -> Option<(&OwnedWeapon, &OwnedWeapon)> {
     }
 }
 
+/// A line of the chronicle's preview, from its counts in words.
+type Line = fn(String) -> String;
+
+/// What the sync keeps of the chronicle, one line per kind that changes:
+/// "Spiral Abyss: 1 to keep, 1 to update".
+pub(in crate::features::imports) fn chronicle(records: &RecordsPlan) -> Vec<String> {
+    let kinds: [(RecordCounts, Line); 3] = [
+        (records.abyss, |parts| {
+            t!("hoyolab-chronicle-abyss", parts = parts)
+        }),
+        (records.theater, |parts| {
+            t!("hoyolab-chronicle-theater", parts = parts)
+        }),
+        (records.diary, |parts| {
+            t!("hoyolab-chronicle-diary", parts = parts)
+        }),
+    ];
+    kinds
+        .into_iter()
+        .filter(|(counts, _)| counts.changes() > 0)
+        .map(|(counts, line)| {
+            let parts: Vec<String> = [
+                (counts.added > 0).then(|| t!("hoyolab-to-keep", count = counts.added)),
+                (counts.updated > 0).then(|| t!("hoyolab-to-update", count = counts.updated)),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            line(parts.join(", "))
+        })
+        .collect()
+}
+
 /// How many of `changes` add, and how many raise.
 fn tally<T>(changes: &[Change<T>]) -> (usize, usize) {
     changes
@@ -238,6 +272,35 @@ mod tests {
             notes: Vec::new(),
         };
         assert_eq!(summary(&nothing), "Nothing to change.");
+    }
+
+    #[test]
+    fn the_chronicle_says_what_it_keeps_and_updates() {
+        let records = RecordsPlan {
+            abyss: RecordCounts {
+                added: 1,
+                updated: 1,
+                kept: 0,
+            },
+            theater: RecordCounts {
+                added: 0,
+                updated: 0,
+                kept: 2,
+            },
+            diary: RecordCounts {
+                added: 3,
+                updated: 0,
+                kept: 0,
+            },
+        };
+        assert_eq!(
+            chronicle(&records),
+            [
+                "Spiral Abyss: 1 to keep, 1 to update",
+                "Traveler’s Diary: 3 to keep"
+            ]
+        );
+        assert!(chronicle(&RecordsPlan::default()).is_empty());
     }
 
     #[test]

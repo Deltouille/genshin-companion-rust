@@ -476,6 +476,27 @@ mod flows {
                         ]
                     }] }),
                 ),
+                // The chronicle: an Abyss period fought, the one before not,
+                // no Theater, and this month's Diary only.
+                (
+                    "schedule_type=1",
+                    json!({ "schedule_id": 102, "end_time": "1765850399",
+                        "total_battle_times": 12, "total_star": 36, "max_floor": "12-3" }),
+                ),
+                (
+                    "schedule_type=2",
+                    json!({ "schedule_id": 101, "total_battle_times": 0 }),
+                ),
+                (
+                    "need_detail=true",
+                    json!({ "is_unlock": false, "data": [] }),
+                ),
+                (
+                    "lang=en-us",
+                    json!({ "data_month": 11, "optional_month": [11],
+                        "month_data": { "current_primogems": 7440 } }),
+                ),
+                ("page_size=100", json!({ "data_month": 11, "list": [] })),
             ],
             asked: Mutex::new(Vec::new()),
         }
@@ -524,13 +545,17 @@ mod flows {
         assert_eq!(targets, [None, Some(main)]);
         assert_eq!(account.suggested, 1);
         assert!(account.choices[1].plan.changes() > 0);
-        assert_eq!(fake.asked.lock().unwrap().len(), 3);
+        // The characters, then the chronicle: two Abyss periods, the
+        // Theater, the Diary's month and its log.
+        assert_eq!(fake.asked.lock().unwrap().len(), 8);
+        assert_eq!(account.choices[1].records.changes(), 2);
 
         let sync = account.clone();
         let task = app.update(|library, cx| library.apply_hoyolab_sync(sync, Some(main), cx));
-        let (into, plan) = app.finish(task).unwrap();
+        let (into, plan, records) = app.finish(task).unwrap();
         assert_eq!(into, main);
         assert!(plan.changes() > 0);
+        assert_eq!(records.abyss.added, 1);
         app.read(|library| {
             let summary = &library.accounts()[0];
             assert_eq!(summary.account.uid.as_deref(), Some("712345678"));
@@ -540,12 +565,131 @@ mod flows {
             assert_eq!(ganyu.talents, [6, 9, 9]);
             let amos = owned.copies("amosbow").next().unwrap();
             assert_eq!(amos.holder.as_deref(), Some("ganyu"));
+            let chronicle = library.chronicle(Some(main));
+            assert_eq!(chronicle.abyss[0].abyss.total_star, 36);
+            assert_eq!((chronicle.diary[0].month, chronicle.diary.len()), (11, 1));
         });
 
         // Next time, only the account with that UID, and nothing to change.
         let again = preview(&mut app, None);
         assert_eq!(again[0].choices.len(), 1);
         assert_eq!(again[0].choices[0].plan.changes(), 0);
+        assert_eq!(again[0].choices[0].records.changes(), 0);
+    }
+
+    /// A data folder whose one account, "Main", has UID 712345678.
+    fn main_with_uid(dir: &Path) {
+        let mut store = wish_core::Store::open(AppPaths::at(dir)).unwrap();
+        store.add_account("Main", Some("712345678"), None).unwrap();
+    }
+
+    #[test]
+    fn a_kept_login_syncs_the_chronicle_alone_when_the_app_opens() {
+        use wish_core::keyring::MemoryKeyring;
+
+        use super::super::KeptLogin;
+
+        let dir = tempfile::tempdir().unwrap();
+        main_with_uid(dir.path());
+        let fake = Arc::new(hoyolab());
+        let keyring = Arc::new(MemoryKeyring::with(&cookie()));
+        let services = Services {
+            hoyolab: fake.clone(),
+            keyring: keyring.clone(),
+            ..Services::offline()
+        };
+        let mut app = open_with(dir.path(), services);
+        app.cx.run_until_parked();
+
+        app.read(|library| {
+            assert_eq!(library.kept_login(), KeptLogin::Kept);
+            let main = library.accounts()[0].account.id;
+            // The chronicle, into the account with the UID; the characters
+            // wait for a sync the player confirms.
+            let chronicle = library.chronicle(Some(main));
+            assert_eq!(chronicle.abyss[0].abyss.total_star, 36);
+            assert!(library.owned(Some(main)).characters.is_empty());
+        });
+        let asked = fake.asked.lock().unwrap().clone();
+        assert!(!asked.iter().any(|url| url.contains("character/")));
+        app.cx.update(|cx| {
+            let library = app.library.read(cx);
+            let link = &library.settings(cx).hoyolab;
+            assert_eq!(link.uids, ["712345678"]);
+            assert!(link.synced_at.is_some());
+        });
+
+        // Synced a moment ago: asked again, it finds nothing new.
+        let task = app.update(|library, cx| library.sync_chronicle(true, cx));
+        let sync = app.finish(task).unwrap();
+        assert_eq!(sync.kept.changes(), 0);
+
+        // Forgotten on request: the keyring keeps nothing, and the link goes.
+        let task = app.update(|library, cx| library.forget_login(cx));
+        app.finish(task).unwrap();
+        assert!(!keyring.keeps());
+        app.read(|library| assert_eq!(library.kept_login(), KeptLogin::None));
+    }
+
+    #[test]
+    fn a_login_hoyolab_no_longer_accepts_is_forgotten() {
+        use wish_core::keyring::MemoryKeyring;
+
+        use super::super::KeptLogin;
+
+        /// HoYoLAB refusing the cookie.
+        struct Refusing;
+        impl hoyolab::Transport for Refusing {
+            fn send(&self, _: &hoyolab::Request) -> hoyolab::Result<String> {
+                Ok(json!({ "retcode": -100, "message": "Please login", "data": null }).to_string())
+            }
+        }
+
+        let dir = tempfile::tempdir().unwrap();
+        main_with_uid(dir.path());
+        let keyring = Arc::new(MemoryKeyring::with(&cookie()));
+        let services = Services {
+            hoyolab: Arc::new(Refusing),
+            keyring: keyring.clone(),
+            ..Services::offline()
+        };
+        let mut app = open_with(dir.path(), services);
+        app.cx.run_until_parked();
+        assert!(!keyring.keeps());
+        app.read(|library| assert_eq!(library.kept_login(), KeptLogin::None));
+    }
+
+    #[test]
+    fn a_login_is_kept_only_with_a_keyring_and_never_its_cookie_token() {
+        use wish_core::keyring::{Keyring as _, MemoryKeyring};
+
+        use super::super::KeptLogin;
+
+        let dir = tempfile::tempdir().unwrap();
+        let keyring = Arc::new(MemoryKeyring::default());
+        let services = Services {
+            keyring: keyring.clone(),
+            ..Services::offline()
+        };
+        let mut app = open_with(dir.path(), services);
+        app.read(|library| assert_eq!(library.kept_login(), KeptLogin::None));
+        let full = hoyolab::Cookie::parse(
+            "ltuid_v2=123; ltoken_v2=v2_token; ltmid_v2=mid; cookie_token_v2=v2_ct; account_id_v2=123",
+        )
+        .unwrap();
+        let uids = vec!["712345678".to_owned()];
+        let task = app.update(|library, cx| library.remember_login(full, uids, cx));
+        app.finish(task).unwrap();
+        let kept = keyring.load().unwrap().unwrap();
+        assert_eq!(kept.names(), ["ltuid_v2", "ltoken_v2", "ltmid_v2"]);
+        app.read(|library| assert_eq!(library.kept_login(), KeptLogin::Kept));
+
+        // Without a keyring, nothing is kept, anywhere.
+        let dir = tempfile::tempdir().unwrap();
+        let mut app = open_with(dir.path(), Services::offline());
+        app.read(|library| assert_eq!(library.kept_login(), KeptLogin::Unavailable));
+        let task = app.update(|library, cx| library.remember_login(cookie(), Vec::new(), cx));
+        assert!(app.finish(task).is_err());
     }
 
     #[test]

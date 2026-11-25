@@ -7,6 +7,8 @@
 //! - `archive/`: the game's characters, weapons and materials, with what the
 //!   account owns of each.
 //! - `planner/`: the ascension planner.
+//! - `chronicle/`: the Spiral Abyss, the Imaginarium Theater and the
+//!   Traveler's Diary HoYoLAB showed, kept.
 //! - `imports/`: every way to bring data in, on one page (the wish history,
 //!   the HoYoLAB sync, a GOOD file).
 //! - `settings/`, `credits/`: the app's own pages, at the foot of the sidebar.
@@ -15,6 +17,7 @@
 //! in `shell::Page` and its group in the sidebar.
 
 pub(crate) mod archive;
+pub(crate) mod chronicle;
 pub(crate) mod credits;
 pub(crate) mod imports;
 pub(crate) mod overview;

@@ -1,10 +1,49 @@
 //! The form: the cookie's three fields (masked), or a whole cookie from the
 //! clipboard, and what to know before giving it.
 
+use gpui_kit::component::Disableable as _;
+use gpui_kit::component::switch::Switch;
+
 use super::*;
+use crate::app::library::KeptLogin;
 
 impl HoyolabSync {
+    /// "Remember this cookie on this computer", and what it means; off where
+    /// the system has no keyring.
+    fn render_remember(&self, cx: &mut Context<Self>) -> Div {
+        let kept = self.library.read(cx).kept_login();
+        let usable = matches!(kept, KeptLogin::None | KeptLogin::Kept);
+        let help = match kept {
+            KeptLogin::Unavailable => t!("hoyolab-remember-unavailable"),
+            KeptLogin::Kept => t!("hoyolab-remember-replaces"),
+            KeptLogin::None | KeptLogin::Checking => t!("hoyolab-remember-help"),
+        };
+        div()
+            .v_flex()
+            .gap_1()
+            .child(
+                Switch::new("remember-cookie")
+                    .cursor_pointer()
+                    .checked(self.remember && usable)
+                    .disabled(!usable)
+                    .label(t!("hoyolab-remember"))
+                    .accessibility_label(t!("hoyolab-remember"))
+                    .on_change(cx.listener(|this, on: &bool, _, cx| {
+                        this.remember = *on;
+                        cx.notify();
+                    })),
+            )
+            .child(
+                div()
+                    .pl(rems(2.75))
+                    .text_xs()
+                    .text_color(cx.theme().muted_foreground)
+                    .child(help),
+            )
+    }
+
     pub(super) fn render_form(&mut self, cx: &mut Context<Self>) -> AnyElement {
+        let remember = self.render_remember(cx);
         let theme = cx.theme();
         let muted = theme.muted_foreground;
         let field = |ix: usize| {
@@ -81,6 +120,7 @@ impl HoyolabSync {
                         .on_click(cx.listener(|this, _, _, cx| this.paste_cookie(cx))),
                 ),
             )
+            .child(remember)
             .child(
                 div()
                     .text_xs()

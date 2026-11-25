@@ -2,7 +2,7 @@
 
 Genshin Companion is a desktop app for Genshin Impact players, in Rust with [GPUI](https://www.gpui.rs) through
 GPUI Kit. It began as a rewrite of paimon.moe's wish counter, whose browser storage loses data, and now also has a
-character, weapon and material archive and an ascension planner. **The point of the project is that the player's
+character, weapon and material archive, an ascension planner and a chronicle of what HoYoLAB forgets. **The point of the project is that the player's
 data, the wish history first, is never lost**: every rule in [storage.md](storage.md) follows from it.
 
 ## The crates
@@ -27,7 +27,7 @@ core / shared / features split.
 
 | Crate | Folder | What it is | Never |
 | --- | --- | --- | --- |
-| `hoyolab` | `crates/hoyolab` | HoYoLAB's requests (game accounts, characters, the wish history's authkey), the request signature, its error codes | knows the app; stores the cookie |
+| `hoyolab` | `crates/hoyolab` | HoYoLAB's requests (game accounts, characters, the Abyss, the Theater, the Diary, the wish history's authkey), the request signature, its error codes | knows the app; stores the cookie |
 | `wish-core` | `crates/wish-core` | Everything but the window: the domain, the game data, SQLite, imports and exports, the use cases the app and `wishctl` share | depends on GPUI |
 | `wish-ui` | `crates/wish-ui` | The theme, the typeface, icons, formatting, and the components every page uses; they take plain data | reads app state |
 | `wish-app` | `crates/wish-app` | The window: the state entities, the shell (sidebar, routing), one folder per feature | holds domain logic: that goes to `wish-core` |
@@ -46,6 +46,7 @@ graph LR
         planner["planner"]
         collection["collection"]
         archive["archive"]
+        chronicle["chronicle"]
     end
     subgraph outside["Reaches outside"]
         store["store<br/>SQLite"]
@@ -53,6 +54,7 @@ graph LR
         images["images<br/>downloads"]
         paths["paths<br/>the data folder"]
         settings["settings<br/>settings.json"]
+        keyring["keyring<br/>the system keyring"]
     end
     service["service<br/>use cases"] --> store
     service --> import
@@ -74,7 +76,8 @@ data) as parameters, so tests give fakes.
 
 ```text
 crates/
-  hoyolab/src/            client.rs (requests), cookie.rs, secret.rs, ds.rs (signature), transport.rs, error.rs
+  hoyolab/src/            client.rs (requests), chronicle.rs (Abyss, Theater, Diary), cookie.rs, secret.rs,
+                          ds.rs (signature), transport.rs, error.rs
   wish-core/
     data/                 embedded game data: items.json, banners.json, planner.json, archive.json, fr.json
     locales/{en,fr}/      core.ftl: the core's texts (errors, notes, names of banner types…)
@@ -85,13 +88,14 @@ crates/
       archive.rs          character and weapon pages
       planner/            costs, plan, inventory, allocation, custom entries, resin, farming
       collection/         owned characters and weapons, HoYoLAB syncs, GOOD files, the overview's figures
-      store/              SQLite: accounts, wishes, imports, plan, inventory, collection, backups; schema/
+      chronicle.rs        the Abyss, Theater and Diary periods HoYoLAB showed, kept whole
+      store/              SQLite: accounts, wishes, imports, plan, inventory, collection, chronicle, backups; schema/
                           migrations; sql.rs, how the domain's types are stored
       import/             paimon.moe saves, the game's API, the game's cache, counting by hand, the paimon check
       snapshot.rs uigf.rs excel.rs   the export formats (and their import)
       service/            use cases shared by the app and wishctl
       i18n/               Fluent texts, numbers, the game's texts in every language, the checks
-      images.rs paths.rs settings.rs error.rs
+      images.rs paths.rs settings.rs keyring.rs error.rs
     examples/wishctl/     the command-line tool
     tests/                engine, import, planner, collection, formats, layers, undo… and fixtures/
   wish-ui/
@@ -104,7 +108,7 @@ crates/
       lib.rs main.rs      the data flow's rules; the binary
       app/                state and services: library/, session.rs, preferences.rs, image_service.rs, images.rs, notices.rs
       shell/              the window: routing, sidebar, dialogs opened from outside a page
-      features/           overview, wishes, archive, planner, imports, settings, credits
+      features/           overview, wishes, archive, planner, chronicle, imports, settings, credits
     tests/shell.rs        the window model, headless
     examples/screenshot.rs   every page, offscreen, to PNG
 tools/                    extraction scripts, the sample save, release packaging, the licences file
@@ -126,6 +130,7 @@ A feature has a piece in each layer. Following one is the quickest way into the 
 | Planner | `planner/` | `store/plan.rs`, `store/inventory.rs` | `library/plan.rs` | `planner/` |
 | Collection | `collection/` | `store/collection.rs`, `store/merge.rs` | `library/collection.rs` | `archive/characters/collection.rs`, `archive/weapons/copies.rs`, `overview/` |
 | Archive | `archive.rs`, `planner/data.rs` | none (game data only) | `library/mod.rs` (accessors) | `archive/` |
+| Chronicle | `chronicle.rs`, `service/hoyolab.rs` | `store/chronicle.rs`, `store/merge.rs` | `library/data.rs` (the sync), `library/mod.rs` (accessors) | `chronicle/` |
 | Accounts | `model.rs` (`Account`, `Server`) | `store/accounts.rs` | `library/data.rs`, `session.rs` | `settings/accounts.rs`, `shell/sidebar.rs` |
 
 ## Entry points

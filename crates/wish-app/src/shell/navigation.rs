@@ -66,6 +66,10 @@ impl Shell {
         if self.page == Page::Archive(ArchivePage::Characters) {
             self.archive.update(cx, |archive, cx| archive.show_list(cx));
         }
+        if let Page::Chronicle(page) = self.page {
+            self.chronicle
+                .update(cx, |chronicle, cx| chronicle.set_page(page, cx));
+        }
         cx.notify();
     }
 

@@ -8,6 +8,7 @@
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 
 use super::BackupReason;
+use crate::chronicle::RecordKind;
 use crate::import::ImportSource;
 use crate::model::{
     AccountId, GachaType, ItemType, Pool, Rarity, Server, Source, TextEnum, WishId, WishTime,
@@ -48,6 +49,7 @@ sql_text!(
     Role,
     RewardPlan,
     BackupReason,
+    RecordKind,
 );
 
 impl ToSql for Rarity {

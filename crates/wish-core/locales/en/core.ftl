@@ -40,7 +40,7 @@ error-empty-account-name = an account needs a name
 error-invalid-uid = “{ $uid }” isn’t a UID: a UID has 9 or 10 digits
 error-uid-taken = UID { $uid } is already the account “{ $account }”
 error-account-has-uid = “{ $account }” already has its UID, which the imports find it by: it can’t be changed
-error-account-has-wishes = “{ $account }” has wishes or imports in its history, so it can’t be removed: the wish history is what the app keeps
+error-account-has-wishes = “{ $account }” has wishes, imports or a chronicle (Abyss, Theater, Diary), so it can’t be removed: these are what the app keeps
 error-account-mismatch = “{ $account }” already belongs to another UID, so the wishes of UID { $uid } can’t be added to it
 error-not-manual = wish { $wish } wasn’t entered by hand, so it can’t be deleted; undo its import instead
 error-unknown-import = there is no import { $import }
@@ -54,6 +54,8 @@ error-unexpected-response = unexpected answer from the game server: { $detail }
 error-image-download = couldn’t download the image { $url }: { $problem }
 error-mixed-accounts = the history mixes two accounts (UIDs { $first } and { $second }); use a link from one account
 error-cancelled = cancelled
+error-no-keyring = This system has no keyring the app can use (on Linux, a Secret Service such as GNOME Keyring or KWallet), so the cookie isn’t kept.
+error-keyring = The system keyring refused: { $detail }
 
 ## HoYoLAB's errors: whole sentences, shown alone.
 

@@ -1,7 +1,7 @@
 //! Lossless JSON snapshot of every account, for backups outside the app's
 //! folder (the mirror folder) and for moving data between machines: its
-//! wishes, and since version 2 its characters, weapons, plan and inventory.
-//! Version 1 files still read (without those).
+//! wishes, since version 2 its characters, weapons, plan and inventory, and
+//! since version 3 its chronicle. Older versions still read (without those).
 //!
 //! UIGF is not used here: it requires numeric API ids and HoYoverse item ids,
 //! which migrated paimon.moe wishes do not have. A snapshot keeps every field
@@ -10,9 +10,10 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use chrono::{Local, SecondsFormat};
+use chrono::{DateTime, Local, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::chronicle::{Record, RecordKind};
 use crate::collection::{MAX_TALENT, OwnedCharacter, OwnedWeapon};
 use crate::error::{Error, Result};
 use crate::import::{AccountBatch, AccountExtras, ImportBatch, ImportSource, WishLink};
@@ -28,9 +29,9 @@ use crate::store::Store;
 /// name (Genshin Wishes), kept so that every snapshot written so far still
 /// reads, and the mirror file stays the same.
 pub const FORMAT: &str = "genshin-wishes-snapshot";
-/// The version this app writes. Version 1 (wishes only) still reads; a newer
-/// one is refused ([`Error::SnapshotTooNew`]).
-pub const VERSION: u32 = 2;
+/// The version this app writes. Versions 1 (wishes only) and 2 (without the
+/// chronicle) still read; a newer one is refused ([`Error::SnapshotTooNew`]).
+pub const VERSION: u32 = 3;
 
 /// Name of the snapshot kept in the mirror folder. One fixed name, so a
 /// syncing tool replaces the file instead of piling up copies.
@@ -44,7 +45,8 @@ pub fn write_mirror(store: &Store, folder: &Path) -> Result<PathBuf> {
 }
 
 /// The app's own lossless export, and the mirror's file: every account with its
-/// wishes, manual counters, game ids, collection, plan and inventory.
+/// wishes, manual counters, game ids, collection, plan, inventory and
+/// chronicle.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Snapshot {
     pub format: String,
@@ -79,6 +81,9 @@ pub struct SnapshotAccount {
     pub plan: Vec<SnapshotPlanEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inventory: Vec<SnapshotStock>,
+    /// Since version 3: the chronicle's periods, HoYoLAB's answers whole.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub chronicle: Vec<SnapshotRecord>,
 }
 
 impl Snapshot {
@@ -101,6 +106,7 @@ impl Snapshot {
                     weapons: extras.weapons,
                     plan: extras.plan,
                     inventory: extras.inventory,
+                    chronicle: extras.chronicle,
                 })
             })
             .collect::<Result<_>>()?;
@@ -427,8 +433,19 @@ impl From<SnapshotPlanEntry> for PlanTarget {
     }
 }
 
-/// An account's characters, weapons, plan and inventory as a snapshot keeps
-/// them.
+/// One period of the chronicle: what it is, when it was fetched, whether it
+/// was over then, and HoYoLAB's answer as it came.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SnapshotRecord {
+    pub kind: RecordKind,
+    pub period: u32,
+    pub fetched_at: DateTime<Utc>,
+    pub ended: bool,
+    pub data: serde_json::Value,
+}
+
+/// An account's characters, weapons, plan, inventory and chronicle as a
+/// snapshot keeps them.
 fn extras_of(store: &Store, account: AccountId) -> Result<SnapshotExtras> {
     let collection = store.collection(account)?;
     let inventory = store.inventory(account)?;
@@ -464,15 +481,25 @@ fn extras_of(store: &Store, account: AccountId) -> Result<SnapshotExtras> {
                 count: *count,
             }))
             .collect(),
+        chronicle: (store.chronicle(account)?.into_iter())
+            .map(|record| SnapshotRecord {
+                kind: record.kind,
+                period: record.period,
+                fetched_at: record.fetched_at,
+                ended: record.ended,
+                data: record.data,
+            })
+            .collect(),
     })
 }
 
-/// The four lists, together, to read and write them in one go.
+/// The five lists, together, to read and write them in one go.
 struct SnapshotExtras {
     characters: Vec<SnapshotCharacter>,
     weapons: Vec<SnapshotWeapon>,
     plan: Vec<SnapshotPlanEntry>,
     inventory: Vec<SnapshotStock>,
+    chronicle: Vec<SnapshotRecord>,
 }
 
 impl SnapshotAccount {
@@ -506,6 +533,15 @@ impl SnapshotAccount {
                 .map(PlanTarget::from)
                 .collect(),
             inventory,
+            records: (std::mem::take(&mut self.chronicle).into_iter())
+                .map(|record| Record {
+                    kind: record.kind,
+                    period: record.period,
+                    fetched_at: record.fetched_at,
+                    ended: record.ended,
+                    data: record.data,
+                })
+                .collect(),
         }
     }
 }

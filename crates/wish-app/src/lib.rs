@@ -92,7 +92,15 @@ macro_rules! t {
 pub(crate) static TEXTS: std::sync::LazyLock<wish_core::i18n::Texts> =
     std::sync::LazyLock::new(|| {
         wish_core::texts!(
-            "app", "archive", "credits", "history", "import", "imports", "overview", "planner",
+            "app",
+            "archive",
+            "chronicle",
+            "credits",
+            "history",
+            "import",
+            "imports",
+            "overview",
+            "planner",
             "settings"
         )
     });
@@ -108,8 +116,8 @@ use gpui_kit::{
 
 pub use app::{AppAssets, ImageDownloads, Library, Services, Session};
 pub use shell::{
-    ArchivePage, Feature, ImportFile, ImportFromGame, ImportGood, OverviewTab, Page, Quit, Shell,
-    SyncFromHoyolab, WishPage,
+    ArchivePage, ChroniclePage, Feature, ImportFile, ImportFromGame, ImportGood, OverviewTab, Page,
+    Quit, Shell, SyncFromHoyolab, WishPage,
 };
 pub use startup_error::{
     already_open_message, folder_failed_message, record_error, record_panics, show_startup_error,

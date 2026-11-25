@@ -16,7 +16,7 @@ mod navigation;
 mod page;
 mod sidebar;
 
-pub use page::{ArchivePage, Feature, OverviewTab, Page, WishPage};
+pub use page::{ArchivePage, ChroniclePage, Feature, OverviewTab, Page, WishPage};
 
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -34,6 +34,7 @@ use wish_core::model::AccountId;
 use crate::app::library::{Library, LoadState};
 use crate::app::{Notices, Session};
 use crate::features::archive::{CharactersView, EditMaterial, ResourcesView, WeaponsView};
+use crate::features::chronicle::ChronicleView;
 use crate::features::credits::Credits;
 use crate::features::imports::Imports;
 use crate::features::overview::Overview;
@@ -74,7 +75,7 @@ actions!(
 /// The window: sidebar, routing, and the pages it switches between.
 ///
 /// The pages with state of their own (the wish history, the planner, the
-/// archive's three lists, settings) and the import flow are entities created
+/// archive's three lists, the chronicle, settings) and the import flow are entities created
 /// once here and kept, so their state survives switching pages. The stateless
 /// ones (the overview, the Import page, credits) are built on each render from
 /// the library and the session.
@@ -92,6 +93,7 @@ pub struct Shell {
     weapons: Entity<WeaponsView>,
     planner: Entity<PlannerView>,
     resources: Entity<ResourcesView>,
+    chronicle: Entity<ChronicleView>,
     settings: Entity<SettingsPage>,
     import: Entity<ImportFlow>,
     /// Messages about work done in the background, drawn over everything.
@@ -116,6 +118,7 @@ impl Shell {
                 .ok();
         });
         let resources = cx.new(|cx| ResourcesView::new(session.clone(), edit, window, cx));
+        let chronicle = cx.new(|cx| ChronicleView::new(session.clone(), window, cx));
         let settings = cx.new(|cx| SettingsPage::new(session.clone(), cx));
         let import = cx.new(|cx| ImportFlow::new(session.clone(), cx));
         let notices = Notices::new(cx);
@@ -161,6 +164,7 @@ impl Shell {
             weapons,
             planner,
             resources,
+            chronicle,
             settings,
             import,
             notices,
@@ -216,6 +220,7 @@ impl Shell {
             Page::Archive(ArchivePage::Weapons) => self.weapons.clone().into_any_element(),
             Page::Archive(ArchivePage::Resources) => self.resources.clone().into_any_element(),
             Page::Planner => self.planner.clone().into_any_element(),
+            Page::Chronicle(_) => self.chronicle.clone().into_any_element(),
             Page::Overview(tab) => self.render_overview(tab, cx),
         }
     }

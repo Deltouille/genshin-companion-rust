@@ -103,8 +103,8 @@ pub enum Error {
     /// An account's UID came from the game, or was given once: it stays.
     AccountHasUid(String),
 
-    /// An account with wishes (or counters, or imports in the history)
-    /// isn't removed.
+    /// An account with wishes (or counters, or imports in the history, or a
+    /// chronicle) isn't removed.
     AccountHasWishes(String),
 
     NotManual(String),
@@ -139,6 +139,12 @@ pub enum Error {
     },
 
     Cancelled,
+
+    /// The system has no keyring the app can use: the cookie isn't kept.
+    NoKeyring,
+
+    /// The system keyring refused (what it says, never what was stored).
+    Keyring(String),
 
     /// HoYoLAB's answer, in words that say what the player can do.
     Hoyolab(hoyolab::Error),
@@ -306,6 +312,8 @@ impl fmt::Display for Error {
                 )
             }
             Error::Cancelled => t!("error-cancelled"),
+            Error::NoKeyring => t!("error-no-keyring"),
+            Error::Keyring(detail) => t!("error-keyring", detail = detail.as_str()),
             Error::Hoyolab(error) => hoyolab_message(error),
         };
         f.write_str(&text)

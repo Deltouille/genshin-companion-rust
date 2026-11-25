@@ -46,6 +46,7 @@ text_enum! {
         BeforePlanning => "before-planning",
         BeforeSync => "before-sync",
         BeforeRemovingAccount => "before-removing-account",
+        BeforeChronicle => "before-chronicle",
     }
 }
 
@@ -56,11 +57,15 @@ const COUNTING_BACKUP_INTERVAL: TimeDelta = TimeDelta::hours(1);
 
 impl BackupReason {
     /// Whether this backup is one of those taken at most once an hour, kept
-    /// apart ([`KEEP_HOURLY_BACKUPS`]).
+    /// apart ([`KEEP_HOURLY_BACKUPS`]): counting by hand, editing the plan,
+    /// and the chronicle synced on its own (every few hours, it would
+    /// otherwise push the backups of real imports out).
     pub fn hourly(self) -> bool {
         matches!(
             self,
-            BackupReason::BeforeCounting | BackupReason::BeforePlanning
+            BackupReason::BeforeCounting
+                | BackupReason::BeforePlanning
+                | BackupReason::BeforeChronicle
         )
     }
 }
@@ -192,6 +197,12 @@ impl Store {
     /// Before an edit of the plan: at most one backup an hour, as for counting.
     pub(super) fn backup_for_planning(&self) -> Result<Option<PathBuf>> {
         self.backup_hourly(BackupReason::BeforePlanning)
+    }
+
+    /// Before the chronicle synced on its own is written: at most one backup
+    /// an hour, as for counting.
+    pub(super) fn backup_for_chronicle(&self) -> Result<Option<PathBuf>> {
+        self.backup_hourly(BackupReason::BeforeChronicle)
     }
 
     /// A backup for `reason`, unless one for that reason was taken less than

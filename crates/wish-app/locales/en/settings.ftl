@@ -22,12 +22,12 @@ settings-backups = Backups
 settings-backups-summary = { $count ->
         [one] { $count } backup
        *[other] { $count } backups
-    }, the latest on { $latest }. Taken before every import, undo or restore and once a day (the { $kept } most recent are kept), and once an hour while counting by hand or editing the plan (the { $kept_hourly } most recent).
+    }, the latest on { $latest }. Taken before every import, undo or restore and once a day (the { $kept } most recent are kept), and at most once an hour while counting by hand, editing the plan or keeping the chronicle on its own (the { $kept_hourly } most recent).
 settings-backups-none = No backups yet. One is taken before every import or undo, and once a day.
 settings-back-up-now = Back up now
 settings-restore = Restore…
 settings-mirror-folder = Mirror folder
-settings-mirror-help = A copy of all your wishes, characters, weapons, plan and inventory, updated a few seconds after each change and when the app closes. Choose a folder synced by Syncthing, Nextcloud, Dropbox or similar to keep a copy off this computer.
+settings-mirror-help = A copy of all your wishes, characters, weapons, plan, inventory and chronicle, updated a few seconds after each change and when the app closes. Choose a folder synced by Syncthing, Nextcloud, Dropbox or similar to keep a copy off this computer.
 settings-mirror-written = Last written at { $time }.
 settings-mirror-failed = Couldn’t write the last copy: { $error }
 settings-mirror-pending = Written after the next change.
@@ -63,6 +63,7 @@ settings-backup-reason-counting = Before counting wishes
 settings-backup-reason-planning = Before changing your collection or plan
 settings-backup-reason-sync = Before a HoYoLAB sync
 settings-backup-reason-account = Before removing an account
+settings-backup-reason-chronicle = Before keeping the chronicle
 settings-backup-reason-unknown = Backup
 
 ## Recent imports
@@ -97,7 +98,7 @@ settings-group-export = Export
 settings-export = Export…
 settings-export-failed = Couldn’t export
 settings-export-snapshot = Snapshot
-settings-export-snapshot-help = Every account, with nothing left out: wishes, characters, weapons, plan and inventory. Import it back here, on this or another computer.
+settings-export-snapshot-help = Every account, with nothing left out: wishes, characters, weapons, plan, inventory and chronicle. Import it back here, on this or another computer.
 settings-export-uigf = UIGF
 settings-export-uigf-help = For other trackers such as Snap Hutao or Starward. Accounts need a UID.
 settings-export-spreadsheet = Spreadsheet
@@ -193,3 +194,18 @@ settings-account-server = Server
 settings-account-server-unknown = Not known
 settings-account-uid-kept = It came with an import or was given once: the imports find the account by it, so it stays.
 settings-account-identity-help = A UID says its server. Without one, choose the server: the wish banners’ times and the planner’s day follow it. Once given, the UID stays.
+
+## HoYoLAB: the cookie kept in the system keyring
+
+settings-group-hoyolab = HoYoLAB
+settings-hoyolab-kept = Cookie kept on this computer
+settings-hoyolab-kept-help = In this system’s keyring (ltuid_v2, ltoken_v2 and ltmid_v2 only). The chronicle of UID { $uids } syncs on its own every 6 hours while the app is open, into the account with that UID. Last sync: { $last }.
+settings-hoyolab-unlinked = No account here has that UID yet: sync from HoYoLAB once and pick the account it goes into.
+settings-hoyolab-no-uid = no account yet
+settings-hoyolab-never = not yet
+settings-hoyolab-sync-now = Sync now
+settings-hoyolab-forget = Forget the cookie
+settings-hoyolab-none = No cookie kept
+settings-hoyolab-none-help = Tick “Remember this cookie on this computer” when syncing from HoYoLAB: the chronicle then syncs on its own while the app is open. The cookie goes to this system’s keyring only.
+settings-hoyolab-unavailable = This system has no keyring the app can use (on Linux, a Secret Service such as GNOME Keyring or KWallet), so no cookie is kept: each sync asks for it.
+settings-hoyolab-checking = Asking the system keyring…

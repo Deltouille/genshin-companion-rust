@@ -27,7 +27,8 @@ gpui_kit::assets::icon_assets!(
         Import,
         CloudDownload,
         UserPlus,
-        Ticket
+        Ticket,
+        BookMarked
     ]
 );
 

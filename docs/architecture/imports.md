@@ -12,7 +12,7 @@ fails the import with a clear message, since a wrong rarity would corrupt every 
 | Snapshot (this app's) | `snapshot.rs` | no; its collection, plan and inventory are merged | `apply_import` + `store/merge.rs` | same |
 | The game's history | `import/api.rs` (+ `game_cache.rs` to find the link) | yes: `import/api_plan.rs` | `apply_import` | Import → From the game |
 | Counting by hand | `import/manual.rs` | no | `apply_import` (`ImportSource::Manual`) | history page, when Settings turns it on |
-| HoYoLAB (characters, weapons) | `hoyolab` crate → `collection/sync.rs` | yes: `plan_sync` | `Store::apply_sync` | Import → HoYoLAB |
+| HoYoLAB (characters, weapons, the chronicle) | `hoyolab` crate → `collection/sync.rs`, `chronicle.rs` | yes: `plan_sync`, `RecordsPlan` | `Store::apply_hoyolab` | Import → HoYoLAB |
 | GOOD file (characters, weapons, materials) | `collection/good.rs` | yes: `plan_good` | `Store::apply_good` | Import → GOOD |
 
 Paths are under `crates/wish-core/src/`.
@@ -110,12 +110,16 @@ can't: undo their import instead.
 ## HoYoLAB
 
 The `hoyolab` crate (`crates/hoyolab/`) asks HoYoLAB for the game accounts behind a cookie, their characters as
-the Battle Chronicle shows them, and an authkey. It follows genshin.py's endpoints and request signature (no code
+the Battle Chronicle shows them, what it shows for a while only (the Spiral Abyss, the Imaginarium Theater, the
+Traveler's Diary: [chronicle.md](chronicle.md)), and an authkey. It follows genshin.py's endpoints and request signature (no code
 taken; its MIT notice is in Credits). It knows nothing of the app, and has its own `LICENSE` and genshin.py's
 notice, so it can be published alone. Retcodes become errors the player can act on (`error.rs`: not logged in,
 data not public, a captcha, too frequent).
 
-**The cookie is the player's and is never stored.** `Cookie` keeps only HoYoLAB's fields, each a `Secret` (wiped
+**The cookie is the player's.** The one place it may be kept is the system keyring, when the player ticks
+"Remember this cookie on this computer", and only its login (`Cookie::login`: `ltuid_v2`, `ltoken_v2`, `ltmid_v2`;
+`cookie_token_v2`, which makes the wish history's authkey, is always used once). How it is kept, used and
+forgotten: [chronicle.md](chronicle.md). `Cookie` keeps only HoYoLAB's fields, each a `Secret` (wiped
 when dropped, hidden from `Debug` and `Display`); `HttpTransport` sends it over https to HoYoverse's hosts only,
 with no redirect followed; no error message holds it. In the app, the dialog's three masked fields (`ltuid_v2`,
 `ltoken_v2`, `ltmid_v2`, which the player copies from the browser's Storage tab), or a whole cookie read from the
@@ -124,10 +128,10 @@ dropped when its requests end. `wishctl`'s HoYoLAB commands read it from stdin w
 
 ```mermaid
 graph LR
-    cookie["Cookie"] --> fetch["service::hoyolab::fetch<br/><i>every Genshin account behind it,<br/>each one's character details</i>"]
-    fetch --> preview["service::hoyolab::preview<br/><i>plan_sync against each possible target</i>"]
+    cookie["Cookie"] --> fetch["service::hoyolab::fetch<br/><i>every Genshin account behind it,<br/>each one's character details and chronicle</i>"]
+    fetch --> preview["service::hoyolab::preview<br/><i>plan_sync and RecordsPlan<br/>against each possible target</i>"]
     preview --> dialog["The preview: counts, each change, notes"]
-    dialog -->|"the player picks the account"| apply["Store::apply_sync<br/><i>before-sync backup, one transaction</i>"]
+    dialog -->|"the player picks the account"| apply["Store::apply_hoyolab<br/><i>before-sync backup, one transaction</i>"]
 ```
 
 What a sync changes, and its rules (never lowers anything, how weapon copies are matched), is in

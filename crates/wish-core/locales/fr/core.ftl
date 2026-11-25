@@ -41,7 +41,7 @@ error-empty-account-name = un compte a besoin d’un nom
 error-invalid-uid = « { $uid } » n’est pas un UID : un UID a 9 ou 10 chiffres
 error-uid-taken = l’UID { $uid } est déjà le compte « { $account } »
 error-account-has-uid = « { $account } » a déjà son UID, par lequel les imports le retrouvent : il ne peut pas changer
-error-account-has-wishes = « { $account } » a des vœux ou des imports dans son historique, il ne peut donc pas être supprimé : l’historique des vœux est ce que l’app conserve
+error-account-has-wishes = « { $account } » a des vœux, des imports ou une chronique (Abîme, Théâtre, Journal), il ne peut donc pas être supprimé : c’est ce que l’app conserve
 error-account-mismatch = « { $account } » appartient déjà à un autre UID, les vœux de l’UID { $uid } ne peuvent donc pas y être ajoutés
 error-not-manual = le vœu { $wish } n’a pas été saisi à la main, il ne peut donc pas être supprimé ; annulez plutôt son import
 error-unknown-import = l’import { $import } n’existe pas
@@ -55,6 +55,8 @@ error-unexpected-response = réponse inattendue du serveur du jeu : { $detail }
 error-image-download = impossible de télécharger l’image { $url } : { $problem }
 error-mixed-accounts = l’historique mélange deux comptes (UID { $first } et { $second }) ; utilisez un lien d’un seul compte
 error-cancelled = annulé
+error-no-keyring = Ce système n’a pas de trousseau que l’app puisse utiliser (sous Linux, un Secret Service comme GNOME Keyring ou KWallet), donc le cookie n’est pas gardé.
+error-keyring = Le trousseau du système a refusé : { $detail }
 
 ## Les erreurs de HoYoLAB : des phrases entières, montrées seules.
 

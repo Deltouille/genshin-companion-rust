@@ -16,7 +16,8 @@ use gpui_kit::component::{Theme, ThemeMode, WindowExt as _};
 use gpui_kit::{AppContext as _, HeadlessAppContext};
 use wish_app::app::{Notice, notify};
 use wish_app::{
-    ArchivePage, ImportFromGame, Library, OverviewTab, Page, Services, Shell, WishPage,
+    ArchivePage, ChroniclePage, ImportFromGame, Library, OverviewTab, Page, Services, Shell,
+    WishPage,
 };
 use wish_core::AppPaths;
 use wish_core::collection::{OwnedCharacter, OwnedWeapon};
@@ -51,8 +52,19 @@ fn main() -> Result<()> {
     let manual_counting = wish_core::settings::Settings::load(&paths)?.manual_counting;
     // The real network for the images; a sample HoYoLAB for the sync's
     // preview (never the real one: no cookie here).
+    // Never the player's keyring: one in memory, which keeps a sample login
+    // (Settings → HoYoLAB shows it kept).
+    let sample_login =
+        wish_core::hoyolab::Cookie::parse("ltuid_v2=1; ltoken_v2=sample; ltmid_v2=m")
+            .expect("a sample cookie");
     let services = Services {
+        keyring: Arc::new(wish_core::keyring::MemoryKeyring::with(&sample_login)),
         hoyolab: Arc::new(SampleHoyolab),
+        // At once: the sample HoYoLAB minds no pace.
+        pacing: wish_core::import::api::Pacing {
+            delay: Duration::ZERO,
+            ..wish_core::import::api::Pacing::default()
+        },
         ..Services::network()
     };
     let library = cx.update(|cx| cx.new(|cx| Library::open(paths, services, cx)));
@@ -97,6 +109,9 @@ fn main() -> Result<()> {
             Page::Wishes(WishPage::History(Pool::Standard)),
         ),
         ("resources", Page::Archive(ArchivePage::Resources)),
+        ("chronicle-abyss", Page::Chronicle(ChroniclePage::Abyss)),
+        ("chronicle-theater", Page::Chronicle(ChroniclePage::Theater)),
+        ("chronicle-diary", Page::Chronicle(ChroniclePage::Diary)),
         ("imports", Page::Imports),
         ("settings", Page::Settings),
         ("credits", Page::Credits),
@@ -201,6 +216,71 @@ fn main() -> Result<()> {
                 std::thread::sleep(Duration::from_millis(50));
             }
         }
+    }
+
+    // A chronicle (kept once in a data folder that has none): six Abyss
+    // periods, five Theater periods, five Diary months, as a sync would
+    // keep them, into the account shown, under its UID.
+    if cx.update(|cx| library.read(cx).chronicle(account).is_empty()) {
+        use wish_core::chronicle::Record;
+        use wish_core::model::Server;
+        let uid = cx.update(|cx| {
+            let library = library.read(cx);
+            account
+                .and_then(|id| library.account(id))
+                .and_then(|summary| summary.account.uid.clone())
+        });
+        let mut records = Vec::new();
+        for k in 0..6 {
+            records.extend(Record::abyss(
+                sample_chronicle::abyss(k),
+                sample_chronicle::fetched(k),
+            )?);
+        }
+        for k in 0..5 {
+            let fetched = sample_chronicle::fetched(k);
+            let one = serde_json::json!({ "data": [sample_chronicle::theater(k)] });
+            records.extend(Record::theater(one, fetched)?);
+        }
+        for k in 0..5 {
+            let (info, pages) = sample_chronicle::diary(k);
+            // Kept from the month after it, or November's under way.
+            let current = sample_chronicle::diary(k.saturating_sub(1)).0["data_month"]
+                .as_u64()
+                .and_then(|m| u32::try_from(m).ok())
+                .unwrap_or(11);
+            let fetched = sample_chronicle::fetched(k);
+            records.push(Record::diary(
+                info,
+                pages,
+                current,
+                Server::Europe,
+                fetched,
+            )?);
+        }
+        let fetched = wish_app::app::library::HoyolabAccount {
+            account: wish_core::hoyolab::GameAccount {
+                uid: uid.unwrap_or_else(|| "712345678".to_owned()),
+                region: "os_euro".to_owned(),
+                nickname: "Traveler".to_owned(),
+                level: 60,
+                game_biz: "hk4e_global".to_owned(),
+            },
+            details: Vec::new(),
+            records,
+            choices: Vec::new(),
+            suggested: 0,
+        };
+        let task =
+            cx.update(|cx| library.update(cx, |l, cx| l.apply_hoyolab_sync(fetched, account, cx)));
+        for _ in 0..100 {
+            cx.run_until_parked();
+            if cx.update(|cx| !library.read(cx).chronicle(account).is_empty()) {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        drop(task);
     }
 
     for (mode_name, mode) in [("light", ThemeMode::Light), ("dark", ThemeMode::Dark)] {
@@ -849,6 +929,25 @@ impl wish_core::hoyolab::Transport for SampleHoyolab {
                 { "base": base(10000999, "Someone New", "Anemo", 5, 90, 0),
                   "weapon": sword, "constellations": [], "skills": [] },
             ] })
+        } else if request.url.contains("spiralAbyss") {
+            sample_chronicle::abyss(u32::from(request.url.contains("schedule_type=2")))
+        } else if request.url.contains("role_combat") {
+            serde_json::json!({ "is_unlock": true, "data": [
+                sample_chronicle::theater(0), sample_chronicle::theater(1)] })
+        } else if request.url.contains("ysledgeros") {
+            // November 2026 is the month under way.
+            let param =
+                |name: &str| url_param(&request.url, name).and_then(|v| v.parse::<u32>().ok());
+            let k = (11 + 12 - param("month").unwrap_or(11)) % 12;
+            let (info, pages) = sample_chronicle::diary(k);
+            if request.url.contains("month_info") {
+                info
+            } else {
+                let page = param("current_page").unwrap_or(1) as usize;
+                (pages.get(page - 1).cloned()).unwrap_or_else(
+                    || serde_json::json!({ "data_month": info["data_month"], "list": [] }),
+                )
+            }
         } else {
             return Err(wish_core::hoyolab::Error::Network(format!(
                 "the sample HoYoLAB has no answer for {}",
@@ -856,5 +955,252 @@ impl wish_core::hoyolab::Transport for SampleHoyolab {
             )));
         };
         Ok(serde_json::json!({ "retcode": 0, "message": "OK", "data": data }).to_string())
+    }
+}
+
+/// The value of `name` in `url`'s query.
+fn url_param(url: &str, name: &str) -> Option<String> {
+    let query = url.split_once('?')?.1;
+    query
+        .split('&')
+        .find_map(|pair| pair.split_once('=').filter(|(n, _)| *n == name))
+        .map(|(_, value)| value.to_owned())
+}
+
+/// A sample chronicle, as HoYoLAB would show it: Spiral Abyss and
+/// Imaginarium Theater periods, a month apart, and Traveler's Diary months.
+/// `k` is how many periods before the one under way (0); the one under way
+/// is late November 2026.
+mod sample_chronicle {
+    use chrono::{DateTime, Datelike as _, Duration, NaiveDate, TimeZone as _, Utc};
+    use serde_json::{Value, json};
+    use wish_core::planner::PlannerData;
+
+    /// The teams the sample fields, by the planner's keys.
+    const TEAMS: [[&str; 4]; 6] = [
+        ["raidenshogun", "xiangling", "xingqiu", "bennett"],
+        ["neuvillette", "furina", "kaedeharakazuha", "zhongli"],
+        ["nahida", "yelan", "xingqiu", "kukishinobu"],
+        [
+            "kamisatoayaka",
+            "shenhe",
+            "kaedeharakazuha",
+            "sangonomiyakokomi",
+        ],
+        ["hutao", "yelan", "xingqiu", "zhongli"],
+        ["ganyu", "xiangling", "bennett", "sangonomiyakokomi"],
+    ];
+
+    /// The month `k` months before November 2026, and its first day.
+    fn month(k: u32) -> NaiveDate {
+        let index = 2026 * 12 + 10 - i32::try_from(k).unwrap_or(0);
+        NaiveDate::from_ymd_opt(index.div_euclid(12), index.rem_euclid(12) as u32 + 1, 1)
+            .expect("a month")
+    }
+
+    fn seconds(day: NaiveDate, hour: u32) -> i64 {
+        Utc.from_utc_datetime(&day.and_hms_opt(hour, 0, 0).expect("an hour"))
+            .timestamp()
+    }
+
+    fn avatar(key: &str, level: u8) -> Value {
+        let planner = PlannerData::embedded();
+        let character = planner.character(key);
+        json!({
+            "id": character.map_or(0, |c| c.id),
+            "element": character.map_or("", |c| c.element.as_str()),
+            "level": level,
+            "rarity": character.map_or(4, |c| c.rarity),
+        })
+    }
+
+    /// When period `k` was fetched: under way for the latest, three days
+    /// after its end for the others.
+    pub fn fetched(k: u32) -> DateTime<Utc> {
+        if k == 0 {
+            Utc.with_ymd_and_hms(2026, 11, 25, 10, 0, 0)
+                .single()
+                .expect("a time")
+        } else {
+            let end = month(k - 1).with_day(16).expect("the 16th");
+            Utc.from_utc_datetime(&end.and_hms_opt(12, 0, 0).expect("noon")) + Duration::days(3)
+        }
+    }
+
+    /// Spiral Abyss period `k`: the 16th to the 16th.
+    pub fn abyss(k: u32) -> Value {
+        let start = month(k).with_day(16).expect("the 16th");
+        let end = month(k.saturating_sub(1)).with_day(16).expect("the 16th");
+        let end = if k == 0 {
+            start + Duration::days(30)
+        } else {
+            end
+        };
+        let stars: [u32; 6] = [33, 36, 35, 31, 36, 34];
+        let total = stars[k as usize % stars.len()];
+        let floors: Vec<Value> = (9..=12)
+            .map(|floor: u32| {
+                let chambers: Vec<Value> = (1..=3)
+                    .map(|chamber: u32| {
+                        // The stars missing fall in floor 12, then 11.
+                        let missing = 36 - total;
+                        let place = (12 - floor) * 3 + (3 - chamber);
+                        let star = if place < missing.min(6) { 2 } else { 3 };
+                        let team = |n: usize| {
+                            let team = TEAMS[(n + k as usize + floor as usize) % TEAMS.len()];
+                            team.iter().map(|key| avatar(key, 90)).collect::<Vec<_>>()
+                        };
+                        let day = start + Duration::days(i64::from(floor - 8));
+                        json!({ "index": chamber, "star": star, "max_star": 3, "battles": [
+                            { "index": 1, "timestamp": (seconds(day, 18) + i64::from(chamber) * 600).to_string(),
+                              "avatars": team(chamber as usize) },
+                            { "index": 2, "timestamp": (seconds(day, 18) + i64::from(chamber) * 600 + 240).to_string(),
+                              "avatars": team(chamber as usize + 3) },
+                        ]})
+                    })
+                    .collect();
+                let star: u64 = chambers.iter().map(|c| c["star"].as_u64().unwrap_or(0)).sum();
+                json!({ "index": floor, "is_unlock": true, "star": star, "max_star": 9,
+                        "levels": chambers })
+            })
+            .collect();
+        let rank = |key: &str, value: u64| {
+            let a = avatar(key, 90);
+            json!([{ "avatar_id": a["id"], "value": value, "rarity": a["rarity"] }])
+        };
+        json!({
+            "schedule_id": 110 - k,
+            "start_time": seconds(start, 3).to_string(),
+            "end_time": (seconds(end, 3) - 1).to_string(),
+            "total_battle_times": 12 + (36 - total) / 2,
+            "total_win_times": 12,
+            "max_floor": "12-3",
+            "total_star": total,
+            "is_unlock": true,
+            "reveal_rank": rank(TEAMS[k as usize % 6][0], 8),
+            "damage_rank": rank("raidenshogun", 187_420 + u64::from(k) * 9_311),
+            "defeat_rank": rank("neuvillette", 96),
+            "take_damage_rank": rank("zhongli", 61_250),
+            "normal_skill_rank": rank("bennett", 74),
+            "energy_skill_rank": rank("xiangling", 31),
+            "floors": floors,
+        })
+    }
+
+    /// Imaginarium Theater period `k`: a calendar month.
+    pub fn theater(k: u32) -> Value {
+        let start = month(k);
+        let end = month(k.saturating_sub(1));
+        let end = if k == 0 {
+            NaiveDate::from_ymd_opt(2026, 12, 1).expect("a day")
+        } else {
+            end
+        };
+        let furthest: [u8; 5] = [8, 10, 10, 8, 10];
+        let reached = furthest[k as usize % furthest.len()];
+        let acts: Vec<Value> = (1..=reached)
+            .map(|act| {
+                let team = TEAMS[(act as usize + k as usize) % TEAMS.len()];
+                let mut cast: Vec<Value> = team.iter().map(|key| {
+                    let mut a = avatar(key, 90);
+                    a["avatar_id"] = a["id"].clone();
+                    a["avatar_type"] = json!(1);
+                    a
+                }).collect();
+                if act.is_multiple_of(4) {
+                    cast[3]["avatar_type"] = json!(2);
+                }
+                if act.is_multiple_of(5) {
+                    cast[2]["avatar_type"] = json!(3);
+                }
+                json!({ "round_id": act, "is_get_medal": !act.is_multiple_of(3),
+                        "finish_time": seconds(start + Duration::days(i64::from(act)), 20).to_string(),
+                        "avatars": cast })
+            })
+            .collect();
+        let best = |key: &str, value: &str| {
+            let a = avatar(key, 90);
+            json!({ "avatar_id": a["id"], "value": value, "rarity": a["rarity"] })
+        };
+        json!({
+            "schedule": { "schedule_id": 70 - k, "start_time": seconds(start, 4).to_string(),
+                          "end_time": (seconds(end, 4) - 1).to_string(), "schedule_type": 1 },
+            "stat": { "difficulty_id": if k.is_multiple_of(2) { 4 } else { 3 }, "max_round_id": reached,
+                      "get_medal_round_list": (1..=reached).map(|a| u8::from(!a.is_multiple_of(3))).collect::<Vec<_>>(),
+                      "medal_num": (1..=reached).filter(|a| !a.is_multiple_of(3)).count(),
+                      "coin_num": 38 + k, "avatar_bonus_num": 9, "rent_cnt": 4 },
+            "detail": { "rounds_data": acts, "fight_statisic": {
+                "max_damage_avatar": best("neuvillette", "412870"),
+                "max_defeat_avatar": best("raidenshogun", "57"),
+                "max_take_damage_avatar": best("zhongli", "88203"),
+                "total_use_time": 2460 + k * 130 } },
+            "has_data": true, "has_detail_data": true,
+        })
+    }
+
+    /// The Traveler's Diary of the month `k` months before November 2026:
+    /// its totals, and its log's pages (up to the 25th for November).
+    pub fn diary(k: u32) -> (Value, Vec<Value>) {
+        let first = month(k);
+        let days = if k == 0 {
+            25
+        } else {
+            (month(k.saturating_sub(1)) - first).num_days() as u32
+        };
+        let mut log = Vec::new();
+        for day in (1..=days).rev() {
+            let date = first.with_day(day).expect("a day");
+            let at = |hour: u32| format!("{} {hour:02}:0{}:00", date.format("%Y-%m-%d"), day % 10);
+            log.push(json!({ "action_id": 1, "action": "Daily Commission Rewards", "time": at(5), "num": 60 }));
+            if day.is_multiple_of(6) {
+                log.push(json!({ "action_id": 2, "action": "Event Rewards", "time": at(20), "num": 420 }));
+            }
+            if day.is_multiple_of(9) {
+                log.push(json!({ "action_id": 3, "action": "Achievement Rewards", "time": at(21), "num": 10 }));
+            }
+            if day == 17 {
+                log.push(json!({ "action_id": 4, "action": "Spiral Abyss Rewards", "time": at(19), "num": 600 }));
+            }
+            if day == 2 {
+                log.push(json!({ "action_id": 5, "action": "Imaginarium Theater Rewards", "time": at(19), "num": 800 }));
+            }
+            if day == 1 {
+                log.push(
+                    json!({ "action_id": 6, "action": "Mail Rewards", "time": at(4), "num": 300 }),
+                );
+            }
+        }
+        let sum = |pred: &dyn Fn(&str) -> bool| -> u64 {
+            (log.iter())
+                .filter(|e| pred(e["action"].as_str().unwrap_or("")))
+                .map(|e| e["num"].as_u64().unwrap_or(0))
+                .sum()
+        };
+        let daily = sum(&|a| a == "Daily Commission Rewards");
+        let events = sum(&|a| a == "Event Rewards");
+        let abyss = sum(&|a| a.contains("Abyss") || a.contains("Theater"));
+        let mail = sum(&|a| a == "Mail Rewards");
+        let other = sum(&|a| a == "Achievement Rewards");
+        let total = daily + events + abyss + mail + other;
+        let number = first.month();
+        let info = json!({
+            "data_month": number,
+            "optional_month": [month(2).month(), month(1).month(), month(0).month()],
+            "month_data": {
+                "current_primogems": total, "current_mora": 2_740_000 + u64::from(k) * 81_500,
+                "group_by": [
+                    { "action_id": 1, "action": "Daily Activity", "num": daily },
+                    { "action_id": 2, "action": "Events", "num": events },
+                    { "action_id": 3, "action": "Spiral Abyss", "num": abyss },
+                    { "action_id": 4, "action": "Mail", "num": mail },
+                    { "action_id": 5, "action": "Other", "num": other },
+                ],
+            },
+        });
+        let pages = log
+            .chunks(100)
+            .map(|list| json!({ "data_month": number, "list": list }))
+            .collect();
+        (info, pages)
     }
 }

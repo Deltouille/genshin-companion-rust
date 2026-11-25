@@ -7,6 +7,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, IoAction, Result};
@@ -41,6 +42,29 @@ pub struct Settings {
         deserialize_with = "i18n::deserialize_language"
     )]
     pub language: Option<Language>,
+    /// What goes with the HoYoLAB login the system keyring keeps, if it
+    /// keeps one (never the login itself).
+    #[serde(default, skip_serializing_if = "HoyolabLink::is_empty")]
+    pub hoyolab: HoyolabLink,
+}
+
+/// What goes with the HoYoLAB login kept in the system keyring: the game
+/// accounts behind it and when the chronicle last synced on its own. Not
+/// secret: the login itself is in the keyring only.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HoyolabLink {
+    /// The game UIDs behind the login, as HoYoLAB last listed them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uids: Vec<String>,
+    /// When the chronicle last synced with the login kept.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub synced_at: Option<DateTime<Utc>>,
+}
+
+impl HoyolabLink {
+    pub fn is_empty(&self) -> bool {
+        self.uids.is_empty() && self.synced_at.is_none()
+    }
 }
 
 impl Settings {
@@ -134,6 +158,10 @@ mod tests {
                 ..ResinOptions::default()
             },
             language: Some(Language::French),
+            hoyolab: HoyolabLink {
+                uids: vec!["712345678".to_owned()],
+                synced_at: Some(chrono::DateTime::UNIX_EPOCH),
+            },
         };
         settings.save(&paths).unwrap();
         assert_eq!(Settings::load(&paths).unwrap(), settings);

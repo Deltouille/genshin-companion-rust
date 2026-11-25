@@ -43,6 +43,7 @@ erDiagram
     accounts ||--o{ owned_characters : owns
     accounts ||--o{ owned_weapons : owns
     accounts ||--o| battle_pass : has
+    accounts ||--o{ chronicle : keeps
     imports ||--o{ wishes : added
     imports ||--o{ wish_links : recorded
     imports ||--o{ manual_counters : added
@@ -109,6 +110,14 @@ erDiagram
         int talents
         int favourite
     }
+    chronicle {
+        int account_id PK
+        text kind PK "abyss, theater, diary"
+        int period PK "the game's number, or YYYYMM"
+        text fetched_at
+        int ended "over when fetched: final"
+        text data "HoYoLAB's JSON, whole"
+    }
     owned_weapons {
         int id PK "one row per copy"
         int account_id FK
@@ -138,6 +147,9 @@ What the tables hold:
   reached in, the Gnostic Hymn, the reward plan, whether the planner counts it, the series picked for its boxes
   (material ids, null when left to the plan; [planner.md](planner.md)). Not in
   snapshots: a pass lasts one period.
+- **`chronicle`**: each Spiral Abyss and Imaginarium Theater period and each Traveler's Diary month HoYoLAB showed,
+  its answer kept whole, whether the period was over when fetched (then the row never changes), and when
+  ([chronicle.md](chronicle.md)). An account with a chronicle can't be removed.
 
 | Store's files | Methods |
 | --- | --- |
@@ -147,7 +159,8 @@ What the tables hold:
 | `crates/wish-core/src/store/import.rs` | `apply_import`, `undo_import`, `recent_imports` |
 | `crates/wish-core/src/store/plan.rs`, `inventory.rs` | the plan and the inventory, one transaction per write |
 | `crates/wish-core/src/store/battle_pass.rs` | `battle_pass`, `set_battle_pass` |
-| `crates/wish-core/src/store/collection.rs` | the collection, `sync_targets`, `apply_sync`, `apply_good` |
+| `crates/wish-core/src/store/collection.rs` | the collection, `sync_targets`, `apply_sync`, `apply_hoyolab`, `apply_good` |
+| `crates/wish-core/src/store/chronicle.rs` | `chronicle`, and the records a sync or a snapshot writes |
 | `crates/wish-core/src/store/merge.rs` | a snapshot's collection, plan and inventory merged in |
 | `crates/wish-core/src/store/backup.rs` | backups, pruning, restore |
 | `crates/wish-core/src/store/sql.rs` | how the domain's types are stored: `ToSql`/`FromSql` for the text enums (`sql_text!`), rarities, wish times and ids |
@@ -174,6 +187,7 @@ that changes one of those calls `Store::changed`, or the app keeps a stale analy
 | `007_collection.sql` | the collection; plan and inventory per account |
 | `008_battle_pass.sql` | each account's Battle Pass |
 | `009_battle_pass_picks.sql` | the series picked for the pass's boxes |
+| `010_chronicle.sql` | the chronicle |
 
 Never edit a migration that shipped: add the next one and append it. A negative `user_version` (no app writes one,
 and it would skip every migration) is refused untouched (`Error::SchemaDamaged`), and a restore takes nothing below
@@ -192,6 +206,7 @@ refused untouched (`Error::SchemaTooNew`): it was written by a newer app.
 | `daily` | at the first open of a day |
 | `manual` | Settings → Back up now |
 | `before-counting`, `before-planning` | counting by hand, editing the plan or the collection: at most one an hour each |
+| `before-chronicle` | the chronicle synced on its own ([chronicle.md](chronicle.md)): at most one an hour |
 
 The hourly ones are kept apart (the newest `KEEP_HOURLY_BACKUPS`, 10) from the others (the newest `KEEP_BACKUPS`,
 30), so a long session of clicks can't push the backups of real imports out. Backups sort by the instant in their
@@ -210,27 +225,30 @@ undoing a snapshot import removes its wishes, and its `before-import` backup und
 ## Snapshots and the mirror
 
 A snapshot (`crates/wish-core/src/snapshot.rs`) is the app's own lossless export: every account with its wishes,
-manual counters, game ids, characters, weapons, plan and inventory. The collection, plan and inventory are written
+manual counters, game ids, characters, weapons, plan, inventory and chronicle. The collection, plan and inventory are written
 as records of the format's own (`SnapshotCharacter`, `SnapshotPlanEntry`…), not the app's types, so changing a
 type never changes the file.
 
-- Format `genshin-wishes-snapshot` (the app's former name, kept so every file still reads), version 2; version 1
-  (wishes only) still reads; a newer one is refused.
+- Format `genshin-wishes-snapshot` (the app's former name, kept so every file still reads), version 3 (the
+  chronicle, each period's HoYoLAB answer whole); versions 1 (wishes only) and 2 (no chronicle) still read; a newer
+  one is refused.
 - Importing one merges it (`AccountBatch::extras`, `store/merge.rs`): characters and weapon copies added or raised,
-  never lowered; plan entries not planned yet added; materials the account has none of added. The same snapshot
-  twice changes nothing.
+  never lowered; plan entries not planned yet added; materials the account has none of added; the chronicle's
+  periods merged by its own rule (one kept once over stays). The same snapshot twice changes nothing.
 - The **mirror** is a snapshot written to a folder the player chose (synced by Syncthing, Nextcloud…), under one
   fixed name (`MIRROR_FILE`), a moment after the last change ([app-state.md](app-state.md)).
 
 **Files written outside the database must keep reading.** `crates/wish-core/tests/formats.rs` reads the frozen
-witnesses in `crates/wish-core/tests/fixtures/witness/` (a version 1 snapshot written by 0.5.0, version 2 by 0.6.0,
-a `settings.json` of 0.6) and checks the writer still writes the current version. Never edit or regenerate a
-witness: a format change gets a new version and a new witness written by the app that introduces it.
+witnesses in `crates/wish-core/tests/fixtures/witness/` (a version 1 snapshot written by 0.5.0, version 2 by
+0.6.0, version 3 by the code that introduced it, a `settings.json` of 0.6) and checks the writer still writes the
+current version. Never edit or regenerate a witness: a format change gets a new version and a new witness written
+by the app that introduces it.
 
 ## `settings.json`
 
 `Settings` (`crates/wish-core/src/settings.rs`): the mirror folder, the game folder, counting by hand, the resin
-options, the language. They describe this computer, not the data, so they are not in the database or its
+options, the language, and what goes with the HoYoLAB login the keyring keeps (its game UIDs, when the chronicle
+last synced; never the login, which is in the system keyring only). They describe this computer, not the data, so they are not in the database or its
 backups. A field added later gets `#[serde(default)]`. A file that doesn't parse is set aside as
 `settings.json.<UTC time>.damaged` (the next save would otherwise replace it, and the mirror folder with it).
 

@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::chronicle::Record;
 use crate::collection::{OwnedCharacter, OwnedWeapon};
 use crate::data::GameData;
 use crate::error::{Error, Result};
@@ -193,6 +194,8 @@ pub struct AccountExtras {
     /// In the plan's order.
     pub plan: Vec<PlanTarget>,
     pub inventory: Inventory,
+    /// The chronicle's periods (since version 3).
+    pub records: Vec<Record>,
 }
 
 impl AccountExtras {
@@ -202,6 +205,7 @@ impl AccountExtras {
             && self.plan.is_empty()
             && self.inventory.materials.is_empty()
             && self.inventory.named.is_empty()
+            && self.records.is_empty()
     }
 }
 
@@ -215,6 +219,8 @@ pub struct ExtrasReport {
     pub plan_added: u32,
     /// Materials the account had none of.
     pub inventory_added: u32,
+    /// The chronicle's periods added, or brought up to date.
+    pub records: u32,
 }
 
 impl ExtrasReport {
@@ -225,6 +231,7 @@ impl ExtrasReport {
             + self.weapons_raised
             + self.plan_added
             + self.inventory_added
+            + self.records
     }
 }
 

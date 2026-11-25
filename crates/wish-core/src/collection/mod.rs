@@ -16,7 +16,7 @@ pub use stats::{
     CharacterStats, Constellations, ELEMENTS, LEVEL_BRACKETS, OwnedWeaponStats, OwnedWeaponSummary,
     REGIONS, TALENT_BRACKETS, Tally, VersionTally, WEAPON_TYPES,
 };
-pub use sync::{Change, SyncNote, SyncPlan, plan_sync};
+pub use sync::{Change, SyncNote, SyncPlan, hoyolab_character, plan_sync};
 
 use crate::planner::{CharacterGoal, Level, WeaponGoal};
 

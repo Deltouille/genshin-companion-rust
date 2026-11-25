@@ -15,7 +15,7 @@
 ### Routing
 
 Two levels: `Page::Overview(OverviewTab)`, `Page::Wishes(WishPage::History(Pool))`,
-`Page::Archive(ArchivePage::…)`, `Page::Planner`, then the app's own `Page::Imports`, `Page::Settings`,
+`Page::Archive(ArchivePage::…)`, `Page::Planner`, `Page::Chronicle(ChroniclePage::…)`, then the app's own `Page::Imports`, `Page::Settings`,
 `Page::Credits`. A feature is a `Feature` with its `home()` page and a `NavGroup` in the sidebar; clicking its
 header opens it, or folds its group when one of its pages is shown.
 
@@ -46,7 +46,7 @@ dialog can be shot without clicks.
 | Kind | When | Examples |
 | --- | --- | --- |
 | `RenderOnce` component with props | no state of its own; built by the shell on each render from the library and the session | `Overview`, `Imports`, `Credits` |
-| Entity created once by the shell | state that must survive a render: a table, sliders, filters, a running task, dialogs that call back | `HistoryView`, `PlannerView`, `CharactersView`, `WeaponsView`, `ResourcesView`, `SettingsPage` |
+| Entity created once by the shell | state that must survive a render: a table, sliders, filters, a running task, dialogs that call back | `HistoryView`, `PlannerView`, `CharactersView`, `WeaponsView`, `ResourcesView`, `ChronicleView`, `SettingsPage` |
 | Entity with no view | a service several pages and the menu start | `ImportFlow` |
 
 A big page splits as the planner does:
@@ -78,12 +78,13 @@ graph LR
 | `crates/wish-app/src/features/wishes` | the wish history of each banner type | `history/` (`mod.rs` the view, `model.rs` rows and cells, `table.rs`, `charts.rs`, `banners.rs`, `manual_counting.rs`), `import/` (`ImportFlow`, the game import dialog) |
 | `crates/wish-app/src/features/archive` | Characters, Weapons, Resources | `characters/`, `weapons/`, `resources/` (each a view, a model, a list, a page), `filters.rs` (the filter bar and its drawer), `shared.rs` (the list card, the hero banner, stats) |
 | `crates/wish-app/src/features/planner` | the ascension planner | `mod.rs` (the view), `controls.rs` (sliders), `model.rs`, `sections/` (`still_needed`, `card`, `materials`, `drag`), dialogs: `add.rs`, `custom.rs`, `inventory.rs`, `resin.rs` |
+| `crates/wish-app/src/features/chronicle` | the Spiral Abyss, the Imaginarium Theater, the Traveler's Diary | `mod.rs` (the view, the period pickers, shared pieces: figures, a character's tile, the chart over the periods), `model.rs`, `abyss.rs`, `theater.rs`, `diary.rs` |
 | `crates/wish-app/src/features/imports` | the Import page | `mod.rs` (a card per source), `hoyolab/` (the sync dialog: form, fetch, preview, model), `good/` (the GOOD import dialog and its model) |
 | `crates/wish-app/src/features/settings` | Settings | `mod.rs` (layout, rows), `accounts.rs`, `data.rs`, `backups.rs`, `mirror.rs`, `imports.rs`, `export.rs`, `images.rs` |
 | `crates/wish-app/src/features/credits` | Credits | the notices the licences require, and the open-source licences dialog |
 
 More on each feature's logic: [wishes.md](wishes.md), [planner.md](planner.md),
-[collection-archive.md](collection-archive.md), [imports.md](imports.md).
+[collection-archive.md](collection-archive.md), [chronicle.md](chronicle.md), [imports.md](imports.md).
 
 ## Layout
 

@@ -1,5 +1,5 @@
 //! SQLite storage: the single source of truth for the player's data (wishes,
-//! accounts, the collection, plans and inventories).
+//! accounts, the collection, plans and inventories, the chronicle).
 //!
 //! [`Store`] owns the connection. Its methods are split by subject:
 //!
@@ -11,7 +11,8 @@
 //! - `import`: applying an [`ImportBatch`](crate::import::ImportBatch), undoing one, the import log;
 //! - `collection`, `plan`, `inventory`, `battle_pass`: what an account owns,
 //!   its plan, its bag and its Battle Pass; `merge`: a snapshot's collection,
-//!   plan and inventory merged in;
+//!   plan, inventory and chronicle merged in;
+//! - `chronicle`: the Abyss, Theater and Diary periods HoYoLAB showed;
 //! - `backup`: backups, their rotation, and restoring one.
 //!
 //! The data-safety rules hold for every write: imports only add rows
@@ -22,6 +23,7 @@
 mod accounts;
 mod backup;
 mod battle_pass;
+mod chronicle;
 mod collection;
 mod import;
 mod inventory;
@@ -37,7 +39,7 @@ use std::time::Duration;
 use rusqlite::{Connection, Row};
 
 pub use backup::{BackupFile, BackupReason, KEEP_BACKUPS, KEEP_HOURLY_BACKUPS};
-pub use collection::SyncTargets;
+pub use collection::{HoyolabSynced, SyncTargets};
 
 use crate::error::{Error, IoAction, Result};
 use crate::model::{Account, AccountId, Wish};
@@ -55,6 +57,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("schema/007_collection.sql"),
     include_str!("schema/008_battle_pass.sql"),
     include_str!("schema/009_battle_pass_picks.sql"),
+    include_str!("schema/010_chronicle.sql"),
 ];
 
 /// The schema version this app writes: how many migrations it has.

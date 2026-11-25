@@ -203,7 +203,7 @@ fn a_snapshot_keeps_the_collection_the_plan_and_the_inventory() {
         .unwrap();
 
     let exported = Snapshot::from_store(&original).unwrap();
-    assert_eq!(exported.version, 2);
+    assert_eq!(exported.version, wish_core::snapshot::VERSION);
     let json = exported.to_json();
     let read_back = Snapshot::from_json(&json).unwrap();
     assert_eq!(read_back, exported);

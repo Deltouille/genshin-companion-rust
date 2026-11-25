@@ -1,6 +1,7 @@
 //! The sidebar: the app's name, the account picker, the Overview, one group
 //! per feature (the wish counter: one page per banner type; the archive: the
-//! characters and weapons; the planner), then Settings and Credits.
+//! characters and weapons; the planner; the chronicle), then Settings and
+//! Credits.
 //!
 //! Its own column rather than GPUI Kit's `Sidebar`, whose items are fixed
 //! 28 px rectangles: the entries are 40 px high, with the corners of the
@@ -17,7 +18,7 @@ use wish_core::model::AccountId;
 use wish_ui::{NavGroup, NavItem};
 use wish_ui::{PickerItem, picker};
 
-use super::{ArchivePage, Feature, Page, Shell, WishPage};
+use super::{ArchivePage, ChroniclePage, Feature, Page, Shell, WishPage};
 use crate::APP_TITLE;
 use crate::app::library::AccountSummary;
 
@@ -122,6 +123,23 @@ impl Shell {
             cx,
         );
 
+        // What HoYoLAB shows for a while only, kept.
+        let chronicle_pages = [
+            ("abyss", t!("app-nav-abyss"), ChroniclePage::Abyss),
+            ("theater", t!("app-nav-theater"), ChroniclePage::Theater),
+            ("diary", t!("app-nav-diary"), ChroniclePage::Diary),
+        ]
+        .into_iter()
+        .map(|(id, label, page)| nested(id, label.into(), Page::Chronicle(page), cx))
+        .collect();
+        let chronicle = group(
+            Feature::Chronicle,
+            t!("app-nav-chronicle"),
+            Icon::new(gpui_kit::assets::IconName::BookMarked),
+            chronicle_pages,
+            cx,
+        );
+
         let brand = div().h_flex().gap_2().px_1().child(
             div()
                 .text_lg()
@@ -171,7 +189,8 @@ impl Shell {
                             .child(overview)
                             .child(wishes)
                             .child(archive)
-                            .child(planner),
+                            .child(planner)
+                            .child(chronicle),
                     ),
             )
             .child(

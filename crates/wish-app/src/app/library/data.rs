@@ -66,12 +66,18 @@ impl Library {
         account: AccountId,
         cx: &mut Context<Self>,
     ) -> Task<Result<()>> {
-        self.write(
+        let removed = self.write(
             cx,
             true,
             move |store, _| Ok(store.remove_account(account)?),
             |_, ()| (),
-        )
+        );
+        // The HoYoLAB login kept goes with its account.
+        cx.spawn(async move |this, cx| {
+            removed.await?;
+            this.update(cx, |this, cx| this.forget_login_without_account(cx))?;
+            Ok(())
+        })
     }
 
     /// Reads and checks a file for import. Nothing is written.
@@ -169,8 +175,9 @@ impl Library {
         })
     }
 
-    /// Asks HoYoLAB, with the player's `cookie`, for the characters of every
-    /// Genshin account behind it, and works out what a sync would change in
+    /// Asks HoYoLAB, with the player's `cookie`, for the characters and the
+    /// chronicle (Abyss, Theater, Diary) of every Genshin account behind it,
+    /// paced like the game's API, and works out what a sync would change in
     /// each app account it can go to (`shown`, the account on screen, is
     /// suggested when it has no UID). The cookie is dropped as soon as the
     /// requests are done, and nothing is written. The store isn't locked
@@ -187,10 +194,12 @@ impl Library {
         };
         let (planner, archive) = (self.planner.clone(), self.archive.clone());
         let transport = self.services.hoyolab.clone();
+        let delay = self.services.pacing.delay;
         cx.background_spawn(async move {
             Ok(service::hoyolab::fetch_preview(
                 cookie,
                 &*transport,
+                delay,
                 &store,
                 shown,
                 &planner,
@@ -204,28 +213,30 @@ impl Library {
     /// they chose (`None`: a new one, named after the game's nickname); an
     /// account without a UID takes the game's, so the next import from the
     /// game goes there too. The plan is worked out again against the stored
-    /// collection, then written in one transaction after a backup. Returns
-    /// the account and what changed.
+    /// collection, then written in one transaction after a backup, with the
+    /// chronicle's periods (a period kept once over stays as it is).
+    /// Returns the account and what changed.
     pub fn apply_hoyolab_sync(
         &mut self,
         fetched: HoyolabAccount,
         target: Option<AccountId>,
         cx: &mut Context<Self>,
-    ) -> Task<Result<(AccountId, SyncPlan)>> {
+    ) -> Task<Result<(AccountId, SyncPlan, RecordsPlan)>> {
         let (planner, archive) = (self.planner.clone(), self.archive.clone());
         // The mirror's snapshot lists the accounts, and one may be made.
         self.write(
             cx,
             true,
             move |store, _| {
-                let (account, plan, _) = store.apply_sync(
+                let synced = store.apply_hoyolab(
                     target,
                     &fetched.account,
                     &fetched.details,
+                    &fetched.records,
                     &planner,
                     &archive,
                 )?;
-                Ok((account, plan))
+                Ok((synced.account, synced.plan, synced.records))
             },
             |_, applied| applied,
         )

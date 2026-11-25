@@ -1,11 +1,14 @@
 //! Sync from HoYoLAB: the player gives their cookie (typed into masked
 //! fields, or read from the clipboard, which is then cleared), the app asks
-//! HoYoLAB for the characters of their Genshin accounts, shows what would
-//! change in the collection, and writes it once confirmed.
+//! HoYoLAB for the characters and the chronicle (Abyss, Theater, Diary) of
+//! their Genshin accounts, shows what would change, and writes it once
+//! confirmed.
 //!
-//! The cookie is never stored: it lives in this dialog until the fetch
-//! starts (the fields are emptied then), in the fetch until its requests are
-//! done, and nowhere after. Lives in a dialog the shell opens
+//! The cookie lives in this dialog until the fetch starts (the fields are
+//! emptied then), in the fetch until its requests are done, and nowhere
+//! after; unless the player ticks "Remember", when its login fields alone
+//! go to the system keyring once HoYoLAB has accepted them
+//! (`Library::remember_login`). Lives in a dialog the shell opens
 //! (`SyncFromHoyolab`).
 
 mod form;
@@ -28,7 +31,7 @@ use gpui_kit::{
 use wish_core::hoyolab::{Cookie, Secret};
 
 use crate::app::library::{FetchControl, HoyolabAccount, Library, is_cancelled};
-use crate::app::{Notice, Session, notify};
+use crate::app::{Notice, Session, notify, report};
 use wish_ui::{ButtonExt as _, Segmented, button, input};
 
 /// The cookie fields the form asks for, as hoyolab.com names them.
@@ -59,6 +62,9 @@ pub struct HoyolabSync {
     pasted: Option<Cookie>,
     /// What is wrong with the form.
     note: Option<SharedString>,
+    /// Keep the login in the system keyring once HoYoLAB accepts it, so the
+    /// chronicle syncs on its own.
+    remember: bool,
     step: Step,
     control: Arc<FetchControl>,
     task: Option<Task<()>>,
@@ -79,6 +85,7 @@ impl HoyolabSync {
             fields,
             pasted: None,
             note: None,
+            remember: false,
             step: Step::Form,
             control: Arc::new(FetchControl::default()),
             task: None,
@@ -177,6 +184,8 @@ impl HoyolabSync {
         self.control = Arc::new(FetchControl::default());
         self.step = Step::Fetching;
         cx.notify();
+        // Only the login is kept, and only once HoYoLAB has accepted it.
+        let login = self.remember.then(|| cookie.login());
         let shown = self.session.read(cx).account();
         let fetch = self.library.update(cx, |library, cx| {
             library.fetch_from_hoyolab(cookie, shown, self.control.clone(), cx)
@@ -186,6 +195,13 @@ impl HoyolabSync {
             this.update(cx, |this, cx| {
                 this.step = match result {
                     Ok(accounts) => {
+                        if let Some(login) = login {
+                            let uids = (accounts.iter()).map(|a| a.account.uid.clone()).collect();
+                            let kept = this
+                                .library
+                                .update(cx, |library, cx| library.remember_login(login, uids, cx));
+                            report(kept, t!("hoyolab-remember-failed"), cx);
+                        }
                         // The account with the highest Adventure Rank first.
                         let choice = (0..accounts.len())
                             .max_by_key(|&i| accounts[i].account.level)
@@ -227,14 +243,14 @@ impl HoyolabSync {
         self.task = Some(cx.spawn_in(window, async move |this, cx| {
             let result = apply.await;
             this.update_in(cx, |this, window, cx| match result {
-                Ok((account, plan)) => {
+                Ok((account, plan, records)) => {
                     this.session
                         .update(cx, |session, cx| session.select_account(account, cx));
                     notify(
                         Notice::done(t!(
                             "hoyolab-synced",
                             nickname = nickname.as_str(),
-                            count = plan.changes()
+                            count = plan.changes() + records.changes()
                         )),
                         cx,
                     );

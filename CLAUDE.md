@@ -1,8 +1,9 @@
 # CLAUDE.md
 
 **Genshin Companion** (formerly Genshin Wishes): a Genshin Impact desktop app in Rust + GPUI. It began as a rewrite
-of paimon.moe's **wish counter** and now also has a character, weapon and material archive and an ascension
-planner. **The point of the project is that the player's data, wish history first, is never lost.**
+of paimon.moe's **wish counter** and now also has a character, weapon and material archive, an ascension planner
+and a chronicle of what HoYoLAB forgets. **The point of the project is that the player's data, wish history first,
+is never lost.**
 
 This file holds what every session needs: the commands, the rules, and a map. **How the code works is in
 `docs/architecture/`** (start with `docs/architecture/README.md`, then `overview.md`); read the page for the part
@@ -62,6 +63,8 @@ The three crates mirror a front end's core / shared / features split, and Cargo 
 | `crates/wish-core/src/{model,engine,stats}.rs`, `data.rs` | wishes, pools, pity, banners, 50/50; items and banners | `wishes.md` |
 | `crates/wish-core/src/planner/` | the planner's data, costs, plan, custom entries, allocation, resin, the Battle Pass | `planner.md` |
 | `crates/wish-core/src/collection/`, `archive.rs` | what an account owns, HoYoLAB syncs, GOOD files; the archive's pages | `collection-archive.md` |
+| `crates/wish-core/src/chronicle.rs`, `crates/wish-app/src/features/chronicle/` | the Abyss, Theater and Diary periods HoYoLAB showed, kept whole; their pages | `chronicle.md` |
+| `crates/wish-core/src/keyring.rs`, `crates/wish-app/src/app/library/kept_login.rs` | the HoYoLAB login the system keyring keeps when asked; the chronicle synced on its own | `chronicle.md` |
 | `crates/wish-core/src/store/`, `snapshot.rs`, `paths.rs`, `settings.rs` | SQLite, migrations, backups, accounts; snapshots and the mirror; the data folder | `storage.md` |
 | `crates/wish-core/src/import/`, `uigf.rs`, `excel.rs`, `service/` | every import, the game's API, use cases shared with `wishctl` | `imports.md` |
 | `crates/wish-core/src/i18n/`, `locales/` | Fluent texts, the game's texts in every language | `i18n.md` |
@@ -103,7 +106,10 @@ edit them.** In `reference/`, the wish logic is `src/functions/wish.js` and `src
 - A restored file may hold no trigger or view (the app makes none): it would act on the next import.
 - One process at a time uses a data folder (`AppPaths::lock`).
 - Every write that changes several rows happens in a single transaction. A fetch is staged in memory and written
-  only after the user confirms.
+  only after the user confirms. The one exception is the chronicle synced on its own with the HoYoLAB login the
+  keyring keeps (`Store::keep_chronicle`): it only adds periods or brings one under way up to date (a period kept
+  once over never changes), only into accounts that already have the UID, after an hourly `before-chronicle`
+  backup. Never characters, wishes or anything the player entered: those wait for a sync they confirm.
 - Never persist computed values (pity, banner, 50/50, guarantee, planner costs). Recompute them from raw rows.
 - Schema changes go through migrations only: add `store/schema/NNN_*.sql` and append it to `MIGRATIONS`. Never edit
   a migration that has shipped. A database with a newer `user_version`, or a negative one (no app writes it, and
@@ -124,9 +130,15 @@ edit them.** In `reference/`, the wish logic is `src/functions/wish.js` and `src
 
 ### Privacy and others' property
 
-- **The HoYoLAB cookie is never stored or printed**: in memory only, as `Secret`s, used for its requests, sent only
-  to HoYoverse's hosts over https without redirects. Never ask the user to paste it here or run a cookie command
-  through this session: they run those in their own terminal. Never change the user's HoYoLAB account settings.
+- **The HoYoLAB cookie is never printed, and stored only in the system keyring**: in memory as `Secret`s, used for
+  its requests, sent only to HoYoverse's hosts over https without redirects. The one place it may be kept is the
+  system keyring (Keychain, Windows Credential Manager, Secret Service), only when the player asks, and only the
+  login (`Cookie::login`: `ltuid_v2`, `ltoken_v2` and `ltmid_v2`, the account's id that goes with the token);
+  never the database, `settings.json`, backups, snapshots, the mirror, logs or error
+  messages, and no file instead when there is no keyring. `cookie_token_v2` (the wish history's authkey) is always
+  used once. Forgotten on the player's request, with its account, and when HoYoLAB no longer accepts it. Never ask
+  the user to paste it here or run a cookie command through this session: they run those in their own terminal.
+  Never change the user's HoYoLAB account settings.
 - **The game's images are never in the repository or the builds** (they are HoYoverse's). The app downloads each
   on first use (`docs/architecture/images.md`). Never add game images or a tool that packs them. Downloads are
   opt-in beyond what pages show: no eager prefetching of the two volunteer-run sites.

@@ -10,7 +10,10 @@
 //! - a plan entry is added at the end unless the plan has one for the same
 //!   character, weapon or custom name;
 //! - a material is counted only when the account has none: the counts it
-//!   has are newer than a snapshot's.
+//!   has are newer than a snapshot's;
+//! - a chronicle's period is added, or replaces one kept while under way
+//!   by a newer fetch ([`crate::chronicle::merge`]): one kept once over
+//!   stays.
 //!
 //! So importing the same snapshot twice changes nothing the second time.
 
@@ -18,6 +21,7 @@ use std::collections::HashSet;
 
 use rusqlite::{Transaction, params};
 
+use super::chronicle::write_records;
 use super::collection::{read_collection, save_character, write_weapon};
 use super::inventory::{read_inventory, set_owned};
 use super::plan::{insert_entry, read_plan};
@@ -155,6 +159,9 @@ pub(super) fn merge_extras(
             report.inventory_added += 1;
         }
     }
+
+    let records = write_records(tx, account, &extras.records)?;
+    report.records = u32::try_from(records.changes()).unwrap_or(u32::MAX);
     Ok(report)
 }
 
