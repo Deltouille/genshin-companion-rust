@@ -8,7 +8,7 @@
 | --- | --- |
 | `crates/wish-app/src/shell/mod.rs` | `Shell`: creates the session and every stateful page once, the actions, the render (loading, failure, the page), the notices layer |
 | `crates/wish-app/src/shell/page.rs` | where the window can go: `Page`, `Feature`, `OverviewTab`, `WishPage`, `ArchivePage` |
-| `crates/wish-app/src/shell/navigation.rs` | `navigate`, `open_overview`, `open_or_fold`, opening a character or weapon page; keeps the account picker and the page in step with the data |
+| `crates/wish-app/src/shell/navigation.rs` | `navigate`, `open_overview`, `toggle_group`, opening a character or weapon page; keeps the account picker and the page in step with the data |
 | `crates/wish-app/src/shell/dialogs.rs` | dialogs opened from outside their page: the menu's commands, the screenshot tool, one page asking another |
 | `crates/wish-app/src/shell/sidebar.rs` | the sidebar: the app's name, the account picker, the Overview, one folding group per feature, Import, Settings, Credits |
 
@@ -16,8 +16,8 @@
 
 Two levels: `Page::Overview(OverviewTab)`, `Page::Wishes(WishPage::History(Pool))`,
 `Page::Archive(ArchivePage::…)`, `Page::Planner`, `Page::Chronicle(ChroniclePage::…)`, then the app's own `Page::Imports`, `Page::Settings`,
-`Page::Credits`. A feature is a `Feature` with its `home()` page and a `NavGroup` in the sidebar; clicking its
-header opens it, or folds its group when one of its pages is shown.
+`Page::Credits`. A feature is a `Feature` and a `NavGroup` in the sidebar; clicking its header folds or unfolds
+its pages and opens none (its pages do). Opening a page unfolds its group.
 
 ```mermaid
 graph LR

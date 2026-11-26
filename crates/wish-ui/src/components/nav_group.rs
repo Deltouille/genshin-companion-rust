@@ -68,7 +68,7 @@ impl NavGroup {
         self
     }
 
-    /// Called when the header is clicked (open the feature, or fold it).
+    /// Called when the header is clicked (fold or unfold the group).
     pub fn on_click(
         mut self,
         handler: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,

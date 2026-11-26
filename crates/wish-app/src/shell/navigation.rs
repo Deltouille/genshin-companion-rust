@@ -78,17 +78,13 @@ impl Shell {
         self.navigate(Page::Overview(self.overview_tab), cx);
     }
 
-    /// A feature group's header was clicked: away from the feature, it opens
-    /// the feature; on one of its pages, it folds or unfolds the group.
-    pub fn open_or_fold(&mut self, feature: Feature, cx: &mut Context<Self>) {
-        if self.page.feature() == Some(feature) {
-            if !self.collapsed.remove(&feature) {
-                self.collapsed.insert(feature);
-            }
-            cx.notify();
-        } else {
-            self.navigate(feature.home(), cx);
+    /// A feature group's header was clicked: it folds or unfolds the group,
+    /// and opens no page.
+    pub fn toggle_group(&mut self, feature: Feature, cx: &mut Context<Self>) {
+        if !self.collapsed.remove(&feature) {
+            self.collapsed.insert(feature);
         }
+        cx.notify();
     }
 
     /// Opens the page of the character `key` (a genshin-db key).

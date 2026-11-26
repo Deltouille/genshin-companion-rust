@@ -40,7 +40,7 @@ graph TD
 | Settings | `Preferences` (`app/preferences.rs`) | `library.read(cx).settings(cx)` | `Preferences::change` and its `set_…` |
 | The game's images | `ImageService` (`app/image_service.rs`) | `library.read(cx).images(cx)` | asking for an image queues it; `download_all`, `clear_cache` |
 | Account on screen, flow in progress | `Session` (`app/session.rs`) | `session.read(cx).account()`, `.summary(cx)`, `.pools(cx)` | `select_account`, `start_flow` |
-| Page shown, folded groups | `Shell` (`shell/`) | `shell.page()` | `navigate`, `open_or_fold`, the `open_…` methods |
+| Page shown, folded groups | `Shell` (`shell/`) | `shell.page()` | `navigate`, `toggle_group`, the `open_…` methods |
 | A page's own state (sliders, filters, sort, open dialog) | the page's entity | the page itself | the page itself |
 | App-wide commands | GPUI actions (`ImportFile`, `ImportFromGame`, `SyncFromHoyolab`, `ImportGood`, `Quit`) | n/a | dispatched by buttons and the menu, handled by the shell |
 

@@ -94,16 +94,3 @@ impl Page {
         }
     }
 }
-
-impl Feature {
-    /// The page the feature opens on. The wish counter opens on its first
-    /// banner type; without wishes, the shell shows the overview instead.
-    pub fn home(self) -> Page {
-        match self {
-            Feature::Wishes => Page::Wishes(WishPage::History(Pool::CharacterEvent)),
-            Feature::Archive => Page::Archive(ArchivePage::Characters),
-            Feature::Planner => Page::Planner,
-            Feature::Chronicle => Page::Chronicle(ChroniclePage::Abyss),
-        }
-    }
-}

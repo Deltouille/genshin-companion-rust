@@ -78,7 +78,7 @@ impl App {
     fn click_group(&mut self, feature: Feature) -> (Page, bool) {
         let shell = self.shell.clone();
         self.cx
-            .update(|cx| shell.update(cx, |shell, cx| shell.open_or_fold(feature, cx)));
+            .update(|cx| shell.update(cx, |shell, cx| shell.toggle_group(feature, cx)));
         self.cx.run_until_parked();
         self.cx
             .update(|cx| (shell.read(cx).page(), shell.read(cx).is_folded(feature)))
@@ -306,22 +306,26 @@ fn counting_by_hand_starts_from_nothing_and_keeps_every_click() {
 }
 
 #[test]
-fn a_feature_header_opens_its_feature_then_folds_it() {
+fn a_feature_header_folds_its_group_and_opens_no_page() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = App::open(dir.path());
     let characters = Page::Archive(ArchivePage::Characters);
 
-    // Away from the feature, the header opens it.
+    // Away from the feature, the header folds and unfolds the group, and
+    // the page shown stays.
     app.navigate(Page::Settings);
-    assert_eq!(app.click_group(Feature::Archive), (characters, false));
-    // On one of its pages, it folds and unfolds the group.
-    assert_eq!(app.click_group(Feature::Archive), (characters, true));
-    assert_eq!(app.click_group(Feature::Archive), (characters, false));
-    // Opening a page of a folded group unfolds it.
-    app.click_group(Feature::Archive);
+    assert_eq!(app.click_group(Feature::Archive), (Page::Settings, true));
+    assert_eq!(app.click_group(Feature::Archive), (Page::Settings, false));
+    // On one of its pages too.
     app.navigate(characters);
     assert_eq!(app.click_group(Feature::Archive), (characters, true));
+    assert_eq!(app.click_group(Feature::Archive), (characters, false));
+    // Even with wishes, the wish counter's header opens none of its pages.
+    app.import(SAMPLE);
     app.navigate(Page::Settings);
+    assert_eq!(app.click_group(Feature::Wishes), (Page::Settings, true));
+    // Opening a page of a folded group unfolds it.
+    app.click_group(Feature::Archive);
     app.navigate(characters);
     let folded = app
         .cx
@@ -348,27 +352,15 @@ fn the_overview_opens_first_and_keeps_its_tab() {
         app.cx.update(|cx| shell.read(cx).page()),
         Page::Overview(OverviewTab::Weapons)
     );
-
-    // The overview is in no group. Without wishes, the wish counter's header
-    // opens it; with wishes, the first banner type.
-    assert_eq!(
-        app.click_group(Feature::Wishes).0,
-        Page::Overview(OverviewTab::Wishes)
-    );
-    app.import(SAMPLE);
-    assert_eq!(
-        app.click_group(Feature::Wishes).0,
-        Page::Wishes(WishPage::History(Pool::CharacterEvent))
-    );
 }
 
 #[test]
-fn the_archive_opens_from_its_group_and_on_a_character() {
+fn the_archive_opens_on_a_character() {
     let dir = tempfile::tempdir().unwrap();
     let mut app = App::open(dir.path());
     let characters = Page::Archive(ArchivePage::Characters);
 
-    assert_eq!(app.click_group(Feature::Archive), (characters, false));
+    assert_eq!(app.navigate(characters), characters);
     // A character's page belongs to the same entry of the sidebar.
     let shell = app.shell.clone();
     app.cx

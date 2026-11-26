@@ -37,7 +37,7 @@ impl Shell {
                 .active(self.page == page)
                 .on_click(cx.listener(move |this, _, _, cx| this.navigate(page, cx)))
         };
-        // A feature: its header opens it, or folds it when already there.
+        // A feature: its header folds or unfolds its pages, and opens none.
         let group = |feature: Feature,
                      label: String,
                      icon: Icon,
@@ -51,7 +51,7 @@ impl Shell {
             .current(self.page.feature() == Some(feature))
             .expanded(!self.collapsed.contains(&feature))
             .items(items)
-            .on_click(cx.listener(move |this, _, _, cx| this.open_or_fold(feature, cx)))
+            .on_click(cx.listener(move |this, _, _, cx| this.toggle_group(feature, cx)))
         };
 
         // The app's home, above the features; it opens on the tab last shown.

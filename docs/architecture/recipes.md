@@ -56,7 +56,7 @@ pages or `CLAUDE.md` if a sentence there became wrong.
 
 1. Its rules in `wish-core` (a module of the domain if it is game logic: no database, network or file, which
    `tests/layers.rs` checks), its storage in `store/`, its use cases in `service/` if `wishctl` needs them too.
-2. A `Feature` variant with its `home()`, a `Page` variant with its own page enum, a group in `sidebar.rs`, a
+2. A `Feature` variant, a `Page` variant with its own page enum, a group in `sidebar.rs`, a
    folder in `crates/wish-app/src/features/` and a `.ftl` part (listed in `texts!` in `crates/wish-app/src/lib.rs`).
 3. Library methods for its writes (`crates/wish-app/src/app/library/`, a file for the subject), reported with
    `notices::report`.
